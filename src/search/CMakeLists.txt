@@ -91,3 +91,37 @@ if(PLUGIN_LP_SOLVER_ENABLED AND USE_LP)
         )
     endif()
 endif()
+
+
+include(ExternalProject)
+include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/../dd_libs/cudd-3.0.0/cudd)
+include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/../dd_libs/cudd-3.0.0/cplusplus)
+
+if(${CMAKE_SIZEOF_VOID_P} EQUAL 4)
+    message(STATUS "Building Cudd with 32-bit.")
+    ExternalProject_add(
+        libcudd
+        SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../dd_libs/cudd-3.0.0/
+        CONFIGURE_COMMAND autoreconf ${CMAKE_CURRENT_SOURCE_DIR}/../dd_libs/cudd-3.0.0/ && ${CMAKE_CURRENT_SOURCE_DIR}/../dd_libs/cudd-3.0.0/configure --enable-obj --enable-silent-rules "CFLAGS=-m32 -g -O3 -w" "CXXFLAGS=-m32 -std=c++0x -g -O3" "LDFLAGS=-m32"
+        BUILD_COMMAND make
+        INSTALL_COMMAND ""
+        BUILD_IN_SOURCE 0
+    )
+elseif(${CMAKE_SIZEOF_VOID_P} EQUAL 8)
+    message(STATUS "Building Cudd with 64-bit.")
+    ExternalProject_add(
+        libcudd
+        SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../dd_libs/cudd-3.0.0/
+        CONFIGURE_COMMAND autoreconf ${CMAKE_CURRENT_SOURCE_DIR}/../dd_libs/cudd-3.0.0/ && ${CMAKE_CURRENT_SOURCE_DIR}/../dd_libs/cudd-3.0.0/configure --enable-obj --enable-silent-rules "CFLAGS=-m64 -g -O3 -w" "CXXFLAGS=-m64 -std=c++0x -g -O3" "LDFLAGS=-m64"
+        BUILD_COMMAND make
+        INSTALL_COMMAND ""
+        BUILD_IN_SOURCE 0
+    )
+else()
+    message(FATAL_ERROR, "Could not determine bitwidth for Cudd.")
+endif()
+
+add_dependencies(translate libcudd)
+add_dependencies(preprocess-h2 libcudd)
+add_dependencies(downward libcudd)
+target_link_libraries(downward ${downward_BINARY_DIR}/libcudd-prefix/src/libcudd-build/cudd/.libs/libcudd.a)
