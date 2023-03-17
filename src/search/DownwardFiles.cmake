@@ -56,6 +56,7 @@ fast_downward_plugin(
         evaluator
         evaluator_cache
         heuristic
+        mutex_group
         open_list
         open_list_factory
         operator_cost

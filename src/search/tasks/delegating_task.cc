@@ -100,6 +100,16 @@ vector<int> DelegatingTask::get_initial_state_values() const {
     return parent->get_initial_state_values();
 }
 
+vector<MutexGroup> DelegatingTask::get_mutex_groups() const {
+    return parent->get_mutex_groups();
+}
+
+map<FactPair, int> DelegatingTask::get_utilities() const {
+    return parent->get_utilities();
+}
+
+int DelegatingTask::get_plan_bound() const {return parent->get_plan_bound();}
+
 void DelegatingTask::convert_ancestor_state_values(
     vector<int> &values, const AbstractTask *ancestor_task) const {
     if (this == ancestor_task) {

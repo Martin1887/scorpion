@@ -1,5 +1,6 @@
 #include "root_task.h"
 
+#include "../mutex_group.h"
 #include "../option_parser.h"
 #include "../plugin.h"
 #include "../state_registry.h"
@@ -9,6 +10,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <map>
 #include <memory>
 #include <set>
 #include <unordered_set>
@@ -57,10 +59,13 @@ class RootTask : public AbstractTask {
     vector<ExplicitVariable> variables;
     // TODO: think about using hash sets here.
     vector<vector<set<FactPair>>> mutexes;
+    vector<MutexGroup> mutex_groups;
     vector<ExplicitOperator> operators;
     vector<ExplicitOperator> axioms;
     vector<int> initial_state_values;
     vector<FactPair> goals;
+    map<FactPair, int> utilities;
+    int plan_bound;
 
     const ExplicitVariable &get_variable(int var) const;
     const ExplicitEffect &get_effect(int op_id, int effect_id, bool is_axiom) const;
@@ -103,6 +108,11 @@ public:
     virtual FactPair get_goal_fact(int index) const override;
 
     virtual vector<int> get_initial_state_values() const override;
+    std::vector<MutexGroup> get_mutex_groups() const override;
+
+    virtual map<FactPair, int> get_utilities() const override;
+    virtual int get_plan_bound() const override;
+
     virtual void convert_ancestor_state_values(
         vector<int> &values,
         const AbstractTask *ancestor_task) const override;
@@ -253,13 +263,26 @@ vector<ExplicitVariable> read_variables(istream &in) {
     return variables;
 }
 
-vector<vector<set<FactPair>>> read_mutexes(istream &in, const vector<ExplicitVariable> &variables) {
+vector<MutexGroup> read_mutex_groups(istream &in) {
+    int num_mutex_groups;
+    in >> num_mutex_groups;
+    vector<MutexGroup> mutex_groups;
+    mutex_groups.reserve(num_mutex_groups);
+
+    for (int i = 0; i < num_mutex_groups; ++i) {
+        check_magic(in, "begin_mutex_group");
+        mutex_groups.emplace_back(in);
+        check_magic(in, "end_mutex_group");
+    }
+    return mutex_groups;
+}
+
+vector<vector<set<FactPair>>> read_mutexes(const vector<MutexGroup> &mutex_groups, const vector<ExplicitVariable> &variables) {
     vector<vector<set<FactPair>>> inconsistent_facts(variables.size());
     for (size_t i = 0; i < variables.size(); ++i)
         inconsistent_facts[i].resize(variables[i].domain_size);
 
-    int num_mutex_groups;
-    in >> num_mutex_groups;
+    int num_mutex_groups = mutex_groups.size();
 
     /*
       NOTE: Mutex groups can overlap, in which case the same mutex
@@ -269,18 +292,12 @@ vector<vector<set<FactPair>>> read_mutexes(istream &in, const vector<ExplicitVar
       aware of.
     */
     for (int i = 0; i < num_mutex_groups; ++i) {
-        check_magic(in, "begin_mutex_group");
-        int num_facts;
-        in >> num_facts;
+        int num_facts = mutex_groups.at(i).getFacts().size();
         vector<FactPair> invariant_group;
         invariant_group.reserve(num_facts);
         for (int j = 0; j < num_facts; ++j) {
-            int var;
-            int value;
-            in >> var >> value;
-            invariant_group.emplace_back(var, value);
+            invariant_group.emplace_back(mutex_groups.at(i).getFacts()[j]);
         }
-        check_magic(in, "end_mutex_group");
         for (const FactPair &fact1 : invariant_group) {
             for (const FactPair &fact2 : invariant_group) {
                 if (fact1.var != fact2.var) {
@@ -313,6 +330,41 @@ vector<FactPair> read_goal(istream &in) {
     return goals;
 }
 
+map<FactPair, int> read_utilities(istream &in) {
+    string word;
+    in >> word;
+    map<FactPair, int> utilities;
+    if (word != "begin_util") {
+        // set pointer back
+        in.seekg(-word.length(), std::ios::cur);
+        return utilities;
+    }
+    int count;
+    in >> count;
+    for (int i = 0; i < count; i++) {
+        FactPair condition = FactPair::no_fact;
+        int util;
+        in >> condition.var >> condition.value >> util;
+        utilities[condition] = util;
+    }
+    check_magic(in, "end_util");
+    return utilities;
+}
+
+int read_plan_bound(istream &in) {
+    string word;
+    in >> word;
+    int bound = 0;
+    if (word != "begin_bound") {
+        // set pointer back
+        in.seekg(-word.length(), std::ios::cur);
+        return std::numeric_limits<int>::max();
+    }
+    in >> bound;
+    check_magic(in, "end_bound");
+    return bound + 1; // we use strictly smaller
+}
+
 vector<ExplicitOperator> read_actions(
     istream &in, bool is_axiom, bool use_metric,
     const vector<ExplicitVariable> &variables) {
@@ -333,7 +385,8 @@ RootTask::RootTask(istream &in) {
     variables = read_variables(in);
     int num_variables = variables.size();
 
-    mutexes = read_mutexes(in, variables);
+    mutex_groups = read_mutex_groups(in),
+    mutexes = read_mutexes(mutex_groups, variables);
 
     initial_state_values.resize(num_variables);
     check_magic(in, "begin_state");
@@ -487,6 +540,14 @@ FactPair RootTask::get_goal_fact(int index) const {
 vector<int> RootTask::get_initial_state_values() const {
     return initial_state_values;
 }
+
+std::vector<MutexGroup> RootTask::get_mutex_groups() const {
+    return mutex_groups;
+}
+
+map<FactPair, int> RootTask::get_utilities() const {return utilities;}
+
+int RootTask::get_plan_bound() const {return plan_bound;}
 
 void RootTask::convert_ancestor_state_values(
     vector<int> &, const AbstractTask *ancestor_task) const {
