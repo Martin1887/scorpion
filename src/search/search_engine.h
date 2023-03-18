@@ -32,9 +32,10 @@ enum SearchStatus {IN_PROGRESS, TIMEOUT, FAILED, SOLVED, UNSOLVABLE};
 
 class SearchEngine {
     SearchStatus status;
-    bool solution_found;
     Plan plan;
 protected:
+    bool solution_found;
+    bool save_plans;
     // Hold a reference to the task implementation and pass it to objects that need it.
     const std::shared_ptr<AbstractTask> task;
     // Use task_proxy to access task information.

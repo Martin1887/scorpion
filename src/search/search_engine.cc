@@ -44,6 +44,7 @@ successor_generator::SuccessorGenerator &get_successor_generator(
 SearchEngine::SearchEngine(const Options &opts)
     : status(IN_PROGRESS),
       solution_found(false),
+      save_plans(true),
       task(tasks::g_root_task),
       task_proxy(*task),
       log(utils::get_log_from_options(opts)),

@@ -911,6 +911,45 @@ fast_downward_plugin(
     DEPENDENCY_ONLY
 )
 
+fast_downward_plugin(
+    NAME SYMBOLIC
+    HELP "Plugin containing the base for symbolic search"
+    SOURCES
+        symbolic/sym_bucket
+        symbolic/opt_order
+        symbolic/sym_variables
+        symbolic/sym_enums
+        symbolic/sym_utils
+        symbolic/sym_state_space_manager
+        symbolic/transition_relation
+        symbolic/original_state_space
+        symbolic/sym_params_search
+        symbolic/sym_estimate
+        symbolic/frontier
+        symbolic/open_list
+        symbolic/closed_list
+        symbolic/searches/bidirectional_search
+        symbolic/searches/uniform_cost_search
+        symbolic/searches/sym_search
+        symbolic/searches/top_k_uniform_cost_search
+        symbolic/searches/osp_uniform_cost_search
+        symbolic/search_engines/symbolic_search
+        symbolic/search_engines/symbolic_uniform_cost_search
+        symbolic/search_engines/top_k_symbolic_uniform_cost_search
+        symbolic/search_engines/osp_symbolic_uniform_cost_search
+        symbolic/search_engines/top_q_symbolic_uniform_cost_search
+        symbolic/plan_reconstruction/sym_solution_cut
+        symbolic/plan_reconstruction/sym_solution_registry
+        symbolic/plan_selection/plan_database
+        symbolic/plan_selection/top_k_selector
+        symbolic/plan_selection/top_k_even_selector
+        symbolic/plan_selection/simple_selector
+        symbolic/plan_selection/unordered_selector
+        symbolic/sym_axiom/sym_axiom_compilation
+    DEPENDS
+        INT_PACKER
+)
+
 fast_downward_add_plugin_sources(PLANNER_SOURCES)
 
 # The order in PLANNER_SOURCES influences the order in which object

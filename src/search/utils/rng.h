@@ -19,6 +19,19 @@ public:
     ~RandomNumberGenerator();
 
     void seed(int seed);
+    
+    // Return random double in [0..1).
+    double operator()() {
+        std::uniform_real_distribution<double> distribution(0.0, 1.0);
+        return distribution(rng);
+    }
+
+    // Return random integer in [0..bound).
+    int operator()(int bound) {
+        assert(bound > 0);
+        std::uniform_int_distribution<int> distribution(0, bound - 1);
+        return distribution(rng);
+    }
 
     // Return random double in [0..1).
     double random() {
