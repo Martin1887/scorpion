@@ -18,22 +18,21 @@ class Options;
 
 namespace eager_search {
 class EagerOspSearch : public EagerSearch {
-
 protected:
-  symbolic::SymVariables vars;
-  ADD add_utility_function;
-  double max_utility;
+    symbolic::SymVariables vars;
+    ADD add_utility_function;
+    double max_utility;
 
-  State best_state;
-  double best_utility;
+    State best_state;
+    double best_utility;
 
-  virtual void initialize() override;
-  virtual SearchStatus step() override;
-  virtual tl::optional<SearchNode> fetch_next_node() override;
+    virtual void initialize() override;
+    virtual SearchStatus step() override;
+    virtual tl::optional<SearchNode> fetch_next_node() override;
 
 public:
-  explicit EagerOspSearch(const options::Options &opts);
-  virtual ~EagerOspSearch() = default;
+    explicit EagerOspSearch(const options::Options &opts);
+    virtual ~EagerOspSearch() = default;
 };
 } // namespace eager_search
 

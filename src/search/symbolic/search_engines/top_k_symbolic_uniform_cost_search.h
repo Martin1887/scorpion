@@ -5,24 +5,22 @@
 
 namespace symbolic {
 class TopkSymbolicUniformCostSearch : public SymbolicUniformCostSearch {
-
 protected:
-  virtual void initialize() override;
+    virtual void initialize() override;
 
-  virtual SearchStatus step() override {
-    return SymbolicUniformCostSearch::step();
-  }
+    virtual SearchStatus step() override {
+        return SymbolicUniformCostSearch::step();
+    }
 
 public:
-  TopkSymbolicUniformCostSearch(const options::Options &opts, bool fw, bool bw);
-  virtual ~TopkSymbolicUniformCostSearch() = default;
+    TopkSymbolicUniformCostSearch(const options::Options &opts, bool fw, bool bw);
+    virtual ~TopkSymbolicUniformCostSearch() = default;
 
-  virtual void new_solution(const SymSolutionCut &sol) override;
-  
-  virtual void print_statistics() const override {
-  }
+    virtual void new_solution(const SymSolutionCut &sol) override;
+
+    virtual void print_statistics() const override {
+    }
 };
-
 } // namespace symbolic
 
 #endif

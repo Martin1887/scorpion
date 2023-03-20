@@ -5,32 +5,30 @@
 
 namespace symbolic {
 class OspSymbolicUniformCostSearch : public SymbolicUniformCostSearch {
-
 protected:
-  bool use_add;
-  ADD add_utility_function;
-  std::map<int, BDD> bdd_utility_functions;
-  utils::Timer bdd_to_add_timer;
-  utils::Timer util_timer;
+    bool use_add;
+    ADD add_utility_function;
+    std::map<int, BDD> bdd_utility_functions;
+    utils::Timer bdd_to_add_timer;
+    utils::Timer util_timer;
 
-  double plan_utility;
-  double max_utility;
+    double plan_utility;
+    double max_utility;
 
-  virtual void initialize() override;
+    virtual void initialize() override;
 
-  virtual void initialize_utilitiy_function();
+    virtual void initialize_utilitiy_function();
 
-  virtual SearchStatus step() override;
+    virtual SearchStatus step() override;
 
 public:
-  OspSymbolicUniformCostSearch(const options::Options &opts);
-  virtual ~OspSymbolicUniformCostSearch() = default;
+    OspSymbolicUniformCostSearch(const options::Options &opts);
+    virtual ~OspSymbolicUniformCostSearch() = default;
 
-  virtual void new_solution(const SymSolutionCut &sol) override;
+    virtual void new_solution(const SymSolutionCut &sol) override;
 
-  static void add_options_to_parser(OptionParser &parser);
+    static void add_options_to_parser(OptionParser &parser);
 };
-
 } // namespace symbolic
 
 #endif

@@ -6,11 +6,11 @@
 namespace symbolic {
 class OspUniformCostSearch : public UniformCostSearch {
 protected:
-  virtual void checkFrontierCut(Bucket &bucket, int g) override;
+    virtual void checkFrontierCut(Bucket &bucket, int g) override;
 
 public:
-  OspUniformCostSearch(SymbolicSearch *eng, const SymParamsSearch &params)
-      : UniformCostSearch(eng, params) {}
+    OspUniformCostSearch(SymbolicSearch *eng, const SymParamsSearch &params)
+        : UniformCostSearch(eng, params) {}
 };
 } // namespace symbolic
 

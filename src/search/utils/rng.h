@@ -19,7 +19,7 @@ public:
     ~RandomNumberGenerator();
 
     void seed(int seed);
-    
+
     // Return random double in [0..1).
     double operator()() {
         std::uniform_real_distribution<double> distribution(0.0, 1.0);
