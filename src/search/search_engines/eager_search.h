@@ -5,6 +5,7 @@
 #include "../search_engine.h"
 
 #include <memory>
+#include <optional.hh>
 #include <vector>
 
 class Evaluator;
@@ -17,6 +18,7 @@ class Options;
 
 namespace eager_search {
 class EagerSearch : public SearchEngine {
+protected:
     const bool reopen_closed_nodes;
 
     std::unique_ptr<StateOpenList> open_list;
@@ -28,11 +30,12 @@ class EagerSearch : public SearchEngine {
 
     std::shared_ptr<PruningMethod> pruning_method;
 
+    virtual tl::optional<SearchNode> fetch_next_node();
     void start_f_value_statistics(EvaluationContext &eval_context);
     void update_f_value_statistics(EvaluationContext &eval_context);
     void reward_progress();
+    void print_checkpoint_line(int g) const;
 
-protected:
     virtual void initialize() override;
     virtual SearchStatus step() override;
 

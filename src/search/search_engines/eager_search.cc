@@ -108,66 +108,17 @@ void EagerSearch::print_statistics() const {
     pruning_method->print_statistics();
 }
 
+void EagerSearch::print_checkpoint_line(int g) const {
+    cout << "[g=" << g << ", ";
+    statistics.print_basic_statistics();
+    cout << "]" << endl;
+}
+
 SearchStatus EagerSearch::step() {
-    tl::optional<SearchNode> node;
-    while (true) {
-        if (open_list->empty()) {
-            log << "Completely explored state space -- no solution!" << endl;
-            return FAILED;
-        }
-        StateID id = open_list->remove_min();
-        State s = state_registry.lookup_state(id);
-        node.emplace(search_space.get_node(s));
-
-        if (node->is_closed())
-            continue;
-
-        /*
-          We can pass calculate_preferred=false here since preferred
-          operators are computed when the state is expanded.
-        */
-        EvaluationContext eval_context(s, node->get_g(), false, &statistics);
-
-        if (lazy_evaluator) {
-            /*
-              With lazy evaluators (and only with these) we can have dead nodes
-              in the open list.
-
-              For example, consider a state s that is reached twice before it is expanded.
-              The first time we insert it into the open list, we compute a finite
-              heuristic value. The second time we insert it, the cached value is reused.
-
-              During first expansion, the heuristic value is recomputed and might become
-              infinite, for example because the reevaluation uses a stronger heuristic or
-              because the heuristic is path-dependent and we have accumulated more
-              information in the meantime. Then upon second expansion we have a dead-end
-              node which we must ignore.
-            */
-            if (node->is_dead_end())
-                continue;
-
-            if (lazy_evaluator->is_estimate_cached(s)) {
-                int old_h = lazy_evaluator->get_cached_estimate(s);
-                int new_h = eval_context.get_evaluator_value_or_infinity(lazy_evaluator.get());
-                if (open_list->is_dead_end(eval_context)) {
-                    node->mark_as_dead_end();
-                    statistics.inc_dead_ends();
-                    continue;
-                }
-                if (new_h != old_h) {
-                    open_list->insert(eval_context, id);
-                    continue;
-                }
-            }
-        }
-
-        node->close();
-        assert(!node->is_dead_end());
-        update_f_value_statistics(eval_context);
-        statistics.inc_expanded();
-        break;
+    tl::optional<SearchNode> node = fetch_next_node();
+    if (!node.has_value()) {
+        return FAILED;
     }
-
     const State &s = node->get_state();
     if (check_goal_and_set_plan(s))
         return SOLVED;
@@ -280,6 +231,71 @@ SearchStatus EagerSearch::step() {
     }
 
     return IN_PROGRESS;
+}
+
+tl::optional<SearchNode> EagerSearch::fetch_next_node() {
+    tl::optional<SearchNode> node;
+    while (true) {
+        if (open_list->empty()) {
+            log << "Completely explored state space -- no solution!" << endl;
+            // Destroy the value returning empty node
+            node.reset();
+            return node;
+        }
+        StateID id = open_list->remove_min();
+        State s = state_registry.lookup_state(id);
+        node.emplace(search_space.get_node(s));
+
+        if (node->is_closed())
+            continue;
+
+        /*
+          We can pass calculate_preferred=false here since preferred
+          operators are computed when the state is expanded.
+        */
+        EvaluationContext eval_context(s, node->get_g(), false, &statistics);
+
+        if (lazy_evaluator) {
+            /*
+              With lazy evaluators (and only with these) we can have dead nodes
+              in the open list.
+
+              For example, consider a state s that is reached twice before it is expanded.
+              The first time we insert it into the open list, we compute a finite
+              heuristic value. The second time we insert it, the cached value is reused.
+
+              During first expansion, the heuristic value is recomputed and might become
+              infinite, for example because the reevaluation uses a stronger heuristic or
+              because the heuristic is path-dependent and we have accumulated more
+              information in the meantime. Then upon second expansion we have a dead-end
+              node which we must ignore.
+            */
+            if (node->is_dead_end())
+                continue;
+
+            if (lazy_evaluator->is_estimate_cached(s)) {
+                int old_h = lazy_evaluator->get_cached_estimate(s);
+                int new_h = eval_context.get_evaluator_value_or_infinity(lazy_evaluator.get());
+                if (open_list->is_dead_end(eval_context)) {
+                    node->mark_as_dead_end();
+                    statistics.inc_dead_ends();
+                    continue;
+                }
+                if (new_h != old_h) {
+                    open_list->insert(eval_context, id);
+                    continue;
+                }
+            }
+        }
+
+        node->close();
+        assert(!node->is_dead_end());
+        update_f_value_statistics(eval_context);
+        statistics.inc_expanded();
+        break;
+    }
+
+    return node;
 }
 
 void EagerSearch::reward_progress() {
