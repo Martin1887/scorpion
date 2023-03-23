@@ -142,7 +142,8 @@ BDD SymVariables::getStateBDD(const State &state) {
     const PackedStateBin *buffer = state.get_buffer();
 
     for (int i = var_order.size() - 1; i >= 0; i--) {
-        res = res * preconditionBDDs[var_order[i]][state_packer->get(buffer, i)];
+        res = res *
+            preconditionBDDs[var_order[i]][state_packer->get(buffer, var_order[i])];
     }
     return res;
 }
