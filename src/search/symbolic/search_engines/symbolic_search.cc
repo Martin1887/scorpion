@@ -21,8 +21,12 @@ using namespace options;
 
 namespace symbolic {
 SymbolicSearch::SymbolicSearch(const options::Options &opts)
-    : SearchEngine(opts), vars(make_shared<SymVariables>(opts)),
-      mgrParams(opts), searchParams(opts), step_num(-1),
+    : SymbolicSearch(opts, make_shared<SymVariables>(opts), SymParamsMgr(opts)) {
+}
+
+SymbolicSearch::SymbolicSearch(const options::Options &opts, shared_ptr<SymVariables> vars, SymParamsMgr mgrParams)
+    : SearchEngine(opts), vars(vars),
+      mgrParams(mgrParams), searchParams(opts), step_num(-1),
       lower_bound_increased(true), lower_bound(0),
       upper_bound(std::numeric_limits<int>::max()), min_g(0),
       plan_data_base(opts.get<std::shared_ptr<PlanDataBase>>("plan_selection")),

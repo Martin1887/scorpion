@@ -82,6 +82,7 @@ protected:
 
     void init_transitions(
         const std::map<int, std::vector<TransitionRelation>> &(indTRs));
+    bool is_relevant_op(const OperatorID &op) const;
 
 public:
     SymStateSpaceManager(SymVariables *v, const SymParamsMgr &params,
@@ -95,9 +96,29 @@ public:
 
     void shrinkBucket(Bucket &bucket, int maxNodes);
 
+    inline bool isAbstracted() const {
+        return !isOriginal();
+    }
+
+    inline bool isOriginal() const {
+        return (int)relevant_vars.size() == tasks::g_root_task->get_num_variables();
+    }
+
+    virtual BDD shrinkExists(const BDD &bdd, int) const = 0;
+    virtual BDD shrinkForall(const BDD &bdd, int) const = 0;
+    virtual BDD shrinkTBDD(const BDD &bdd, int) const = 0;
+
     SymVariables *getVars() const {return vars;}
 
     const SymParamsMgr getParams() const {return p;}
+
+    inline const std::set <int> &get_relevant_variables() const {
+        return relevant_vars;
+    }
+
+    inline bool isRelevantVar(int var) const {
+        return relevant_vars.count(var) > 0;
+    }
 
     const BDD &getGoal() {return goal;}
 
@@ -109,12 +130,20 @@ public:
         return vars->preBDD(variable, value);
     }
 
+    inline Cudd *mgr() const {
+        return vars->mgr();
+    }
+
     BDD zeroBDD() const {return vars->zeroBDD();}
 
     BDD oneBDD() const {return vars->oneBDD();}
 
     const std::vector<BDD> &getNotMutexBDDs(bool fw) const {
         return fw ? notMutexBDDsFw : notMutexBDDsBw;
+    }
+
+    inline const std::vector<BDD> &getNotDeadEnds(bool fw) const {
+        return fw ? notDeadEndFw : notDeadEndBw;
     }
 
     bool mergeBucket(Bucket &bucket, int maxTime, int maxNodes) const {
@@ -192,7 +221,7 @@ public:
         os << tag() << " (" << relevant_vars.size() << ")";
     }
 
-    // For plan solution reconstruction. Only avaialble in original state space
+    // For plan solution reconstruction. Only available in original state space
 
     virtual const std::map<int, std::vector<TransitionRelation>> &
     getIndividualTRs() const {

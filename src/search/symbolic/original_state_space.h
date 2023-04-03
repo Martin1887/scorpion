@@ -24,6 +24,16 @@ public:
 
     virtual std::string tag() const override {return "original";}
 
+    virtual BDD shrinkExists(const BDD &bdd, int) const {
+        return bdd;
+    }
+    virtual BDD shrinkForall(const BDD &bdd, int) const {
+        return bdd;
+    }
+    virtual BDD shrinkTBDD(const BDD &bdd, int) const {
+        return bdd;
+    }
+
     // Methods that require of mutex initialized
 
     inline const BDD &getNotMutexBDDFw(int var, int val) const {

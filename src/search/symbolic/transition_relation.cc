@@ -14,7 +14,8 @@ namespace symbolic {
 TransitionRelation::TransitionRelation(SymVariables *sVars, OperatorID op_id,
                                        int cost_)
     : sV(sVars), cost(cost_), tBDD(sVars->oneBDD()),
-      existsVars(sVars->oneBDD()), existsBwVars(sVars->oneBDD()) {
+      existsVars(sVars->oneBDD()), existsBwVars(sVars->oneBDD()),
+      absAfterImage(nullptr) {
     ops_ids.insert(op_id);
 }
 
@@ -61,7 +62,6 @@ void TransitionRelation::init() {
     }
 
     // Add effects to the tBDD
-    int counter = 0;
     for (auto it = effects.rbegin(); it != effects.rend(); ++it) {
         int var = it->first;
         BDD effectBDD = it->second;
@@ -72,7 +72,6 @@ void TransitionRelation::init() {
             effectBDD += (effect_conditions[var] * sV->biimp(var));
         }
         tBDD *= effectBDD;
-        counter++;
     }
     if (tBDD.IsZero()) {
         cerr << "Operator is empty: " << op.get_name() << endl;
@@ -96,10 +95,27 @@ void TransitionRelation::init() {
     }
 }
 
+void TransitionRelation::shrink(const SymStateSpaceManager &abs, int maxNodes) {
+    tBDD = abs.shrinkTBDD(tBDD, maxNodes);
+
+    // effVars
+    vector <int> newEffVars;
+    for (int var : effVars) {
+        if (abs.isRelevantVar(var)) {
+            newEffVars.push_back(var);
+        }
+    }
+    newEffVars.swap(effVars);
+}
+
 BDD TransitionRelation::image(const BDD &from) const {
     BDD aux = from;
     BDD tmp = tBDD.AndAbstract(aux, existsVars);
     BDD res = tmp.SwapVariables(swapVarsS, swapVarsSp);
+    if (absAfterImage) {
+        //TODO: HACK: PARAMETER FIXED
+        res = absAfterImage->shrinkExists(res, 10000000);
+    }
     return res;
 }
 
@@ -108,12 +124,20 @@ BDD TransitionRelation::image(const BDD &from, int maxNodes) const {
     BDD aux = from;
     BDD tmp = tBDD.AndAbstract(aux, existsVars, maxNodes);
     BDD res = tmp.SwapVariables(swapVarsS, swapVarsSp);
+    if (absAfterImage) {
+        //TODO: HACK: PARAMETER FIXED
+        res = absAfterImage->shrinkExists(res, 10000000);
+    }
     return res;
 }
 
 BDD TransitionRelation::preimage(const BDD &from) const {
     BDD tmp = from.SwapVariables(swapVarsS, swapVarsSp);
     BDD res = tBDD.AndAbstract(tmp, existsBwVars);
+    if (absAfterImage) {
+        //TODO: HACK: PARAMETER FIXED
+        res = absAfterImage->shrinkExists(res, 10000000);
+    }
     return res;
 }
 
@@ -121,6 +145,10 @@ BDD TransitionRelation::preimage(const BDD &from, int maxNodes) const {
     utils::Timer t;
     BDD tmp = from.SwapVariables(swapVarsS, swapVarsSp);
     BDD res = tBDD.AndAbstract(tmp, existsBwVars, maxNodes);
+    if (absAfterImage) {
+        //TODO: HACK: PARAMETER FIXED
+        res = absAfterImage->shrinkExists(res, 10000000);
+    }
     return res;
 }
 

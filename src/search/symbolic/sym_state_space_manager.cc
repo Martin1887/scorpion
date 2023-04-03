@@ -19,7 +19,7 @@ using namespace std;
 namespace symbolic {
 SymStateSpaceManager::SymStateSpaceManager(SymVariables *v,
                                            const SymParamsMgr &params,
-                                           const set<int> &relevant_vars_)
+                                           const set < int > &relevant_vars_)
     : vars(v), p(params), relevant_vars(relevant_vars_),
       initialState(v->zeroBDD()), goal(v->zeroBDD()), min_transition_cost(0),
       hasTR0(false) {
@@ -46,14 +46,14 @@ void SymStateSpaceManager::dumpMutexBDDs(bool fw) const {
     }
 }
 
-void SymStateSpaceManager::zero_preimage(const BDD &bdd, vector<BDD> &res,
+void SymStateSpaceManager::zero_preimage(const BDD &bdd, vector < BDD > &res,
                                          int nodeLimit) const {
     for (const auto &tr : transitions.at(0)) {
         res.push_back(tr.preimage(bdd, nodeLimit));
     }
 }
 
-void SymStateSpaceManager::zero_image(const BDD &bdd, vector<BDD> &res,
+void SymStateSpaceManager::zero_image(const BDD &bdd, vector < BDD > &res,
                                       int nodeLimit) const {
     for (const auto &tr : transitions.at(0)) {
         res.push_back(tr.image(bdd, nodeLimit));
@@ -61,7 +61,7 @@ void SymStateSpaceManager::zero_image(const BDD &bdd, vector<BDD> &res,
 }
 
 void SymStateSpaceManager::cost_preimage(const BDD &bdd,
-                                         map<int, vector<BDD>> &res,
+                                         map < int, vector < BDD >> &res,
                                          int nodeLimit) const {
     for (auto trs : transitions) {
         int cost = trs.first;
@@ -75,7 +75,7 @@ void SymStateSpaceManager::cost_preimage(const BDD &bdd,
 }
 
 void SymStateSpaceManager::cost_image(const BDD &bdd,
-                                      map<int, vector<BDD>> &res,
+                                      map < int, vector < BDD >> &res,
                                       int nodeLimit) const {
     for (auto trs : transitions) {
         int cost = trs.first;
@@ -91,13 +91,13 @@ void SymStateSpaceManager::cost_image(const BDD &bdd,
 BDD SymStateSpaceManager::filter_mutex(const BDD &bdd, bool fw, int nodeLimit,
                                        bool initialization) {
     BDD res = bdd;
-    const vector<BDD> &notDeadEndBDDs = fw ? notDeadEndFw : notDeadEndBw;
+    const vector < BDD > &notDeadEndBDDs = fw ? notDeadEndFw : notDeadEndBw;
     for (const BDD &notDeadEnd : notDeadEndBDDs) {
         assert(!(notDeadEnd.IsZero()));
         res = res.And(notDeadEnd, nodeLimit);
     }
 
-    const vector<BDD> &notMutexBDDs = (fw ? notMutexBDDsFw : notMutexBDDsBw);
+    const vector < BDD > &notMutexBDDs = (fw ? notMutexBDDsFw : notMutexBDDsBw);
 
     switch (p.mutex_type) {
     case MutexType::MUTEX_NOT:
@@ -118,7 +118,7 @@ BDD SymStateSpaceManager::filter_mutex(const BDD &bdd, bool fw, int nodeLimit,
     return res;
 }
 
-int SymStateSpaceManager::filterMutexBucket(vector<BDD> &bucket, bool fw,
+int SymStateSpaceManager::filterMutexBucket(vector < BDD > &bucket, bool fw,
                                             bool initialization, int maxTime,
                                             int maxNodes) {
     int numFiltered = 0;
@@ -128,7 +128,7 @@ int SymStateSpaceManager::filterMutexBucket(vector<BDD> &bucket, bool fw,
             bucket[i] = filter_mutex(bucket[i], fw, maxNodes, initialization);
             numFiltered++;
         }
-    } catch (BDDError e) {
+    }catch (BDDError e) {
     }
     unsetTimeLimit();
 
@@ -150,15 +150,15 @@ void SymStateSpaceManager::mergeBucketAnd(Bucket &bucket) const {
 }
 
 void SymStateSpaceManager::init_transitions(
-    const map<int, vector<TransitionRelation>> &(indTRs)) {
-    transitions = indTRs; // Copy
+    const map < int, vector < TransitionRelation >> &(indTRs)) {
+    transitions = indTRs;     // Copy
     if (transitions.empty()) {
         hasTR0 = false;
         min_transition_cost = 1;
         return;
     }
 
-    for (map<int, vector<TransitionRelation>>::iterator it = transitions.begin();
+    for (map < int, vector < TransitionRelation >> ::iterator it = transitions.begin();
          it != transitions.end(); ++it) {
         merge(vars, it->second, mergeTR, p.max_tr_time, p.max_tr_size);
     }
@@ -172,14 +172,27 @@ void SymStateSpaceManager::init_transitions(
     }
 }
 
+bool SymStateSpaceManager::is_relevant_op(const OperatorID &op) const {
+    OperatorsProxy ops = TaskProxy(*tasks::g_root_task).get_operators();
+    EffectsProxy effects = ops[op.get_index()].get_effects();
+    for (size_t i = 0; i < effects.size(); i++) {
+        EffectProxy eff = effects[i];
+        if (relevant_vars.count(eff.get_fact().get_variable().get_id())) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 SymParamsMgr::SymParamsMgr(const options::Options &opts)
-    : max_tr_size(opts.get<int>("max_tr_size")),
-      max_tr_time(opts.get<int>("max_tr_time")),
-      mutex_type(MutexType(opts.get<MutexType>("mutex_type"))),
-      max_mutex_size(opts.get<int>("max_mutex_size")),
-      max_mutex_time(opts.get<int>("max_mutex_time")),
-      max_aux_nodes(opts.get<int>("max_aux_nodes")),
-      max_aux_time(opts.get<int>("max_aux_time")) {
+    : max_tr_size(opts.get < int > ("max_tr_size")),
+      max_tr_time(opts.get < int > ("max_tr_time")),
+      mutex_type(MutexType(opts.get < MutexType > ("mutex_type"))),
+      max_mutex_size(opts.get < int > ("max_mutex_size")),
+      max_mutex_time(opts.get < int > ("max_mutex_time")),
+      max_aux_nodes(opts.get < int > ("max_aux_nodes")),
+      max_aux_time(opts.get < int > ("max_aux_time")) {
     // Don't use edeletion with conditional effects
     TaskProxy task_proxy(*tasks::g_root_task);
     if (mutex_type == MutexType::MUTEX_EDELETION &&
@@ -215,27 +228,27 @@ void SymParamsMgr::print_options() const {
 }
 
 void SymParamsMgr::add_options_to_parser(options::OptionParser &parser) {
-    parser.add_option<int>("max_tr_size", "maximum size of TR BDDs", "100000");
+    parser.add_option < int > ("max_tr_size", "maximum size of TR BDDs", "100000");
 
-    parser.add_option<int>("max_tr_time", "maximum time (ms) to generate TR BDDs",
-                           "60000");
+    parser.add_option < int > ("max_tr_time", "maximum time (ms) to generate TR BDDs",
+                               "60000");
 
-    parser.add_enum_option<MutexType>("mutex_type", MutexTypeValues, "mutex type",
-                                      "MUTEX_EDELETION");
+    parser.add_enum_option < MutexType > ("mutex_type", MutexTypeValues, "mutex type",
+                                          "MUTEX_EDELETION");
 
-    parser.add_option<int>("max_mutex_size", "maximum size of mutex BDDs",
-                           "100000");
+    parser.add_option < int > ("max_mutex_size", "maximum size of mutex BDDs",
+                               "100000");
 
-    parser.add_option<int>("max_mutex_time",
-                           "maximum time (ms) to generate mutex BDDs", "60000");
+    parser.add_option < int > ("max_mutex_time",
+                               "maximum time (ms) to generate mutex BDDs", "60000");
 
-    parser.add_option<int>("max_aux_nodes", "maximum size in pop operations",
-                           "1000000");
-    parser.add_option<int>("max_aux_time", "maximum time (ms) in pop operations",
-                           "2000");
+    parser.add_option < int > ("max_aux_nodes", "maximum size in pop operations",
+                               "1000000");
+    parser.add_option < int > ("max_aux_time", "maximum time (ms) in pop operations",
+                               "2000");
 }
 
-std::ostream &operator<<(std::ostream &os, const SymStateSpaceManager &abs) {
+std::ostream &operator <<(std::ostream &os, const SymStateSpaceManager &abs) {
     abs.print(os, false);
     return os;
 }

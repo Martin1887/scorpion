@@ -23,16 +23,22 @@ void exceptionError(string /*message*/) {
 }
 
 SymVariables::SymVariables(const Options &opts)
-    : cudd_init_nodes(16000000L), cudd_init_cache_size(16000000L),
+    : initialized(false),
+      cudd_init_nodes(16000000), cudd_init_cache_size(16000000),
       cudd_init_available_memory(0L),
-      gamer_ordering(opts.get<bool>("gamer_ordering")) {}
+      gamer_ordering(opts.get < bool > ("gamer_ordering")) {}
 
 SymVariables::SymVariables(bool gamer_ordering)
-    : cudd_init_nodes(16000000L), cudd_init_cache_size(16000000L),
+    : initialized(false),
+      cudd_init_nodes(16000000), cudd_init_cache_size(16000000),
       cudd_init_available_memory(0L), gamer_ordering(gamer_ordering) {}
 
 void SymVariables::init() {
-    vector<int> var_order;
+    if (initialized) {
+        cout << "SymVariables already initialized" << endl;
+        return;
+    }
+    vector < int > var_order;
     if (gamer_ordering) {
         InfluenceGraph::compute_gamer_ordering(var_order);
     } else {
@@ -51,17 +57,21 @@ void SymVariables::init() {
 // Constructor that makes use of global variables to initialize the
 // symbolic_search structures
 
-void SymVariables::init(const vector<int> &v_order) {
+void SymVariables::init(const vector < int > &v_order) {
+    if (initialized) {
+        cout << "SymVariables already initialized" << endl;
+        return;
+    }
     cout << "Initializing Symbolic Variables" << endl;
-    var_order = vector<int>(v_order);
+    var_order = vector < int > (v_order);
     int num_fd_vars = var_order.size();
 
     // Initialize binary representation of variables.
     numBDDVars = 0;
-    bdd_index_pre = vector<vector<int>>(v_order.size());
-    bdd_index_eff = vector<vector<int>>(v_order.size());
-    bdd_index_abs = vector<vector<int>>(v_order.size());
-    int _numBDDVars = 0; // numBDDVars;
+    bdd_index_pre = vector < vector < int >> (v_order.size());
+    bdd_index_eff = vector < vector < int >> (v_order.size());
+    bdd_index_abs = vector < vector < int >> (v_order.size());
+    unsigned int _numBDDVars = 0;     // numBDDVars;
     for (int var : var_order) {
         int var_len = ceil(log2(tasks::g_root_task->get_variable_domain_size(var)));
         numBDDVars += var_len;
@@ -77,7 +87,7 @@ void SymVariables::init(const vector<int> &v_order) {
     cout << "Initialize Symbolic Manager(" << _numBDDVars << ", "
          << cudd_init_nodes / _numBDDVars << ", " << cudd_init_cache_size << ", "
          << cudd_init_available_memory << ")" << endl;
-    manager = unique_ptr<Cudd>(
+    manager = unique_ptr < Cudd > (
         new Cudd(_numBDDVars, 0, cudd_init_nodes / _numBDDVars,
                  cudd_init_cache_size, cudd_init_available_memory));
 
@@ -87,7 +97,7 @@ void SymVariables::init(const vector<int> &v_order) {
 
     cout << "Generating binary variables" << endl;
     // Generate binary_variables
-    for (int i = 0; i < _numBDDVars; i++) {
+    for (unsigned int i = 0; i < _numBDDVars; i++) {
         variables.push_back(manager->bddVar(i));
     }
 
@@ -117,17 +127,19 @@ void SymVariables::init(const vector<int> &v_order) {
 
     cout << "Symbolic Variables... Done." << endl;
 
-    ax_comp = std::shared_ptr<SymAxiomCompilation>(
-        new SymAxiomCompilation(std::shared_ptr<SymVariables>(this)));
+    ax_comp = std::shared_ptr < SymAxiomCompilation > (
+        new SymAxiomCompilation(std::shared_ptr < SymVariables > (this)));
     if (task_properties::has_axioms(TaskProxy(*tasks::g_root_task))) {
         std::cout << "Creating Primary Representation for Derived Predicates..."
                   << std::endl;
         ax_comp->init_axioms();
         std::cout << "Primary Representation... Done!" << std::endl;
     }
+
+    initialized = true;
 }
 
-BDD SymVariables::getStateBDD(const std::vector<int> &state) const {
+BDD SymVariables::getStateBDD(const std::vector < int > &state) const {
     BDD res = oneBDD();
     for (int i = var_order.size() - 1; i >= 0; i--) {
         res = res * preconditionBDDs[var_order[i]][state[var_order[i]]];
@@ -149,7 +161,7 @@ BDD SymVariables::getStateBDD(const State &state) {
 }
 
 BDD SymVariables::getPartialStateBDD(
-    const vector<pair<int, int>> &state) const {
+    const vector < pair < int, int >> &state) const {
     BDD res = validBDD;
     for (int i = state.size() - 1; i >= 0; i--) {
         // if(find(var_order.begin(), var_order.end(),
@@ -160,11 +172,27 @@ BDD SymVariables::getPartialStateBDD(
     return res;
 }
 
-BDD SymVariables::generateBDDVar(const std::vector<int> &_bddVars,
+double SymVariables::numStates(const BDD &bdd) const {
+    return bdd.CountMinterm(numBDDVars);
+}
+
+double SymVariables::numStates() const {
+    return numStates(validBDD);
+}
+
+double SymVariables::numStates(const Bucket &bucket) const {
+    double sum = 0;
+    for (const BDD &bdd : bucket) {
+        sum += numStates(bdd);
+    }
+    return sum;
+}
+
+BDD SymVariables::generateBDDVar(const std::vector < int > &_bddVars,
                                  int value) const {
     BDD res = oneBDD();
     for (int v : _bddVars) {
-        if (value % 2) { // Check if the binary variable is asserted or negated
+        if (value % 2) {     // Check if the binary variable is asserted or negated
             res = res * variables[v];
         } else {
             res = res * (!variables[v]);
@@ -174,8 +202,8 @@ BDD SymVariables::generateBDDVar(const std::vector<int> &_bddVars,
     return res;
 }
 
-BDD SymVariables::createBiimplicationBDD(const std::vector<int> &vars,
-                                         const std::vector<int> &vars2) const {
+BDD SymVariables::createBiimplicationBDD(const std::vector < int > &vars,
+                                         const std::vector < int > &vars2) const {
     BDD res = oneBDD();
     for (size_t i = 0; i < vars.size(); i++) {
         res *= variables[vars[i]].Xnor(variables[vars2[i]]);
@@ -183,9 +211,9 @@ BDD SymVariables::createBiimplicationBDD(const std::vector<int> &vars,
     return res;
 }
 
-vector<BDD> SymVariables::getBDDVars(const vector<int> &vars,
-                                     const vector<vector<int>> &v_index) const {
-    vector<BDD> res;
+vector < BDD > SymVariables::getBDDVars(const vector < int > &vars,
+                                        const vector < vector < int >> &v_index) const {
+    vector < BDD > res;
     for (int v : vars) {
         for (int bddv : v_index[v]) {
             res.push_back(variables[bddv]);
@@ -194,7 +222,7 @@ vector<BDD> SymVariables::getBDDVars(const vector<int> &vars,
     return res;
 }
 
-BDD SymVariables::getCube(int var, const vector<vector<int>> &v_index) const {
+BDD SymVariables::getCube(int var, const vector < vector < int >> &v_index) const {
     BDD res = oneBDD();
     for (int bddv : v_index[var]) {
         res *= variables[bddv];
@@ -202,8 +230,8 @@ BDD SymVariables::getCube(int var, const vector<vector<int>> &v_index) const {
     return res;
 }
 
-BDD SymVariables::getCube(const set<int> &vars,
-                          const vector<vector<int>> &v_index) const {
+BDD SymVariables::getCube(const set < int > &vars,
+                          const vector < vector < int >> &v_index) const {
     BDD res = oneBDD();
     for (int v : vars) {
         for (int bddv : v_index[v]) {
@@ -213,8 +241,8 @@ BDD SymVariables::getCube(const set<int> &vars,
     return res;
 }
 
-std::vector<std::string> SymVariables::get_fd_variable_names() const {
-    std::vector<string> var_names(numBDDVars * 2);
+std::vector < std::string > SymVariables::get_fd_variable_names() const {
+    std::vector < string > var_names(numBDDVars * 2);
     for (int v : var_order) {
         int exp = 0;
         for (int j : bdd_index_pre[v]) {
@@ -236,7 +264,7 @@ void SymVariables::print_options() const {
 }
 
 void SymVariables::add_options_to_parser(options::OptionParser &parser) {
-    parser.add_option<bool>("gamer_ordering", "Use Gamer ordering optimization",
-                            "true");
+    parser.add_option < bool > ("gamer_ordering", "Use Gamer ordering optimization",
+                                "true");
 }
 } // namespace symbolic

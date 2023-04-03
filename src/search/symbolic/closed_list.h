@@ -27,6 +27,8 @@ private:
     std::map<int, std::vector<BDD>> zeroCostClosed;
     BDD closedTotal; // All closed states.
 
+    int hNotClosed, fNotClosed; // Bounds on h and g for those states not in closed
+
 public:
     ClosedList();
     virtual ~ClosedList() {}
@@ -48,6 +50,19 @@ public:
     virtual BDD notClosed() const {return !closedTotal;}
 
     inline std::map<int, BDD> getClosedList() const {return closed;}
+
+    inline int getHNotClosed() const {
+        return hNotClosed;
+    }
+
+    inline int getFNotClosed() const {
+        return fNotClosed;
+    }
+
+    ADD getHeuristic(int previousMaxH = -1) const;
+
+    void getHeuristic(std::vector<ADD> &heuristics,
+                      std::vector <int> &maxHeuristicValues) const;
 
     BDD get_start_states() const {
         if (get_num_zero_closed_layers(0) == 0) {
@@ -86,6 +101,8 @@ public:
         }
         return i;
     }
+
+    double average_hvalue() const;
 };
 } // namespace symbolic
 

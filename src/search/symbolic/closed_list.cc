@@ -20,6 +20,8 @@ void ClosedList::init(SymStateSpaceManager *manager) {
     map<int, vector<BDD>>().swap(zeroCostClosed);
     map<int, BDD>().swap(closed);
     closedTotal = mgr->zeroBDD();
+    hNotClosed = 0;
+    fNotClosed = 0;
 }
 
 void ClosedList::init(SymStateSpaceManager *manager, const ClosedList &other) {
@@ -108,5 +110,88 @@ std::vector<SymSolutionCut> ClosedList::getAllCuts(const BDD &states, int g,
         }
     }
     return result;
+}
+
+void ClosedList::getHeuristic(vector<ADD> &heuristics,
+                              vector <int> &maxHeuristicValues) const {
+    int previousMaxH = 0;     //Get the previous value of max h
+    if (!maxHeuristicValues.empty()) {
+        previousMaxH = maxHeuristicValues.back();
+    }
+    /*If we did not complete one step, and we do not surpass the previous maxH
+      we do not have heuristic*/
+    if (closed.size() <= 1 && hNotClosed <= previousMaxH) {
+        cout << "Heuristic not inserted: "
+             << hNotClosed << " " << closed.size() << endl;
+        return;
+    }
+
+    ADD h = getHeuristic(previousMaxH);
+
+    //  closed.clear(); //The heuristic values have been stored in the ADD.
+    cout << "Heuristic with maxValue: " << hNotClosed
+         << " ADD size: " << h.nodeCount() << endl;
+
+    maxHeuristicValues.push_back(hNotClosed);
+    heuristics.push_back(h);
+}
+
+
+ADD ClosedList::getHeuristic(int previousMaxH /*= -1*/) const {
+    /* When zero cost operators have been expanded, all the states in non reached
+       have a h-value strictly greater than frontierCost.
+       They can be frontierCost + min_action_cost or the least bucket in open. */
+    /*  int valueNonReached = frontierCost;
+        if(frontierCost >= 0 && zeroCostExpanded){
+        cout << "Frontier cost is " << frontierCost << endl;
+        closed[frontierCost] = S;
+        valueNonReached = frontierCost + mgr->getMinTransitionCost();
+        if(!open.empty()){
+        valueNonReached = min(open.begin()->first,
+        valueNonReached);
+        }
+        }*/
+    BDD statesWithHNotClosed = !closedTotal;
+    ADD h = mgr->mgr()->constant(-1);
+    //cout << "New heuristic with h [";
+    for (auto &it : closed) {
+        //cout << it.first << " ";
+        int h_val = it.first;
+
+        /*If h_val < previousMaxH we can put it to that value
+          However, we only do so if it is less than hNotClosed
+          (or we will think that we have not fully determined the value)*/
+        if (h_val < previousMaxH && previousMaxH < hNotClosed) {
+            h_val = previousMaxH;
+        }
+        if (h_val != hNotClosed) {
+            h += it.second.Add() * mgr->mgr()->constant(h_val + 1);
+        } else {
+            statesWithHNotClosed += it.second;
+        }
+    }
+    //cout << hNotClosed << "]" << endl;
+
+    if (hNotClosed != numeric_limits<int>::max() && hNotClosed >= 0 && !statesWithHNotClosed.IsZero()) {
+        h += statesWithHNotClosed.Add() * mgr->mgr()->constant(hNotClosed + 1);
+    }
+
+    return h;
+}
+
+double ClosedList::average_hvalue() const {
+    double averageHeuristic = 0;
+    double heuristicSize = 0;
+    for (const auto &item : closed) {
+        double currentSize = mgr->getVars()->numStates(item.second);
+        averageHeuristic += currentSize * item.first;
+        heuristicSize += currentSize;
+    }
+    double notClosedSize = mgr->getVars()->numStates(notClosed());
+    heuristicSize += notClosedSize;
+    int maxH = (closed.empty() ? 0 : closed.rbegin()->first);
+
+    averageHeuristic += notClosedSize * maxH;
+    return averageHeuristic / heuristicSize;
 }
 } // namespace symbolic

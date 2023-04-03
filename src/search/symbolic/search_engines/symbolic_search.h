@@ -49,6 +49,7 @@ protected:
 
 public:
     SymbolicSearch(const options::Options &opts);
+    SymbolicSearch(const options::Options &opts, std::shared_ptr<SymVariables> vars, SymParamsMgr mgrParams);
     virtual ~SymbolicSearch() = default;
 
     virtual void setLowerBound(int lower);

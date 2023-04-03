@@ -32,6 +32,7 @@ class TransitionRelation {
 
     std::set<OperatorID> ops_ids; // List of operators represented by the TR
 
+    const SymStateSpaceManager *absAfterImage;
 public:
     // Constructor for transitions irrelevant for the abstraction
     TransitionRelation(SymVariables *sVars, OperatorID op_id, int cost_);
@@ -50,6 +51,12 @@ public:
                    const std::vector<std::vector<BDD>> &exactlyOneBDDsByFluent);
 
     void merge(const TransitionRelation &t2, int maxNodes);
+    // shrinks the transition to another abstract state space (useful to preserve edeletion)
+    void shrink(const SymStateSpaceManager &abs, int maxNodes);
+
+    inline void setAbsAfterImage(const SymStateSpaceManager *abs) {
+        absAfterImage = abs;
+    }
 
     int getCost() const {return cost;}
 
