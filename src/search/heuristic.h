@@ -42,7 +42,7 @@ class Heuristic : public Evaluator {
       being able to reuse the data structure from one iteration to the
       next, but this seems to be the only potential downside.
     */
-    ordered_set::OrderedSet<OperatorID> preferred_operators;
+    ordered_set::OrderedSet < OperatorID > preferred_operators;
 
 protected:
     /*
@@ -51,11 +51,11 @@ protected:
       flag is set to true - as soon as the cache is accessed it will create
       entries for all existing states
     */
-    PerStateInformation<HEntry> heuristic_cache;
+    PerStateInformation < HEntry > heuristic_cache;
     bool cache_evaluator_values;
 
     // Hold a reference to the task implementation and pass it to objects that need it.
-    const std::shared_ptr<AbstractTask> task;
+    const std::shared_ptr < AbstractTask > task;
     // Use task_proxy to access task information.
     TaskProxy task_proxy;
 
@@ -74,10 +74,12 @@ protected:
 
 public:
     explicit Heuristic(const options::Options &opts);
+    explicit Heuristic(const options::Options &opts,
+                       const std::shared_ptr < AbstractTask > task);
     virtual ~Heuristic() override;
 
     virtual void get_path_dependent_evaluators(
-        std::set<Evaluator *> & /*evals*/) override {
+        std::set < Evaluator * > & /*evals*/) override {
     }
 
     static void add_options_to_parser(options::OptionParser &parser);

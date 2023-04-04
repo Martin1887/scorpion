@@ -19,12 +19,13 @@ using namespace std;
 namespace symbolic {
 SymStateSpaceManager::SymStateSpaceManager(SymVariables *v,
                                            const SymParamsMgr &params,
+                                           const shared_ptr < AbstractTask > task,
                                            const set < int > &relevant_vars_)
-    : vars(v), p(params), relevant_vars(relevant_vars_),
+    : vars(v), p(params), task(task), relevant_vars(relevant_vars_),
       initialState(v->zeroBDD()), goal(v->zeroBDD()), min_transition_cost(0),
       hasTR0(false) {
     if (relevant_vars.empty()) {
-        for (int i = 0; i < tasks::g_root_task->get_num_variables(); ++i) {
+        for (int i = 0; i < task->get_num_variables(); ++i) {
             relevant_vars.insert(i);
         }
     }
@@ -173,7 +174,7 @@ void SymStateSpaceManager::init_transitions(
 }
 
 bool SymStateSpaceManager::is_relevant_op(const OperatorID &op) const {
-    OperatorsProxy ops = TaskProxy(*tasks::g_root_task).get_operators();
+    OperatorsProxy ops = TaskProxy(*task).get_operators();
     EffectsProxy effects = ops[op.get_index()].get_effects();
     for (size_t i = 0; i < effects.size(); i++) {
         EffectProxy eff = effects[i];
@@ -185,7 +186,8 @@ bool SymStateSpaceManager::is_relevant_op(const OperatorID &op) const {
     return false;
 }
 
-SymParamsMgr::SymParamsMgr(const options::Options &opts)
+SymParamsMgr::SymParamsMgr(const options::Options &opts,
+                           const shared_ptr < AbstractTask > task)
     : max_tr_size(opts.get < int > ("max_tr_size")),
       max_tr_time(opts.get < int > ("max_tr_time")),
       mutex_type(MutexType(opts.get < MutexType > ("mutex_type"))),
@@ -194,7 +196,7 @@ SymParamsMgr::SymParamsMgr(const options::Options &opts)
       max_aux_nodes(opts.get < int > ("max_aux_nodes")),
       max_aux_time(opts.get < int > ("max_aux_time")) {
     // Don't use edeletion with conditional effects
-    TaskProxy task_proxy(*tasks::g_root_task);
+    TaskProxy task_proxy(*task);
     if (mutex_type == MutexType::MUTEX_EDELETION &&
         task_properties::has_conditional_effects(task_proxy)) {
         cout << "Mutex type changed to mutex_and because the domain has "
@@ -204,12 +206,12 @@ SymParamsMgr::SymParamsMgr(const options::Options &opts)
     }
 }
 
-SymParamsMgr::SymParamsMgr()
+SymParamsMgr::SymParamsMgr(const shared_ptr < AbstractTask > task)
     : max_tr_size(100000), max_tr_time(60000),
       mutex_type(MutexType::MUTEX_EDELETION), max_mutex_size(100000),
       max_mutex_time(60000), max_aux_nodes(1000000), max_aux_time(2000) {
     // Don't use edeletion with conditional effects
-    TaskProxy task_proxy(*tasks::g_root_task);
+    TaskProxy task_proxy(*task);
     if (mutex_type == MutexType::MUTEX_EDELETION &&
         task_properties::has_conditional_effects(task_proxy)) {
         cout << "Mutex type changed to mutex_and because the domain has "

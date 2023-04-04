@@ -10,10 +10,11 @@ using namespace std;
 
 namespace symbolic {
 SymPDB::SymPDB(const OriginalStateSpace &parent,
+               const shared_ptr < AbstractTask > task,
                const std::set < int > &relevantVars)
-    : SymStateSpaceManager(parent.getVars(), parent.getParams(), relevantVars) {
+    : SymStateSpaceManager(parent.getVars(), parent.getParams(), task, relevantVars) {
     std::set < int > nonRelVars;
-    for (int i = 0; i < tasks::g_root_task->get_num_variables(); ++i) {
+    for (int i = 0; i < task->get_num_variables(); ++i) {
         if (!isRelevantVar(i)) {
             nonRelVars.insert(i);
         }
@@ -26,7 +27,7 @@ SymPDB::SymPDB(const OriginalStateSpace &parent,
 
     // Init initial state
     vector < pair < int, int >> abstract_ini;
-    vector < int > initial_values = tasks::g_root_task->get_initial_state_values();
+    vector < int > initial_values = task->get_initial_state_values();
     for (int var : relevant_vars) {
         abstract_ini.push_back(std::pair < int, int > (var, initial_values[var]));
     }
@@ -34,8 +35,8 @@ SymPDB::SymPDB(const OriginalStateSpace &parent,
 
     // Init goal
     vector < pair < int, int >> abstract_goal;
-    for (int goal_index = 0; goal_index < tasks::g_root_task->get_num_goals(); goal_index++) {
-        FactPair goal_var = tasks::g_root_task->get_goal_fact(goal_index);
+    for (int goal_index = 0; goal_index < task->get_num_goals(); goal_index++) {
+        FactPair goal_var = task->get_goal_fact(goal_index);
         if (isRelevantVar(goal_var.var)) {
             abstract_goal.push_back(std::pair < int, int > (goal_var.var, goal_var.value));
         }
@@ -144,7 +145,7 @@ BDD SymPDB::shrinkForall(const BDD &bdd, int maxNodes) const {
 std::string SymPDB::tag() const {return "PDB";}
 
 void SymPDB::print(std::ostream &os, bool fullInfo) const {
-    os << "PDB (" << relevant_vars.size() << "/" << (tasks::g_root_task->get_num_variables())
+    os << "PDB (" << relevant_vars.size() << "/" << (task->get_num_variables())
        << "): ";
     for (int v : relevant_vars) {
         os << v << " ";
@@ -157,8 +158,8 @@ void SymPDB::print(std::ostream &os, bool fullInfo) const {
         os << endl << "Considered propositions: ";
         for (int v : relevant_vars) {
             os << v << ": ";
-            for (int i = 0; i < tasks::g_root_task->get_variable_domain_size(v); i++) {
-                os << tasks::g_root_task->get_fact_name(FactPair(v, i)) << ", ";
+            for (int i = 0; i < task->get_variable_domain_size(v); i++) {
+                os << task->get_fact_name(FactPair(v, i)) << ", ";
             }
             os << endl;
         }

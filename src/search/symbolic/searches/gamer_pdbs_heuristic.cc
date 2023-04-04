@@ -21,12 +21,13 @@ namespace symbolic {
 PDBSearch::PDBSearch (GamerPDBsHeuristic *spdbheuristic_,
                       shared_ptr < SymStateSpaceManager > originalStateSpace,
                       shared_ptr < SymVariables > vars,
-                      const options::Options &opts) :
+                      const options::Options &opts,
+                      const std::shared_ptr < AbstractTask > task) :
     SymbolicSearch(opts, vars, originalStateSpace->getParams()),
     spdbheuristic(spdbheuristic_), state_space(originalStateSpace),
-    average_hval(-1) {
+    average_hval(-1), task(task) {
     initialize();
-    for (int i = 0; i < tasks::g_root_task->get_num_variables(); ++i) {
+    for (int i = 0; i < task->get_num_variables(); ++i) {
         pattern.insert(i);
     }
 }
@@ -36,13 +37,14 @@ PDBSearch::PDBSearch (const set < int > &pattern_,
                       GamerPDBsHeuristic *spdbheuristic_,
                       const shared_ptr < OriginalStateSpace > &originalStateSpace,
                       shared_ptr < SymVariables > vars,
-                      const options::Options &opts) :
+                      const options::Options &opts,
+                      const std::shared_ptr < AbstractTask > task) :
     SymbolicSearch(opts, vars, originalStateSpace->getParams()),
     spdbheuristic(spdbheuristic_), pattern(pattern_),
-    average_hval(-1) {
+    average_hval(-1), task(task) {
     initialize();
-    if ((int)pattern.size() != tasks::g_root_task->get_num_variables()) {
-        state_space = make_shared < SymPDB > (*originalStateSpace, pattern_);
+    if ((int)pattern.size() != task->get_num_variables()) {
+        state_space = make_shared < SymPDB > (*originalStateSpace, task, pattern_);
     } else {
         state_space = originalStateSpace;
     }
@@ -76,7 +78,7 @@ void PDBSearch::search(int generationTime, double generationMemory) {
 
 
 vector < int > PDBSearch::candidate_vars() const {
-    TaskProxy task_proxy(*tasks::g_root_task);
+    TaskProxy task_proxy(*task);
     const causal_graph::CausalGraph &cg = task_proxy.get_causal_graph();
     vector < int > candidates;
     for (size_t var = 0; var < task_proxy.get_variables().size(); ++var) {
@@ -119,7 +121,18 @@ GamerPDBsHeuristic::GamerPDBsHeuristic(const Options &opts)
       generationTime(opts.get < int > ("generation_time")),
       generationMemory(opts.get < double > ("generation_memory")),
       useSuperPDB(opts.get < bool > ("super_pdb")),
-      perimeter(opts.get < bool > ("perimeter")) {
+      perimeter(opts.get < bool > ("perimeter")),
+      task(tasks::g_root_task) {
+    initialize(opts);
+}
+GamerPDBsHeuristic::GamerPDBsHeuristic(const Options &opts,
+                                       const std::shared_ptr < AbstractTask > task)
+    : Heuristic(opts, task),
+      generationTime(opts.get < int > ("generation_time")),
+      generationMemory(opts.get < double > ("generation_memory")),
+      useSuperPDB(opts.get < bool > ("super_pdb")),
+      perimeter(opts.get < bool > ("perimeter")),
+      task(task) {
     initialize(opts);
 }
 
@@ -135,11 +148,9 @@ void GamerPDBsHeuristic::initialize(const Options &opts) {
 
     SymParamsMgr mgrParams(opts);
     cout << "mgrParams created";
-    vars = make_shared < SymVariables > (opts);
+    vars = make_shared < SymVariables > (opts, task);
     vars->init();
-    cout << "vars created";
-    auto originalStateSpace = make_shared < OriginalStateSpace > (vars.get(), mgrParams);
-    cout << "originalStateSpace created";
+    auto originalStateSpace = make_shared < OriginalStateSpace > (vars.get(), mgrParams, task);
 
 
     notMutexBDDs = originalStateSpace->getNotMutexBDDs(true);
@@ -148,7 +159,7 @@ void GamerPDBsHeuristic::initialize(const Options &opts) {
     cout << "Use perimeter: " << perimeter << endl;
 
     if (useSuperPDB || perimeter) {
-        PDBSearch pdb_search(this, originalStateSpace, vars, opts);
+        PDBSearch pdb_search(this, originalStateSpace, vars, opts, task);
 
         pdb_search.search(generationTime, generationMemory);
         cout << "Finished super PDB: " << endl;
@@ -170,8 +181,8 @@ void GamerPDBsHeuristic::initialize(const Options &opts) {
 
     // 1) Get initial abstraction
     set < int > pattern;
-    for (int i = 0; i < tasks::g_root_task->get_num_goals(); i++)
-        pattern.insert(tasks::g_root_task->get_goal_fact(i).var);
+    for (int i = 0; i < task->get_num_goals(); i++)
+        pattern.insert(task->get_goal_fact(i).var);
 
     cout << "Initialize initial abstraction" << endl;
 
@@ -181,7 +192,7 @@ void GamerPDBsHeuristic::initialize(const Options &opts) {
     //                       originalSearch, g_timer() - generationTime, searchParams.maxStepNodes,
     //                       mgrParams, searchParams, originalStateSpace.get()));
     // } else {
-    auto best_pdb = unique_ptr < PDBSearch > (new PDBSearch(pattern, this, originalStateSpace, vars, opts));
+    auto best_pdb = unique_ptr < PDBSearch > (new PDBSearch(pattern, this, originalStateSpace, vars, opts, task));
 
     best_pdb->search(generationTime, generationMemory);
 
@@ -207,7 +218,7 @@ void GamerPDBsHeuristic::initialize(const Options &opts) {
             //                              originalSearch, utils::g_timer() - generationTime, searchParams.maxStepNodes,
             //                              mgrParams, searchParams, originalStateSpace.get()));
             // } else {
-            auto new_pdb = unique_ptr < PDBSearch > (new PDBSearch(child_pattern, this, originalStateSpace, vars, opts));
+            auto new_pdb = unique_ptr < PDBSearch > (new PDBSearch(child_pattern, this, originalStateSpace, vars, opts, task));
 
             new_pdb->search(generationTime, generationMemory);
 
@@ -220,7 +231,7 @@ void GamerPDBsHeuristic::initialize(const Options &opts) {
                 break;
             }
 
-            assert((int)child_pattern.size() < tasks::g_root_task->get_num_variables() ||
+            assert((int)child_pattern.size() < task->get_num_variables() ||
                    new_pdb->getLowerBound() >= new_pdb->get_search()->getF());
             if (new_pdb->average_value() > best_pdb->average_value()) {
                 new_best_value = max(new_best_value, new_pdb->average_value());
@@ -247,11 +258,11 @@ void GamerPDBsHeuristic::initialize(const Options &opts) {
             //                               originalSearch, utils::g_timer() - generationTime, searchParams.maxStepNodes,
             //                               mgrParams, searchParams, originalStateSpace.get()));
             // } else {
-            best_pdb = unique_ptr < PDBSearch > (new PDBSearch(new_pattern, this, originalStateSpace, vars, opts));
+            best_pdb = unique_ptr < PDBSearch > (new PDBSearch(new_pattern, this, originalStateSpace, vars, opts, task));
 
             best_pdb->search(generationTime, generationMemory);
 
-            assert((int)new_pattern.size() < tasks::g_root_task->get_num_variables() ||
+            assert((int)new_pattern.size() < task->get_num_variables() ||
                    best_pdb->getLowerBound() >= best_pdb->get_search()->getF());
 
             if (!best_pdb->solved() && best_pdb->average_value() < new_best_value) {

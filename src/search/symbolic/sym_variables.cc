@@ -22,16 +22,18 @@ void exceptionError(string /*message*/) {
     throw BDDError();
 }
 
-SymVariables::SymVariables(const Options &opts)
+SymVariables::SymVariables(const Options &opts, const std::shared_ptr < AbstractTask > task)
     : initialized(false),
       cudd_init_nodes(16000000), cudd_init_cache_size(16000000),
       cudd_init_available_memory(0L),
-      gamer_ordering(opts.get < bool > ("gamer_ordering")) {}
+      gamer_ordering(opts.get < bool > ("gamer_ordering")),
+      task(task) {}
 
-SymVariables::SymVariables(bool gamer_ordering)
+SymVariables::SymVariables(bool gamer_ordering, const std::shared_ptr < AbstractTask > task)
     : initialized(false),
       cudd_init_nodes(16000000), cudd_init_cache_size(16000000),
-      cudd_init_available_memory(0L), gamer_ordering(gamer_ordering) {}
+      cudd_init_available_memory(0L), gamer_ordering(gamer_ordering),
+      task(task) {}
 
 void SymVariables::init() {
     if (initialized) {
@@ -42,7 +44,7 @@ void SymVariables::init() {
     if (gamer_ordering) {
         InfluenceGraph::compute_gamer_ordering(var_order);
     } else {
-        for (int i = 0; i < tasks::g_root_task->get_num_variables(); ++i) {
+        for (int i = 0; i < task->get_num_variables(); ++i) {
             var_order.push_back(i);
         }
     }
@@ -73,7 +75,7 @@ void SymVariables::init(const vector < int > &v_order) {
     bdd_index_abs = vector < vector < int >> (v_order.size());
     unsigned int _numBDDVars = 0;     // numBDDVars;
     for (int var : var_order) {
-        int var_len = ceil(log2(tasks::g_root_task->get_variable_domain_size(var)));
+        int var_len = ceil(log2(task->get_variable_domain_size(var)));
         numBDDVars += var_len;
         for (int j = 0; j < var_len; j++) {
             bdd_index_pre[var].push_back(_numBDDVars);
@@ -108,13 +110,13 @@ void SymVariables::init(const vector < int > &v_order) {
     validBDD = oneBDD();
     // Generate predicate (precondition (s) and effect (s')) BDDs
     for (int var : var_order) {
-        for (int j = 0; j < tasks::g_root_task->get_variable_domain_size(var);
+        for (int j = 0; j < task->get_variable_domain_size(var);
              j++) {
             preconditionBDDs[var].push_back(createPreconditionBDD(var, j));
             effectBDDs[var].push_back(createEffectBDD(var, j));
         }
         validValues[var] = zeroBDD();
-        for (int j = 0; j < tasks::g_root_task->get_variable_domain_size(var);
+        for (int j = 0; j < task->get_variable_domain_size(var);
              j++) {
             validValues[var] += preconditionBDDs[var][j];
         }
@@ -129,7 +131,7 @@ void SymVariables::init(const vector < int > &v_order) {
 
     ax_comp = std::shared_ptr < SymAxiomCompilation > (
         new SymAxiomCompilation(std::shared_ptr < SymVariables > (this)));
-    if (task_properties::has_axioms(TaskProxy(*tasks::g_root_task))) {
+    if (task_properties::has_axioms(TaskProxy(*task))) {
         std::cout << "Creating Primary Representation for Derived Predicates..."
                   << std::endl;
         ax_comp->init_axioms();
@@ -246,9 +248,9 @@ std::vector < std::string > SymVariables::get_fd_variable_names() const {
     for (int v : var_order) {
         int exp = 0;
         for (int j : bdd_index_pre[v]) {
-            var_names[j] = tasks::g_root_task->get_variable_name(v) + "_2^" +
+            var_names[j] = task->get_variable_name(v) + "_2^" +
                 std::to_string(exp);
-            var_names[j + 1] = tasks::g_root_task->get_variable_name(v) + "_2^" +
+            var_names[j + 1] = task->get_variable_name(v) + "_2^" +
                 std::to_string(exp++) + "_primed";
         }
     }

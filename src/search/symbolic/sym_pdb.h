@@ -10,13 +10,16 @@ class OriginalStateSpace;
 
 class SymPDB : public SymStateSpaceManager {
     BDD nonRelVarsCube;         // Cube BDD representing relevantVars
-    BDD nonRelVarsCubeWithPrimes; // Cube BDD representing relevantVars
+    BDD nonRelVarsCubeWithPrimes;     // Cube BDD representing relevantVars
     std::string abstractionName;
 
 public:
-    SymPDB(const OriginalStateSpace &parent, const std::set<int> &relVars);
+    SymPDB(const OriginalStateSpace &parent,
+           const std::shared_ptr < AbstractTask > task,
+           const std::set < int > &relVars);
 
-    virtual ~SymPDB() {}
+    virtual ~SymPDB() {
+    }
 
     inline bool isRelevantVar(int var) const {
         return relevant_vars.count(var) > 0;

@@ -18,8 +18,16 @@ using namespace std;
 Heuristic::Heuristic(const Options &opts)
     : Evaluator(opts, true, true, true),
       heuristic_cache(HEntry(NO_VALUE, true)), //TODO: is true really a good idea here?
-      cache_evaluator_values(opts.get<bool>("cache_estimates")),
-      task(opts.get<shared_ptr<AbstractTask>>("transform")),
+      cache_evaluator_values(opts.get < bool > ("cache_estimates")),
+      task(opts.get < shared_ptr < AbstractTask >> ("transform")),
+      task_proxy(*task) {
+}
+Heuristic::Heuristic(const Options &opts,
+                     const shared_ptr < AbstractTask > task)
+    : Evaluator(opts, true, true, true),
+      heuristic_cache(HEntry(NO_VALUE, true)), //TODO: is true really a good idea here?
+      cache_evaluator_values(opts.get < bool > ("cache_estimates")),
+      task(task),
       task_proxy(*task) {
 }
 
@@ -36,12 +44,12 @@ State Heuristic::convert_ancestor_state(const State &ancestor_state) const {
 
 void Heuristic::add_options_to_parser(OptionParser &parser) {
     add_evaluator_options_to_parser(parser);
-    parser.add_option<shared_ptr<AbstractTask>>(
+    parser.add_option < shared_ptr < AbstractTask >> (
         "transform",
         "Optional task transformation for the heuristic."
         " Currently, adapt_costs() and no_transform() are available.",
         "no_transform()");
-    parser.add_option<bool>("cache_estimates", "cache heuristic estimates", "true");
+    parser.add_option < bool > ("cache_estimates", "cache heuristic estimates", "true");
 }
 
 EvaluationResult Heuristic::compute_result(EvaluationContext &eval_context) {

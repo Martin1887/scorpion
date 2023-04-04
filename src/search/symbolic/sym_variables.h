@@ -73,17 +73,19 @@ class SymVariables {
     // Avoid allocating memory during heuristic evaluation
     std::vector < int > binState;
 
+    const std::shared_ptr < AbstractTask > task;
+
     void init(const std::vector < int > &v_order);
 
 public:
-    SymVariables(const options::Options &opts);
-    SymVariables(bool gamer_ordering);
+    SymVariables(const options::Options &opts, const std::shared_ptr < AbstractTask > task = tasks::g_root_task);
+    SymVariables(bool gamer_ordering, const std::shared_ptr < AbstractTask > task = tasks::g_root_task);
     void init();
 
     std::shared_ptr < StateRegistry > get_state_registry() {
         if (state_registry == nullptr) {
             state_registry =
-                std::make_shared < StateRegistry > (TaskProxy(*tasks::g_root_task));
+                std::make_shared < StateRegistry > (TaskProxy(*task));
         }
         return state_registry;
     }
