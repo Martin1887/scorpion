@@ -32,6 +32,16 @@ MergeAndShrinkHeuristic::MergeAndShrinkHeuristic(const options::Options &opts)
     log << "Done initializing merge-and-shrink heuristic." << endl << endl;
 }
 
+MergeAndShrinkHeuristic::MergeAndShrinkHeuristic(const options::Options &opts,
+                                                 const std::shared_ptr < AbstractTask > task)
+    : Heuristic(opts, task) {
+    log << "Initializing merge-and-shrink heuristic..." << endl;
+    MergeAndShrinkAlgorithm algorithm(opts);
+    FactoredTransitionSystem fts = algorithm.build_factored_transition_system(task_proxy);
+    extract_factors(fts);
+    log << "Done initializing merge-and-shrink heuristic." << endl << endl;
+}
+
 void MergeAndShrinkHeuristic::extract_factor(
     FactoredTransitionSystem &fts, int index) {
     /*
@@ -40,8 +50,8 @@ void MergeAndShrinkHeuristic::extract_factor(
       representation, which serves as the heuristic.
     */
     auto final_entry = fts.extract_factor(index);
-    unique_ptr<MergeAndShrinkRepresentation> mas_representation = move(final_entry.first);
-    unique_ptr<Distances> distances = move(final_entry.second);
+    unique_ptr < MergeAndShrinkRepresentation > mas_representation = move(final_entry.first);
+    unique_ptr < Distances > distances = move(final_entry.second);
     if (!distances->are_goal_distances_computed()) {
         const bool compute_init = false;
         const bool compute_goal = true;
@@ -114,7 +124,7 @@ void MergeAndShrinkHeuristic::extract_factors(FactoredTransitionSystem &fts) {
 int MergeAndShrinkHeuristic::compute_heuristic(const State &ancestor_state) {
     State state = convert_ancestor_state(ancestor_state);
     int heuristic = 0;
-    for (const unique_ptr<MergeAndShrinkRepresentation> &mas_representation : mas_representations) {
+    for (const unique_ptr < MergeAndShrinkRepresentation > &mas_representation : mas_representations) {
         int cost = mas_representation->get_value(state);
         if (cost == PRUNED_STATE || cost == INF) {
             // If state is unreachable or irrelevant, we encountered a dead end.
@@ -125,7 +135,7 @@ int MergeAndShrinkHeuristic::compute_heuristic(const State &ancestor_state) {
     return heuristic;
 }
 
-static shared_ptr<Heuristic> _parse(options::OptionParser &parser) {
+static shared_ptr < Heuristic > _parse(options::OptionParser &parser) {
     parser.document_synopsis(
         "Merge-and-shrink heuristic",
         "This heuristic implements the algorithm described in the following "
@@ -227,9 +237,9 @@ static shared_ptr<Heuristic> _parse(options::OptionParser &parser) {
     if (parser.dry_run()) {
         return nullptr;
     } else {
-        return make_shared<MergeAndShrinkHeuristic>(opts);
+        return make_shared < MergeAndShrinkHeuristic > (opts);
     }
 }
 
-static options::Plugin<Evaluator> _plugin("merge_and_shrink", _parse);
+static options::Plugin < Evaluator > _plugin("merge_and_shrink", _parse);
 }
