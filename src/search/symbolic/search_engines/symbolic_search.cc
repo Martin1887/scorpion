@@ -20,18 +20,20 @@ using namespace symbolic;
 using namespace options;
 
 namespace symbolic {
-SymbolicSearch::SymbolicSearch(const options::Options &opts)
-    : SymbolicSearch(opts, make_shared<SymVariables>(opts), SymParamsMgr(opts)) {
+SymbolicSearch::SymbolicSearch(const options::Options &opts,
+                               const shared_ptr < AbstractTask > task)
+    : SymbolicSearch(opts, make_shared < SymVariables > (opts), SymParamsMgr(opts), task) {
 }
 
-SymbolicSearch::SymbolicSearch(const options::Options &opts, shared_ptr<SymVariables> vars, SymParamsMgr mgrParams)
-    : SearchEngine(opts), vars(vars),
+SymbolicSearch::SymbolicSearch(const options::Options &opts, shared_ptr < SymVariables > vars, SymParamsMgr mgrParams,
+                               const shared_ptr < AbstractTask > task)
+    : SearchEngine(opts, task), vars(vars),
       mgrParams(mgrParams), searchParams(opts), step_num(-1),
       lower_bound_increased(true), lower_bound(0),
-      upper_bound(std::numeric_limits<int>::max()), min_g(0),
-      plan_data_base(opts.get<std::shared_ptr<PlanDataBase>>("plan_selection")),
+      upper_bound(std::numeric_limits < int > ::max()), min_g(0),
+      plan_data_base(opts.get < std::shared_ptr < PlanDataBase >> ("plan_selection")),
       solution_registry() {
-    save_plans = false; // we handle plans separately
+    save_plans = false;     // we handle plans separately
     mgrParams.print_options();
     searchParams.print_options();
     vars->init();
@@ -57,7 +59,7 @@ SearchStatus SymbolicSearch::step() {
     // Search finished!
     if (lower_bound >= upper_bound) {
         solution_registry.construct_cheaper_solutions(
-            std::numeric_limits<int>::max());
+            std::numeric_limits < int > ::max());
         solution_found = plan_data_base->get_num_reported_plan() > 0;
         cur_status = solution_found ? SOLVED : FAILED;
     } else {

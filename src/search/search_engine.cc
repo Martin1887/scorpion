@@ -41,25 +41,26 @@ successor_generator::SuccessorGenerator &get_successor_generator(
     return successor_generator;
 }
 
-SearchEngine::SearchEngine(const Options &opts)
+SearchEngine::SearchEngine(const Options &opts,
+                           const std::shared_ptr < AbstractTask > task)
     : status(IN_PROGRESS),
       solution_found(false),
       save_plans(true),
-      task(tasks::g_root_task),
+      task(task),
       task_proxy(*task),
       log(utils::get_log_from_options(opts)),
       state_registry(task_proxy),
       successor_generator(get_successor_generator(task_proxy, log)),
       search_space(state_registry, log),
       statistics(log),
-      cost_type(opts.get<OperatorCost>("cost_type")),
+      cost_type(opts.get < OperatorCost > ("cost_type")),
       is_unit_cost(task_properties::is_unit_cost(task_proxy)),
-      max_time(opts.get<double>("max_time")) {
-    if (opts.get<int>("bound") < 0) {
-        cerr << "error: negative cost bound " << opts.get<int>("bound") << endl;
+      max_time(opts.get < double > ("max_time")) {
+    if (opts.get < int > ("bound") < 0) {
+        cerr << "error: negative cost bound " << opts.get < int > ("bound") << endl;
         utils::exit_with(ExitCode::SEARCH_INPUT_ERROR);
     }
-    bound = opts.get<int>("bound");
+    bound = opts.get < int > ("bound");
     task_properties::print_variable_statistics(task_proxy);
 }
 
@@ -126,7 +127,7 @@ int SearchEngine::get_adjusted_cost(const OperatorProxy &op) const {
    Method doesn't belong here because it's only useful for certain derived classes.
    TODO: Figure out where it belongs and move it there. */
 void SearchEngine::add_pruning_option(OptionParser &parser) {
-    parser.add_option<shared_ptr<PruningMethod>>(
+    parser.add_option < shared_ptr < PruningMethod >> (
         "pruning",
         "Pruning methods can prune or reorder the set of applicable operators in "
         "each state and thereby influence the number and order of successor states "
@@ -136,11 +137,11 @@ void SearchEngine::add_pruning_option(OptionParser &parser) {
 
 void SearchEngine::add_options_to_parser(OptionParser &parser) {
     ::add_cost_type_option_to_parser(parser);
-    parser.add_option<int>(
+    parser.add_option < int > (
         "bound",
         "exclusive depth bound on g-values. Cutoffs are always performed according to "
         "the real cost, regardless of the cost_type parameter", "infinity");
-    parser.add_option<double>(
+    parser.add_option < double > (
         "max_time",
         "maximum time in seconds the search is allowed to run for. The "
         "timeout is only checked after each complete search step "
@@ -155,12 +156,12 @@ void SearchEngine::add_options_to_parser(OptionParser &parser) {
 /* Method doesn't belong here because it's only useful for certain derived classes.
    TODO: Figure out where it belongs and move it there. */
 void SearchEngine::add_succ_order_options(OptionParser &parser) {
-    vector<string> options;
-    parser.add_option<bool>(
+    vector < string > options;
+    parser.add_option < bool > (
         "randomize_successors",
         "randomize the order in which successors are generated",
         "false");
-    parser.add_option<bool>(
+    parser.add_option < bool > (
         "preferred_successors_first",
         "consider preferred operators first",
         "false");
@@ -183,7 +184,7 @@ void print_initial_evaluator_values(
         );
 }
 
-static PluginTypePlugin<SearchEngine> _type_plugin(
+static PluginTypePlugin < SearchEngine > _type_plugin(
     "SearchEngine",
     // TODO: Replace empty string by synopsis for the wiki page.
     "");
@@ -191,7 +192,7 @@ static PluginTypePlugin<SearchEngine> _type_plugin(
 void collect_preferred_operators(
     EvaluationContext &eval_context,
     Evaluator *preferred_operator_evaluator,
-    ordered_set::OrderedSet<OperatorID> &preferred_operators) {
+    ordered_set::OrderedSet < OperatorID > &preferred_operators) {
     if (!eval_context.is_evaluator_value_infinite(preferred_operator_evaluator)) {
         for (OperatorID op_id : eval_context.get_preferred_operators(preferred_operator_evaluator)) {
             preferred_operators.insert(op_id);

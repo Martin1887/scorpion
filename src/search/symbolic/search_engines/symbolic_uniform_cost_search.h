@@ -14,7 +14,8 @@ protected:
     virtual SearchStatus step() override {return SymbolicSearch::step();}
 
 public:
-    SymbolicUniformCostSearch(const options::Options &opts, bool fw, bool bw);
+    SymbolicUniformCostSearch(const options::Options &opts, bool fw, bool bw,
+                              const std::shared_ptr < AbstractTask > task = tasks::g_root_task);
     virtual ~SymbolicUniformCostSearch() = default;
 
     virtual void new_solution(const SymSolutionCut &sol) override;

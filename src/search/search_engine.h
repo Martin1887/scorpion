@@ -10,6 +10,7 @@
 #include "state_registry.h"
 #include "task_proxy.h"
 
+#include "tasks/root_task.h"
 #include "utils/logging.h"
 
 #include <vector>
@@ -20,7 +21,7 @@ class Options;
 }
 
 namespace ordered_set {
-template<typename T>
+template< typename T >
 class OrderedSet;
 }
 
@@ -37,7 +38,7 @@ protected:
     bool solution_found;
     bool save_plans;
     // Hold a reference to the task implementation and pass it to objects that need it.
-    const std::shared_ptr<AbstractTask> task;
+    const std::shared_ptr < AbstractTask > task;
     // Use task_proxy to access task information.
     TaskProxy task_proxy;
 
@@ -60,7 +61,8 @@ protected:
     bool check_goal_and_set_plan(const State &state);
     int get_adjusted_cost(const OperatorProxy &op) const;
 public:
-    SearchEngine(const options::Options &opts);
+    SearchEngine(const options::Options &opts,
+                 const std::shared_ptr < AbstractTask > task = tasks::g_root_task);
     virtual ~SearchEngine();
     virtual void print_statistics() const = 0;
     virtual void save_plan_if_necessary();
@@ -88,6 +90,6 @@ extern void print_initial_evaluator_values(
 
 extern void collect_preferred_operators(
     EvaluationContext &eval_context, Evaluator *preferred_operator_evaluator,
-    ordered_set::OrderedSet<OperatorID> &preferred_operators);
+    ordered_set::OrderedSet < OperatorID > &preferred_operators);
 
 #endif

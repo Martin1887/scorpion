@@ -25,31 +25,33 @@ class SymbolicSearch : public SearchEngine {
 private:
 protected:
     // Symbolic manager to perform bdd operations
-    std::shared_ptr<SymStateSpaceManager> mgr;
+    std::shared_ptr < SymStateSpaceManager > mgr;
 
-    std::unique_ptr<SymSearch> search;
+    std::unique_ptr < SymSearch > search;
 
-    std::shared_ptr<SymVariables> vars; // The symbolic variables are declared
+    std::shared_ptr < SymVariables > vars;     // The symbolic variables are declared
 
-    SymParamsMgr mgrParams; // Parameters for SymStateSpaceManager configuration.
-    SymParamsSearch searchParams; // Parameters to search the original state space
+    SymParamsMgr mgrParams;     // Parameters for SymStateSpaceManager configuration.
+    SymParamsSearch searchParams;     // Parameters to search the original state space
 
     int step_num;
     bool lower_bound_increased;
-    int lower_bound; // Lower bound of search (incl. min-action costs)
-    int upper_bound; // Upper bound of search (not use by top_k)
+    int lower_bound;     // Lower bound of search (incl. min-action costs)
+    int upper_bound;     // Upper bound of search (not use by top_k)
     int min_g;     // min g costs of open lists
 
-    std::shared_ptr<PlanDataBase> plan_data_base;
-    SymSolutionRegistry solution_registry; // Solution registry
+    std::shared_ptr < PlanDataBase > plan_data_base;
+    SymSolutionRegistry solution_registry;     // Solution registry
 
     virtual void initialize() override;
 
     virtual SearchStatus step() override;
 
 public:
-    SymbolicSearch(const options::Options &opts);
-    SymbolicSearch(const options::Options &opts, std::shared_ptr<SymVariables> vars, SymParamsMgr mgrParams);
+    SymbolicSearch(const options::Options &opts,
+                   const std::shared_ptr < AbstractTask > task = tasks::g_root_task);
+    SymbolicSearch(const options::Options &opts, std::shared_ptr < SymVariables > vars, SymParamsMgr mgrParams,
+                   const std::shared_ptr < AbstractTask > task = tasks::g_root_task);
     virtual ~SymbolicSearch() = default;
 
     virtual void setLowerBound(int lower);

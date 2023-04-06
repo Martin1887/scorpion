@@ -10,18 +10,18 @@
 namespace symbolic {
 void SymbolicUniformCostSearch::initialize() {
     SymbolicSearch::initialize();
-    mgr = std::make_shared<OriginalStateSpace>(vars.get(), mgrParams);
+    mgr = std::make_shared < OriginalStateSpace > (vars.get(), mgrParams);
 
-    std::unique_ptr<UniformCostSearch> fw_search = nullptr;
-    std::unique_ptr<UniformCostSearch> bw_search = nullptr;
+    std::unique_ptr < UniformCostSearch > fw_search = nullptr;
+    std::unique_ptr < UniformCostSearch > bw_search = nullptr;
 
     if (fw) {
-        fw_search = std::unique_ptr<UniformCostSearch>(
+        fw_search = std::unique_ptr < UniformCostSearch > (
             new UniformCostSearch(this, searchParams));
     }
 
     if (bw) {
-        bw_search = std::unique_ptr<UniformCostSearch>(
+        bw_search = std::unique_ptr < UniformCostSearch > (
             new UniformCostSearch(this, searchParams));
     }
 
@@ -38,16 +38,17 @@ void SymbolicUniformCostSearch::initialize() {
                            true);
 
     if (fw && bw) {
-        search = std::unique_ptr<BidirectionalSearch>(new BidirectionalSearch(
-                                                          this, searchParams, move(fw_search), move(bw_search)));
+        search = std::unique_ptr < BidirectionalSearch > (new BidirectionalSearch(
+                                                              this, searchParams, move(fw_search), move(bw_search)));
     } else {
         search.reset(fw ? fw_search.release() : bw_search.release());
     }
 }
 
 SymbolicUniformCostSearch::SymbolicUniformCostSearch(
-    const options::Options &opts, bool fw, bool bw)
-    : SymbolicSearch(opts), fw(fw), bw(bw) {}
+    const options::Options &opts, bool fw, bool bw,
+    const std::shared_ptr < AbstractTask > task)
+    : SymbolicSearch(opts, task), fw(fw), bw(bw) {}
 
 void SymbolicUniformCostSearch::new_solution(const SymSolutionCut &sol) {
     if (!solution_registry.found_all_plans() && sol.get_f() < upper_bound) {
@@ -57,61 +58,61 @@ void SymbolicUniformCostSearch::new_solution(const SymSolutionCut &sol) {
 }
 } // namespace symbolic
 
-static std::shared_ptr<SearchEngine> _parse_forward_ucs(OptionParser &parser) {
+static std::shared_ptr < SearchEngine > _parse_forward_ucs(OptionParser &parser) {
     parser.document_synopsis("Symbolic Forward Uniform Cost Search", "");
     symbolic::SymbolicSearch::add_options_to_parser(parser);
-    parser.add_option<std::shared_ptr<symbolic::PlanDataBase>>(
+    parser.add_option < std::shared_ptr < symbolic::PlanDataBase >> (
         "plan_selection", "plan selection strategy", "top_k(num_plans=1)");
     Options opts = parser.parse();
 
-    std::shared_ptr<symbolic::SymbolicSearch> engine = nullptr;
+    std::shared_ptr < symbolic::SymbolicSearch > engine = nullptr;
     if (!parser.dry_run()) {
-        engine = std::make_shared<symbolic::SymbolicUniformCostSearch>(opts, true,
-                                                                       false);
+        engine = std::make_shared < symbolic::SymbolicUniformCostSearch > (opts, true,
+                                                                           false);
         std::cout << "Symbolic Forward Uniform Cost Search" << std::endl;
     }
 
     return engine;
 }
 
-static std::shared_ptr<SearchEngine> _parse_backward_ucs(OptionParser &parser) {
+static std::shared_ptr < SearchEngine > _parse_backward_ucs(OptionParser &parser) {
     parser.document_synopsis("Symbolic Backward Uniform Cost Search", "");
     symbolic::SymbolicSearch::add_options_to_parser(parser);
-    parser.add_option<std::shared_ptr<symbolic::PlanDataBase>>(
+    parser.add_option < std::shared_ptr < symbolic::PlanDataBase >> (
         "plan_selection", "plan selection strategy", "top_k(num_plans=1)");
     Options opts = parser.parse();
 
-    std::shared_ptr<symbolic::SymbolicSearch> engine = nullptr;
+    std::shared_ptr < symbolic::SymbolicSearch > engine = nullptr;
     if (!parser.dry_run()) {
-        engine = std::make_shared<symbolic::SymbolicUniformCostSearch>(opts, false,
-                                                                       true);
+        engine = std::make_shared < symbolic::SymbolicUniformCostSearch > (opts, false,
+                                                                           true);
         std::cout << "Symbolic Backward Uniform Cost Search" << std::endl;
     }
 
     return engine;
 }
 
-static std::shared_ptr<SearchEngine>
+static std::shared_ptr < SearchEngine >
 _parse_bidirectional_ucs(OptionParser &parser) {
     parser.document_synopsis("Symbolic Bidirectional Uniform Cost Search", "");
     symbolic::SymbolicSearch::add_options_to_parser(parser);
-    parser.add_option<std::shared_ptr<symbolic::PlanDataBase>>(
+    parser.add_option < std::shared_ptr < symbolic::PlanDataBase >> (
         "plan_selection", "plan selection strategy", "top_k(num_plans=1)");
     Options opts = parser.parse();
 
-    std::shared_ptr<symbolic::SymbolicSearch> engine = nullptr;
+    std::shared_ptr < symbolic::SymbolicSearch > engine = nullptr;
     if (!parser.dry_run()) {
         engine =
-            std::make_shared<symbolic::SymbolicUniformCostSearch>(opts, true, true);
+            std::make_shared < symbolic::SymbolicUniformCostSearch > (opts, true, true);
         std::cout << "Symbolic Bidirectional Uniform Cost Search" << std::endl;
     }
 
     return engine;
 }
 
-static Plugin<SearchEngine> _plugin_sym_fw_ordinary("sym-fw",
-                                                    _parse_forward_ucs);
-static Plugin<SearchEngine> _plugin_sym_bw_ordinary("sym-bw",
-                                                    _parse_backward_ucs);
-static Plugin<SearchEngine> _plugin_sym_bd_ordinary("sym-bd",
-                                                    _parse_bidirectional_ucs);
+static Plugin < SearchEngine > _plugin_sym_fw_ordinary("sym-fw",
+                                                       _parse_forward_ucs);
+static Plugin < SearchEngine > _plugin_sym_bw_ordinary("sym-bw",
+                                                       _parse_backward_ucs);
+static Plugin < SearchEngine > _plugin_sym_bd_ordinary("sym-bd",
+                                                       _parse_bidirectional_ucs);
