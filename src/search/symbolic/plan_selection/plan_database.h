@@ -22,9 +22,10 @@ public:
 
     PlanDataBase(const options::Options &opts);
 
-    virtual ~PlanDataBase() {}
+    virtual ~PlanDataBase() {
+    }
 
-    virtual void init(std::shared_ptr<SymVariables> sym_vars);
+    virtual void init(std::shared_ptr < SymVariables > sym_vars);
 
     virtual void add_plan(const Plan &plan) = 0;
 
@@ -34,7 +35,7 @@ public:
 
     bool has_zero_cost_loop(const Plan &plan) const;
 
-    std::pair<int, int> get_first_zero_cost_loop(const Plan &plan) const;
+    std::pair < int, int > get_first_zero_cost_loop(const Plan &plan) const;
 
     int get_num_desired_plans() const {return num_desired_plans;}
 
@@ -60,6 +61,10 @@ public:
                            sym_vars->get_state_registry()->get_task_proxy());
     }
 
+    Plan get_first_accepted_plan() const {
+        return first_accepted_plan;
+    }
+
     double get_first_plan_cost() const {return first_accepted_plan_cost;}
 
     virtual void print_options() const;
@@ -69,7 +74,7 @@ public:
         plan_mgr = _plan_manager;
     }
 protected:
-    std::shared_ptr<SymVariables> sym_vars;
+    std::shared_ptr < SymVariables > sym_vars;
 
     // Determines if it possible/desired to proof that no more (accepted)
     // plans exits
@@ -85,8 +90,8 @@ protected:
     int num_accepted_plans;
     int num_rejected_plans;
 
-    std::unordered_map<size_t, std::vector<Plan>> hashes_accepted_plans;
-    std::unordered_map<size_t, std::vector<Plan>> hashes_rejected_plans;
+    std::unordered_map < size_t, std::vector < Plan >> hashes_accepted_plans;
+    std::unordered_map < size_t, std::vector < Plan >> hashes_rejected_plans;
 
     Plan first_accepted_plan;
     double first_accepted_plan_cost;
@@ -99,9 +104,9 @@ protected:
     void save_accepted_plan(const Plan &plan);
     void save_rejected_plan(const Plan &plan);
 
-    std::vector<Plan> get_accepted_plans() const;
+    std::vector < Plan > get_accepted_plans() const;
 
-    size_t different(const std::vector<Plan> &plans, const Plan &plan) const;
+    size_t different(const std::vector < Plan > &plans, const Plan &plan) const;
     BDD states_on_path(const Plan &plan);
     size_t get_hash_value(const Plan &plan) const;
 };

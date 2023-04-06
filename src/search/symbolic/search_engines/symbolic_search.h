@@ -64,6 +64,12 @@ public:
 
     virtual int getMinG() const {return min_g;}
 
+    double cheapest_solution_cost_found() const {
+        return solution_registry.cheapest_solution_cost_found();
+    }
+
+    ADD get_cheapest_solution_ADD() const;
+
     virtual BDD get_states_on_goal_paths() const {
         return solution_registry.get_states_on_goal_paths();
     }

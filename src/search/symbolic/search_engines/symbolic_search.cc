@@ -116,6 +116,38 @@ void SymbolicSearch::new_solution(const SymSolutionCut &sol) {
     }
 }
 
+ADD SymbolicSearch::get_cheapest_solution_ADD() const {
+    ADD hADD = vars->getADD(-1);
+    double h_val = cheapest_solution_cost_found();
+    vector < int > s = task->get_initial_state_values();
+    BDD sBDD = vars->getStateBDD(s);
+    hADD += sBDD.Add() * (vars->getADD(h_val + 1));
+    cout << plan_data_base->get_first_accepted_plan() << endl;
+    cout << hADD << endl;
+    for (OperatorID op : plan_data_base->get_first_accepted_plan()) {
+        OperatorProxy opp = OperatorProxy(*task, op.get_index(), false);
+        h_val -= opp.get_cost();
+        EffectsProxy efp = opp.get_effects();
+        for (size_t i = 0; i < efp.size(); i++) {
+            EffectProxy ef = efp[i];
+            bool does_fire = true;
+            EffectConditionsProxy conditions = ef.get_conditions();
+            for (size_t i = 0; i < conditions.size(); ++i)
+                if (s[conditions[i].get_variable().get_id()] != conditions[i].get_value())
+                    does_fire = false;
+
+            if (does_fire) {
+                s[ef.get_fact().get_variable().get_id()] = ef.get_fact().get_value();
+            }
+        }
+        sBDD = vars->getStateBDD(s);
+        hADD += sBDD.Add() * (vars->getADD(h_val + 1));
+
+        cout << hADD << endl;
+    }
+    return hADD;
+}
+
 void SymbolicSearch::add_options_to_parser(OptionParser &parser) {
     SearchEngine::add_options_to_parser(parser);
     SymVariables::add_options_to_parser(parser);

@@ -164,7 +164,7 @@ void GamerPDBsHeuristic::initialize(const Options &opts) {
         pdb_search.search(generationTime, generationMemory);
         cout << "Finished super PDB: " << endl;
 
-        if (pdb_search.solved()) {
+        if (pdb_search.found_solution()) {
             cout << "Problem solved during heuristic generation" << endl;
             // heuristic = make_unique<ADD>(solution.getADD());
             // return;
@@ -222,7 +222,7 @@ void GamerPDBsHeuristic::initialize(const Options &opts) {
 
             new_pdb->search(generationTime, generationMemory);
 
-            if (new_pdb->solved()) {
+            if (new_pdb->found_solution()) {
                 solved = true;
                 best_pdb = std::move(new_pdb);
                 // cout << "Best PDB after solution found: " << *best_pdb << endl;
@@ -265,7 +265,7 @@ void GamerPDBsHeuristic::initialize(const Options &opts) {
             assert((int)new_pattern.size() < task->get_num_variables() ||
                    best_pdb->getLowerBound() >= best_pdb->get_search()->getF());
 
-            if (!best_pdb->solved() && best_pdb->average_value() < new_best_value) {
+            if (!best_pdb->found_solution() && best_pdb->average_value() < new_best_value) {
                 for (auto &pdb : new_bests) {
                     if (pdb->average_value() == new_best_value) {
                         best_pdb = std::move(pdb);
@@ -282,15 +282,15 @@ void GamerPDBsHeuristic::initialize(const Options &opts) {
 
     cout << "Final pdb: " << *best_pdb << endl;
 
-    // TODO: why (performance maybe) `solution.getADD()` call and implement it if needed
-    // if (best_pdb->solved()) {
-    //     cout << "Problem solved during heuristic generation" << endl;
-    //     heuristic = unique_ptr<ADD>(new ADD(std::move(solution.getADD())));
-    // } else {
-    // if (perimeter) heuristic.reset(new ADD(best_pdb->getHeuristic(max_perimeter_heuristic)));
-    // else
-    heuristic = unique_ptr < ADD > (new ADD(std::move(best_pdb->getHeuristic())));
-    // }
+    if (best_pdb->found_solution()) {
+        // For performance reasons and toa void search failures in rare edge-cases
+        cout << "Problem solved during heuristic generation" << endl;
+        heuristic = unique_ptr < ADD > (new ADD(std::move(best_pdb->get_cheapest_solution_ADD())));
+    } else {
+        // if (perimeter) heuristic.reset(new ADD(best_pdb->getHeuristic(max_perimeter_heuristic)));
+        // else
+        heuristic = unique_ptr < ADD > (new ADD(std::move(best_pdb->getHeuristic())));
+    }
     cout << "Done initializing Gamer PDB heuristic [" << timer << "] total memory: " << vars->totalMemory() << endl << endl;
 
     if (!heuristic)

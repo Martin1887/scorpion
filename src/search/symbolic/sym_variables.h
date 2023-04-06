@@ -225,6 +225,10 @@ public:
 
     std::vector < std::string > get_fd_variable_names() const;
 
+    inline ADD getADD(int value) {
+        return manager->constant(value);
+    }
+
     static void add_options_to_parser(options::OptionParser &parser);
 
     void print_options() const;
