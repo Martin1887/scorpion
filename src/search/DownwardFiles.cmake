@@ -731,6 +731,16 @@ fast_downward_plugin(
 )
 
 fast_downward_plugin(
+    NAME CEGAR_SYMBOLIC_COMPARISON
+    HELP "Plugin to compare CEGAR abstractions and symbolic backward search"
+    SOURCES
+        cegar_symbolic_comparison/cegar_symbolic_comparison
+        cegar_symbolic_comparison/symbolic_comparing_cost_saturation
+        cegar_symbolic_comparison/symbolic_uniform_backwards_search_heuristic
+    DEPENDS ADDITIVE_HEURISTIC DYNAMIC_BITSET EXTRA_TASKS LANDMARKS PRIORITY_QUEUES TASK_PROPERTIES
+)
+
+fast_downward_plugin(
     NAME COST_SATURATION
     HELP "Saturated cost partitioning"
     SOURCES
