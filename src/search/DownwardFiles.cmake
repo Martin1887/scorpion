@@ -924,6 +924,18 @@ fast_downward_plugin(
 )
 
 fast_downward_plugin(
+    NAME SDAC
+    HELP "Plugin containing the base state-dependant action costs."
+    SOURCES
+        sdac_parser/globals
+        sdac_parser/parser
+        sdac_parser/catamorph/factories
+        sdac_parser/catamorph/expression
+        sdac_parser/string_utils
+        tasks/sdac_task
+)
+
+fast_downward_plugin(
     NAME SYMBOLIC
     HELP "Plugin containing the base for symbolic search"
     SOURCES
@@ -954,14 +966,17 @@ fast_downward_plugin(
         symbolic/search_engines/top_q_symbolic_uniform_cost_search
         symbolic/plan_reconstruction/sym_solution_cut
         symbolic/plan_reconstruction/sym_solution_registry
-        symbolic/plan_selection/plan_database
+        symbolic/plan_reconstruction/reconstruction_node
+        symbolic/plan_selection/iterative_cost_selector
+        symbolic/plan_selection/plan_selector
         symbolic/plan_selection/top_k_selector
         symbolic/plan_selection/top_k_even_selector
         symbolic/plan_selection/simple_selector
         symbolic/plan_selection/unordered_selector
+        symbolic/plan_selection/validation_selector
         symbolic/sym_axiom/sym_axiom_compilation
-    DEPENDS
-        INT_PACKER
+        symbolic/sym_function_creator
+        DEPENDS SDAC
 )
 
 fast_downward_add_plugin_sources(PLANNER_SOURCES)

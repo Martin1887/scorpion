@@ -15,21 +15,22 @@ class SymbolicSearch;
 class SymSearch {
 protected:
     // Attributes that characterize the search:
-    std::shared_ptr<SymStateSpaceManager>
-    mgr;   // Symbolic manager to perform bdd operations
+    std::shared_ptr < SymStateSpaceManager >
+    mgr;     // Symbolic manager to perform bdd operations
     SymParamsSearch p;
 
-    SymbolicSearch *engine; // Access to the bound and notification of new
-                            // solutions
+    SymbolicSearch *engine;     // Access to the bound and notification of new
+                                // solutions
 
 public:
     SymSearch(SymbolicSearch *eng, const SymParamsSearch &params);
 
-    virtual ~SymSearch() {}
+    virtual ~SymSearch() {
+    }
 
     SymStateSpaceManager *getStateSpace() {return mgr.get();}
 
-    std::shared_ptr<SymStateSpaceManager> getStateSpaceShared() const {
+    std::shared_ptr < SymStateSpaceManager > getStateSpaceShared() const {
         return mgr;
     }
 
@@ -37,10 +38,12 @@ public:
         return isSearchableWithNodes(p.getMaxStepNodes());
     }
 
-    bool step() {
+    virtual bool step() {
         return stepImage(p.getAllotedTime(nextStepTime()),
                          p.getAllotedNodes(nextStepNodesResult()));
     }
+
+    virtual std::string get_last_dir() const = 0;
 
     virtual bool stepImage(int maxTime, int maxNodes) = 0;
 

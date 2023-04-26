@@ -3,6 +3,8 @@
 #include "../task_proxy.h"
 #include "../task_utils/causal_graph.h"
 #include "../tasks/root_task.h"
+#include "../utils/logging.h"
+#include "../utils/timer.h"
 
 #include <ostream>
 
@@ -11,19 +13,20 @@ using namespace std;
 namespace symbolic {
 // Returns a optimized variable ordering that reorders the variables
 // according to the standard causal graph criterion
-void InfluenceGraph::compute_gamer_ordering(std::vector<int> &var_order) {
-    TaskProxy task_proxy(*tasks::g_root_task);
+void InfluenceGraph::compute_gamer_ordering(std::vector < int > &var_order,
+                                            const shared_ptr < AbstractTask > &task) {
+    TaskProxy task_proxy(*task);
 
     const causal_graph::CausalGraph &cg = task_proxy.get_causal_graph();
 
     if (var_order.empty()) {
-        for (int v = 0; v < tasks::g_root_task->get_num_variables(); v++) {
+        for (size_t v = 0; v < task_proxy.get_variables().size(); v++) {
             var_order.push_back(v);
         }
     }
 
     InfluenceGraph ig_partitions(tasks::g_root_task->get_num_variables());
-    for (int v = 0; v < tasks::g_root_task->get_num_variables(); v++) {
+    for (size_t v = 0; v < task_proxy.get_variables().size(); v++) {
         for (int v2 : cg.get_successors(v)) {
             if ((int)v != v2) {
                 ig_partitions.set_influence(v, v2);
@@ -33,18 +36,20 @@ void InfluenceGraph::compute_gamer_ordering(std::vector<int> &var_order) {
 
     ig_partitions.get_ordering(var_order);
 
-    // cout << "Var ordering: ";
-    // for(int v : var_order) cout << v << " ";
-    // cout  << endl;
+    // utils::g_log << "Var ordering: ";
+    // for(int v : var_order) utils::g_log << v << " ";
+    // utils::g_log  << endl;
 }
 
-void InfluenceGraph::get_ordering(vector<int> &ordering) const {
+void InfluenceGraph::get_ordering(vector < int > &ordering) const {
+    utils::g_log << "Optimizing variable ordering..." << flush;
+    utils::Timer timer;
     double value_optimization_function =
         optimize_variable_ordering_gamer(ordering, 50000);
 
     for (int counter = 0; counter < 20; counter++) {
-        vector<int> new_order;
-        randomize(ordering, new_order); // Copy the order randomly
+        vector < int > new_order;
+        randomize(ordering, new_order);     // Copy the order randomly
         double new_value = optimize_variable_ordering_gamer(new_order, 50000);
 
         if (new_value < value_optimization_function) {
@@ -52,12 +57,13 @@ void InfluenceGraph::get_ordering(vector<int> &ordering) const {
             ordering.swap(new_order);
         }
     }
+    utils::g_log << "done!" << " [t=" << timer << "]" << endl;
 }
 
-void InfluenceGraph::randomize(vector<int> &ordering,
-                               vector<int> &new_order) const {
+void InfluenceGraph::randomize(vector < int > &ordering,
+                               vector < int > &new_order) const {
     for (size_t i = 0; i < ordering.size(); i++) {
-        int rnd_pos = (*rng)(ordering.size() - i);
+        int rnd_pos = rng->random(ordering.size() - i);
         int pos = -1;
         do {
             pos++;
@@ -78,7 +84,7 @@ void InfluenceGraph::randomize(vector<int> &ordering,
     }
 }
 
-double InfluenceGraph::optimize_variable_ordering_gamer(vector<int> &order,
+double InfluenceGraph::optimize_variable_ordering_gamer(vector < int > &order,
                                                         int iterations) const {
     double totalDistance = compute_function(order);
 
@@ -86,8 +92,8 @@ double InfluenceGraph::optimize_variable_ordering_gamer(vector<int> &order,
     // Repeat iterations times
     for (int counter = 0; counter < iterations; counter++) {
         // Swap variable
-        int swapIndex1 = (*rng)(order.size());
-        int swapIndex2 = (*rng)(order.size());
+        int swapIndex1 = rng->random(order.size());
+        int swapIndex2 = rng->random(order.size());
         if (swapIndex1 == swapIndex2)
             continue;
 
@@ -114,18 +120,18 @@ double InfluenceGraph::optimize_variable_ordering_gamer(vector<int> &order,
 
             /*if(totalDistance != compute_function(order)){
               cerr << "Error computing total distance: " << totalDistance << " " <<
-            compute_function(order) << endl; exit(-1); }else{ cout << "Bien: " <<
+            compute_function(order) << endl; exit(-1); }else{ utils::g_log << "Bien: " <<
             totalDistance << endl;
             }*/
         } else {
             totalDistance = oldTotalDistance;
         }
     }
-    //  cout << "Total distance: " << totalDistance << endl;
+    //  utils::g_log << "Total distance: " << totalDistance << endl;
     return totalDistance;
 }
 
-double InfluenceGraph::compute_function(const std::vector<int> &order) const {
+double InfluenceGraph::compute_function(const std::vector < int > &order) const {
     double totalDistance = 0;
     for (size_t i = 0; i < order.size() - 1; i++) {
         for (size_t j = i + 1; j < order.size(); j++) {
@@ -139,7 +145,7 @@ double InfluenceGraph::compute_function(const std::vector<int> &order) const {
 
 InfluenceGraph::InfluenceGraph(int num) {
     // TODO(speckd): we need to randomize the seed here
-    rng = std::make_shared<utils::RandomNumberGenerator>(0);
+    rng = make_shared < utils::RandomNumberGenerator > (0);
     influence_graph.resize(num);
     for (auto &i : influence_graph) {
         i.resize(num, 0);
@@ -147,21 +153,21 @@ InfluenceGraph::InfluenceGraph(int num) {
 }
 
 void InfluenceGraph::optimize_variable_ordering_gamer(
-    vector<int> &order, vector<int> &partition_begin,
-    vector<int> &partition_sizes, int iterations) const {
+    vector < int > &order, vector < int > &partition_begin,
+    vector < int > &partition_sizes, int iterations) const {
     double totalDistance = compute_function(order);
 
     double oldTotalDistance = totalDistance;
     // Repeat iterations times
     for (int counter = 0; counter < iterations; counter++) {
         // Swap variable
-        int partition = (*rng)(partition_begin.size());
+        int partition = rng->random(partition_begin.size());
         if (partition_sizes[partition] <= 1)
             continue;
         int swapIndex1 =
-            partition_begin[partition] + (*rng)(partition_sizes[partition]);
+            partition_begin[partition] + rng->random(partition_sizes[partition]);
         int swapIndex2 =
-            partition_begin[partition] + (*rng)(partition_sizes[partition]);
+            partition_begin[partition] + rng->random(partition_sizes[partition]);
         if (swapIndex1 == swapIndex2)
             continue;
 
@@ -188,7 +194,7 @@ void InfluenceGraph::optimize_variable_ordering_gamer(
 
             /*if(totalDistance != compute_function(order)){
               cerr << "Error computing total distance: " << totalDistance << " " <<
-            compute_function(order) << endl; exit(-1); }else{ cout << "Bien: " <<
+            compute_function(order) << endl; exit(-1); }else{ utils::g_log << "Bien: " <<
             totalDistance << endl;
             }*/
         } else {

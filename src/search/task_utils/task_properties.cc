@@ -59,6 +59,34 @@ void verify_no_conditional_effects(TaskProxy task) {
     }
 }
 
+bool has_zero_cost_operator(TaskProxy task_proxy) {
+    for (OperatorProxy op : task_proxy.get_operators()) {
+        if (op.get_cost() == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool has_sdac_cost_operator(TaskProxy task_proxy) {
+    for (OperatorProxy op : task_proxy.get_operators()) {
+        bool sdac = op.get_cost_function().find_first_not_of("0123456789")
+            != string::npos;
+        if (sdac) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void verify_no_zero_cost_operator(TaskProxy task_proxy) {
+    if (has_zero_cost_operator(task_proxy)) {
+        cerr << "This configuration does not support zero operation cost "
+             << endl << "Terminating." << endl;
+        utils::exit_with(ExitCode::SEARCH_UNSUPPORTED);
+    }
+}
+
 vector<int> get_operator_costs(const TaskProxy &task_proxy) {
     vector<int> costs;
     OperatorsProxy operators = task_proxy.get_operators();
@@ -83,6 +111,15 @@ int get_min_operator_cost(TaskProxy task_proxy) {
         min_cost = min(min_cost, op.get_cost());
     }
     return min_cost;
+}
+
+int get_max_operator_cost(TaskProxy task_proxy) {
+    int max_cost = 0;
+    for (OperatorProxy op : task_proxy.get_operators()) {
+        max_cost = max(max_cost, op.get_cost());
+        // std::cout << op.get_name() << ": " << op.get_cost() << std::endl;
+    }
+    return max_cost;
 }
 
 int get_num_facts(const TaskProxy &task_proxy) {
@@ -168,17 +205,14 @@ void dump_task(const TaskProxy &task_proxy) {
 }
 
 PerTaskInformation<int_packer::IntPacker> g_state_packers(
-    [](const TaskProxy &task_proxy)
-    {
+    [](const TaskProxy &task_proxy) {
         VariablesProxy variables = task_proxy.get_variables();
         vector<int> variable_ranges;
         variable_ranges.reserve(variables.size());
         for (VariableProxy var : variables) {
-            /* IntPacker expects all variables to have at least a domain size of
-               two. This is not the case for some domain-abstracted tasks. */
-            int domain_size = max(2, var.get_domain_size());
-            variable_ranges.push_back(domain_size);
+            variable_ranges.push_back(var.get_domain_size());
         }
         return utils::make_unique_ptr<int_packer::IntPacker>(variable_ranges);
-    });
+    }
+    );
 }

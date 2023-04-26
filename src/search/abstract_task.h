@@ -25,15 +25,15 @@ struct FactPair {
         : var(var), value(value) {
     }
 
-    bool operator<(const FactPair &other) const {
+    bool operator <(const FactPair &other) const {
         return var < other.var || (var == other.var && value < other.value);
     }
 
-    bool operator==(const FactPair &other) const {
+    bool operator ==(const FactPair &other) const {
         return var == other.var && value == other.value;
     }
 
-    bool operator!=(const FactPair &other) const {
+    bool operator !=(const FactPair &other) const {
         return var != other.var || value != other.value;
     }
 
@@ -45,7 +45,7 @@ struct FactPair {
     static const FactPair no_fact;
 };
 
-std::ostream &operator<<(std::ostream &os, const FactPair &fact_pair);
+std::ostream &operator <<(std::ostream &os, const FactPair &fact_pair);
 
 namespace utils {
 inline void feed(HashState &hash_state, const FactPair &fact) {
@@ -54,7 +54,7 @@ inline void feed(HashState &hash_state, const FactPair &fact) {
 }
 }
 
-class AbstractTask : public subscriber::SubscriberService<AbstractTask> {
+class AbstractTask : public subscriber::SubscriberService < AbstractTask > {
 public:
     AbstractTask() = default;
     virtual ~AbstractTask() override = default;
@@ -67,6 +67,7 @@ public:
     virtual bool are_facts_mutex(const FactPair &fact1, const FactPair &fact2) const = 0;
 
     virtual int get_operator_cost(int index, bool is_axiom) const = 0;
+    virtual std::string get_operator_cost_function(int index, bool is_axiom) const = 0;
     virtual std::string get_operator_name(int index, bool is_axiom) const = 0;
     virtual int get_num_operators() const = 0;
     virtual int get_num_operator_preconditions(int index, bool is_axiom) const = 0;
@@ -93,10 +94,10 @@ public:
     virtual int get_num_goals() const = 0;
     virtual FactPair get_goal_fact(int index) const = 0;
 
-    virtual std::vector<int> get_initial_state_values() const = 0;
-    virtual std::vector<MutexGroup> get_mutex_groups() const = 0;
+    virtual std::vector < int > get_initial_state_values() const = 0;
+    virtual std::vector < MutexGroup > get_mutex_groups() const = 0;
 
-    virtual std::map<FactPair, int> get_utilities() const = 0;
+    virtual std::map < FactPair, int > get_utilities() const = 0;
     virtual int get_plan_bound() const = 0;
 
     /*
@@ -110,7 +111,7 @@ public:
       the parameter.
     */
     virtual void convert_ancestor_state_values(
-        std::vector<int> &values,
+        std::vector < int > &values,
         const AbstractTask *ancestor_task) const = 0;
     virtual bool does_convert_ancestor_state_values(
         const AbstractTask *ancestor_task) const = 0;

@@ -51,9 +51,9 @@ void PlanManager::dump_plan(const Plan &plan,
     cout << "Plan cost: " << plan_cost << endl;
 }
 
-void PlanManager::save_plan(
-    const Plan &plan, const TaskProxy &task_proxy,
-    bool generates_multiple_plan_files) {
+void PlanManager::save_plan(const Plan &plan, const TaskProxy &task_proxy,
+                            bool dump_plan,
+                            bool generates_multiple_plan_files) {
     ostringstream filename;
     filename << plan_filename;
     int plan_number = num_previously_generated_plans + 1;
@@ -69,7 +69,10 @@ void PlanManager::save_plan(
     }
     OperatorsProxy operators = task_proxy.get_operators();
     for (OperatorID op_id : plan) {
-        cout << operators[op_id].get_name() << " (" << operators[op_id].get_cost() << ")" << endl;
+        if (dump_plan) {
+            utils::g_log << operators[op_id].get_name() << " (" << operators[op_id].get_cost()
+                         << ")" << endl;
+        }
         outfile << "(" << operators[op_id].get_name() << ")" << endl;
     }
     int plan_cost = calculate_plan_cost(plan, task_proxy);
@@ -77,7 +80,9 @@ void PlanManager::save_plan(
     outfile << "; cost = " << plan_cost << " ("
             << (is_unit_cost ? "unit cost" : "general cost") << ")" << endl;
     outfile.close();
-    utils::g_log << "Plan length: " << plan.size() << " step(s)." << endl;
-    utils::g_log << "Plan cost: " << plan_cost << endl;
+    if (dump_plan) {
+        utils::g_log << "Plan length: " << plan.size() << " step(s)." << endl;
+        utils::g_log << "Plan cost: " << plan_cost << endl;
+    }
     ++num_previously_generated_plans;
 }

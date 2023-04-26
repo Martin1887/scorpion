@@ -1,15 +1,16 @@
 #ifndef SYMBOLIC_SEARCH_ENGINES_SYMBOLIC_SEARCH_H
 #define SYMBOLIC_SEARCH_ENGINES_SYMBOLIC_SEARCH_H
 
-#include <memory>
-#include <vector>
 
-#include "../../option_parser.h"
 #include "../plan_reconstruction/sym_solution_registry.h"
 #include "../search_engine.h"
 #include "../sym_enums.h"
 #include "../sym_params_search.h"
 #include "../sym_state_space_manager.h"
+#include "../../option_parser.h"
+
+#include <memory>
+#include <vector>
 
 namespace options {
 class Options;
@@ -18,12 +19,19 @@ class Options;
 namespace symbolic {
 class SymStateSpaceManager;
 class SymSearch;
-class PlanDataBase;
+class PlanSelector;
 class SymVariables;
 
 class SymbolicSearch : public SearchEngine {
 private:
 protected:
+    // Hold a reference to the task implementation and pass it to objects that
+    // need it.
+    const std::shared_ptr < AbstractTask > task;
+    std::shared_ptr < AbstractTask > search_task;
+    // Use task_proxy to access task information.
+    TaskProxy task_proxy;
+
     // Symbolic manager to perform bdd operations
     std::shared_ptr < SymStateSpaceManager > mgr;
 
@@ -40,8 +48,12 @@ protected:
     int upper_bound;     // Upper bound of search (not use by top_k)
     int min_g;     // min g costs of open lists
 
-    std::shared_ptr < PlanDataBase > plan_data_base;
-    SymSolutionRegistry solution_registry;     // Solution registry
+    std::shared_ptr < PlanSelector > plan_data_base;
+    std::shared_ptr < SymSolutionRegistry > solution_registry;     // Solution registry
+    bool simple;
+    bool single_solution;
+
+    bool silent;
 
     virtual void initialize() override;
 
@@ -49,9 +61,9 @@ protected:
 
 public:
     SymbolicSearch(const options::Options &opts,
-                   const std::shared_ptr < AbstractTask > task = tasks::g_root_task);
+                   const std::shared_ptr < AbstractTask > &task = tasks::g_root_task);
     SymbolicSearch(const options::Options &opts, std::shared_ptr < SymVariables > vars, SymParamsMgr mgrParams,
-                   const std::shared_ptr < AbstractTask > task = tasks::g_root_task);
+                   const std::shared_ptr < AbstractTask > &task = tasks::g_root_task, bool initialize_symbolic_vars = false);
     virtual ~SymbolicSearch() = default;
 
     virtual void setLowerBound(int lower);
@@ -62,25 +74,26 @@ public:
 
     virtual int getLowerBound() const {return lower_bound;}
 
-    virtual int getMinG() const {return min_g;}
-
     double cheapest_solution_cost_found() const {
-        return solution_registry.cheapest_solution_cost_found();
+        return solution_registry->cheapest_solution_cost_found();
     }
 
     ADD get_cheapest_solution_ADD() const;
 
+    virtual int getMinG() const {return min_g;}
+
     virtual BDD get_states_on_goal_paths() const {
-        return solution_registry.get_states_on_goal_paths();
+        return solution_registry->get_states_on_goal_paths();
     }
 
     virtual void new_solution(const SymSolutionCut &sol);
 
-    static void add_options_to_parser(OptionParser &parser);
+    virtual void print_statistics() const {}
 
-    virtual void print_statistics() const override {
-    }
+    virtual void save_plan_if_necessary() override;
+
+    static void add_options_to_parser(OptionParser &parser);
 };
-} // namespace symbolic
+}
 
 #endif

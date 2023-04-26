@@ -1,10 +1,10 @@
 #ifndef SYMBOLIC_TOP_K_SELECTOR_H
 #define SYMBOLIC_TOP_K_SELECTOR_H
 
-#include "plan_database.h"
+#include "plan_selector.h"
 
 namespace symbolic {
-class TopKSelector : public PlanDataBase {
+class TopKSelector : public PlanSelector {
 public:
     TopKSelector(const options::Options &opts);
 
@@ -14,6 +14,6 @@ public:
 
     std::string tag() const override {return "Top-K";}
 };
-} // namespace symbolic
+}
 
-#endif /* SYMBOLIC_TOP_K_SELECTOR_H */
+#endif

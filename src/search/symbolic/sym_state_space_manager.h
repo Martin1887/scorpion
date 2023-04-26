@@ -39,8 +39,9 @@ public:
     // Time and memory bounds for auxiliary operations
     int max_aux_nodes, max_aux_time;
 
-    SymParamsMgr(const std::shared_ptr < AbstractTask > task = tasks::g_root_task);
-    SymParamsMgr(const options::Options &opts, const std::shared_ptr < AbstractTask > task = tasks::g_root_task);
+    bool fast_sdac_generation;
+
+    SymParamsMgr(const options::Options &opts, const std::shared_ptr < AbstractTask > &task);
     static void add_options_to_parser(options::OptionParser &parser);
     void print_options() const;
 };
@@ -88,7 +89,7 @@ protected:
 
 public:
     SymStateSpaceManager(SymVariables *v, const SymParamsMgr &params,
-                         const std::shared_ptr < AbstractTask > task = tasks::g_root_task,
+                         const std::shared_ptr < AbstractTask > &task = tasks::g_root_task,
                          const std::set < int > &relevant_vars_ = std::set < int > ());
 
     virtual ~SymStateSpaceManager() {
@@ -135,7 +136,7 @@ public:
     }
 
     inline Cudd *mgr() const {
-        return vars->mgr();
+        return vars->get_manager();
     }
 
     BDD zeroBDD() const {return vars->zeroBDD();}

@@ -3,10 +3,11 @@
 
 #include "sym_bucket.h"
 
-#include "../state_registry.h"
+#include "sym_axiom/sym_axiom_compilation.h"
 #include "../tasks/root_task.h"
 #include "../utils/timer.h"
-#include "sym_axiom/sym_axiom_compilation.h"
+#include "../sdac_parser/catamorph/expression.h"
+#include "../sdac_parser/catamorph/catamorph.h"
 
 #include <cassert>
 #include <fstream>
@@ -37,27 +38,30 @@ struct BDDError {};
 extern void exceptionError(std::string message);
 
 class SymVariables {
-    bool initialized;
+    // Use task_proxy to access task information.
+    TaskProxy task_proxy;
+    std::vector < int > binState;
+    const std::shared_ptr < AbstractTask > task;
+
     // Var order used by the algorithm.
     // const VariableOrderType variable_ordering;
     // Parameters to initialize the CUDD manager
-    const unsigned int cudd_init_nodes;          // Number of initial nodes
-    const unsigned int cudd_init_cache_size;     // Initial cache size
-    const unsigned long cudd_init_available_memory;     // Maximum available memory (bytes)
+    const long cudd_init_nodes;          // Number of initial nodes
+    const long cudd_init_cache_size;     // Initial cache size
+    const long cudd_init_available_memory;     // Maximum available memory (bytes)
     const bool gamer_ordering;
+    const bool dynamic_reordering;
 
-    std::unique_ptr < Cudd > manager;     // manager associated with this symbolic search
+    Cudd *manager;     // manager associated with this symbolic search
     std::shared_ptr < SymAxiomCompilation > ax_comp;     // used for axioms
-    std::shared_ptr < StateRegistry > state_registry;     // used for explicit stuff
 
-    int numBDDVars;     // Number of binary variables (just one set, the total number
-    // is numBDDVars*3
+    int numBDDVars;     // Number of binary variables (just one set, the total number is numBDDVars*2
+    int numPrimaryBDDVars;     // Number of binary variables that represent the primary variables
     std::vector < BDD > variables;     // BDD variables
 
     // The variable order must be complete.
     std::vector < int > var_order;     // Variable(FD) order in the BDD
-    std::vector < std::vector < int >> bdd_index_pre, bdd_index_eff,
-                                       bdd_index_abs; // vars(BDD) for each var(FD)
+    std::vector < std::vector < int >> bdd_index_pre, bdd_index_eff;     // vars(BDD) for each var(FD)
 
     std::vector < std::vector < BDD >>
     preconditionBDDs;     // BDDs associated with the precondition of a predicate
@@ -69,42 +73,30 @@ class SymVariables {
     validValues;     // BDD that represents the valid values of all the variables
     BDD validBDD;     // BDD that represents the valid values of all the variables
 
-    // Vector to store the binary description of an state
-    // Avoid allocating memory during heuristic evaluation
-    std::vector < int > binState;
-
-    const std::shared_ptr < AbstractTask > task;
-
     void init(const std::vector < int > &v_order);
 
 public:
-    SymVariables(const options::Options &opts, const std::shared_ptr < AbstractTask > task = tasks::g_root_task);
-    SymVariables(bool gamer_ordering, const std::shared_ptr < AbstractTask > task = tasks::g_root_task);
-    void init();
+    SymVariables(const options::Options &opts,
+                 const std::shared_ptr < AbstractTask > &task);
 
-    std::shared_ptr < StateRegistry > get_state_registry() {
-        if (state_registry == nullptr) {
-            state_registry =
-                std::make_shared < StateRegistry > (TaskProxy(*task));
-        }
-        return state_registry;
-    }
+    void init();
 
     std::shared_ptr < SymAxiomCompilation > get_axiom_compiliation() {
         return ax_comp;
     }
 
-    Cudd *get_manager() const {return manager.get();}
+    Cudd *get_manager() const {return manager;}
 
-    // State getStateFrom(const BDD & bdd) const;
+    double numStates(const BDD &bdd) const {
+        return bdd.CountMinterm(numPrimaryBDDVars);
+    }
+
+    State getStateFrom(const BDD &bdd) const;
+    BDD getSinglePrimaryStateFrom(const BDD &bdd) const;
     BDD getStateBDD(const std::vector < int > &state) const;
-    BDD getStateBDD(const State &state);
+    BDD getStateBDD(const State &state) const;
 
     BDD getPartialStateBDD(const std::vector < std::pair < int, int >> &state) const;
-
-    double numStates(const BDD &bdd) const;     // Returns the number of states in a BDD
-    double numStates() const;
-    double numStates(const Bucket &bucket) const;
 
     inline const std::vector < int > &vars_index_pre(int variable) const {
         return bdd_index_pre[variable];
@@ -112,10 +104,6 @@ public:
 
     inline const std::vector < int > &vars_index_eff(int variable) const {
         return bdd_index_eff[variable];
-    }
-
-    inline const std::vector < int > &vars_index_abs(int variable) const {
-        return bdd_index_abs[variable];
     }
 
     inline const BDD &preBDD(int variable, int value) const {
@@ -138,10 +126,8 @@ public:
         return getCube(vars, bdd_index_eff);
     }
 
-    inline BDD getCubeAbs(int var) const {return getCube(var, bdd_index_abs);}
-
-    inline BDD getCubeAbs(const std::set < int > &vars) const {
-        return getCube(vars, bdd_index_abs);
+    inline unsigned long totalMemory() const {
+        return manager->ReadMemoryInUse();
     }
 
     inline const BDD &biimp(int variable) const {return biimpBDDs[variable];}
@@ -154,28 +140,12 @@ public:
         return getBDDVars(var_order, bdd_index_eff);
     }
 
-    inline std::vector < BDD > getBDDVarsAbs() const {
-        return getBDDVars(var_order, bdd_index_abs);
-    }
-
     inline std::vector < BDD > getBDDVarsPre(const std::vector < int > &vars) const {
         return getBDDVars(vars, bdd_index_pre);
     }
 
     inline std::vector < BDD > getBDDVarsEff(const std::vector < int > &vars) const {
         return getBDDVars(vars, bdd_index_eff);
-    }
-
-    inline std::vector < BDD > getBDDVarsAbs(const std::vector < int > &vars) const {
-        return getBDDVars(vars, bdd_index_abs);
-    }
-
-    inline unsigned long totalMemory() const {
-        return manager->ReadMemoryInUse();
-    }
-
-    inline double totalMemoryGB() const {
-        return manager->ReadMemoryInUse() / (1024 * 1024 * 1024);
     }
 
     inline BDD zeroBDD() const {
@@ -186,20 +156,20 @@ public:
         return manager->bddOne();
     }
 
-    inline BDD validStates() const {return validBDD;}
-
-    inline Cudd *mgr() const {
-        return manager.get();
+    ADD constant(double c) const {
+        return manager->constant(c);
     }
+
+    inline BDD validStates() const {return validBDD;}
 
     inline BDD bddVar(int index) const {return variables[index];}
 
     inline void setTimeLimit(int maxTime) {
-        manager->SetTimeLimit(maxTime);
-        manager->ResetStartTime();
+        if (maxTime > 0) {
+            manager->SetTimeLimit(maxTime);
+            manager->ResetStartTime();
+        }
     }
-
-    inline void unsetTimeLimit() {manager->UnsetTimeLimit();}
 
     int *getBinaryDescription(const State &state) {
         int pos = 0;
@@ -223,18 +193,19 @@ public:
         return &(binState[0]);
     }
 
-    std::vector < std::string > get_fd_variable_names() const;
-
-    inline ADD getADD(int value) {
-        return manager->constant(value);
+    inline void unsetTimeLimit() {
+        manager->UnsetTimeLimit();
     }
+
+    void to_dot(const BDD &bdd, const std::string &file_name) const;
+    void to_dot(const ADD &bdd, const std::string &file_name) const;
 
     static void add_options_to_parser(options::OptionParser &parser);
 
     void print_options() const;
 
 private:
-    // Auxiliar function helping to create precondition and effect BDDs
+    // Auxiliary function helping to create precondition and effect BDDs
     // Generates value for bddVars.
     BDD generateBDDVar(const std::vector < int > &_bddVars, int value) const;
     BDD getCube(int var, const std::vector < std::vector < int >> &v_index) const;
@@ -256,6 +227,6 @@ private:
 
     inline int getNumBDDVars() const {return numBDDVars;}
 };
-} // namespace symbolic
+}
 
 #endif

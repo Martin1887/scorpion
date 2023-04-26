@@ -7,7 +7,7 @@ namespace symbolic {
 class TopqSymbolicUniformCostSearch : public TopkSymbolicUniformCostSearch {
 private:
     double get_quality_bound() {
-        return solution_registry.cheapest_solution_cost_found() *
+        return solution_registry->cheapest_solution_cost_found() *
                quality_multiplier;
     }
 
@@ -26,6 +26,6 @@ public:
 
     static void add_options_to_parser(OptionParser &parser);
 };
-} // namespace symbolic
+}
 
 #endif

@@ -1,9 +1,10 @@
 #ifndef SYMBOLIC_NAIVE_SIMPLE_SELECTOR_H
 #define SYMBOLIC_NAIVE_SIMPLE_SELECTOR_H
 
+#include "plan_selector.h"
 #include "../../option_parser.h"
 #include "../../task_utils/task_properties.h"
-#include "plan_database.h"
+
 using namespace std;
 
 /**
@@ -11,7 +12,7 @@ using namespace std;
  */
 
 namespace symbolic {
-class SimpleSelector : public PlanDataBase {
+class SimpleSelector : public PlanSelector {
 public:
     SimpleSelector(const options::Options &opts);
     ~SimpleSelector() {}
@@ -22,6 +23,6 @@ public:
 private:
     bool is_simple(const Plan &plan);
 };
-} // namespace symbolic
+}
 
-#endif /* SYMBOLIC_NAIVE_SIMPLE_SELECTOR_H */
+#endif

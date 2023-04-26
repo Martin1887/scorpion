@@ -249,7 +249,7 @@ tl::optional<SearchNode> EagerOspSearch::fetch_next_node() {
 }
 
 EagerOspSearch::EagerOspSearch(const Options &opts)
-    : EagerSearch(opts), vars(true),
+    : EagerSearch(opts), vars(opts, task),
       max_utility(-std::numeric_limits<double>::infinity()),
       best_state(state_registry.get_initial_state()),
       best_utility(-std::numeric_limits<double>::infinity()) {}

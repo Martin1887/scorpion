@@ -459,6 +459,10 @@ public:
         return task->get_operator_cost(index, is_an_axiom);
     }
 
+    std::string get_cost_function() const {
+        return task->get_operator_cost_function(index, is_an_axiom);
+    }
+
     bool is_axiom() const {
         return is_an_axiom;
     }

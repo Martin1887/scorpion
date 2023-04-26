@@ -17,10 +17,7 @@ public:
     virtual ~TopkSymbolicUniformCostSearch() = default;
 
     virtual void new_solution(const SymSolutionCut &sol) override;
-
-    virtual void print_statistics() const override {
-    }
 };
-} // namespace symbolic
+}
 
 #endif

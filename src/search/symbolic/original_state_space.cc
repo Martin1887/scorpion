@@ -1,9 +1,12 @@
 #include "original_state_space.h"
 
+#include "sym_axiom/sym_axiom_compilation.h"
+
 #include "../abstract_task.h"
 #include "../mutex_group.h"
+#include "../tasks/sdac_task.h"
 #include "../task_utils/task_properties.h"
-#include "sym_axiom/sym_axiom_compilation.h"
+#include "../utils/logging.h"
 
 #include <algorithm>
 #include <limits>
@@ -13,8 +16,8 @@ using namespace std;
 namespace symbolic {
 OriginalStateSpace::OriginalStateSpace(SymVariables *v,
                                        const SymParamsMgr &params,
-                                       const std::shared_ptr < AbstractTask > task)
-    : SymStateSpaceManager(v, params, task) {
+                                       const shared_ptr < AbstractTask > &task)
+    : SymStateSpaceManager(v, params, task), task(task) {
     // Transform initial state and goal states if axioms are present
     if (task_properties::has_axioms(TaskProxy(*task))) {
         initialState = v->get_axiom_compiliation()->get_compilied_init_state();
@@ -22,7 +25,7 @@ OriginalStateSpace::OriginalStateSpace(SymVariables *v,
     } else {
         initialState =
             vars->getStateBDD(task->get_initial_state_values());
-        std::vector < std::pair < int, int >> goal_facts;
+        vector < pair < int, int >> goal_facts;
         for (int i = 0; i < task->get_num_goals(); i++) {
             auto fact = task->get_goal_fact(i);
             goal_facts.emplace_back(fact.var, fact.value);
@@ -31,8 +34,22 @@ OriginalStateSpace::OriginalStateSpace(SymVariables *v,
     }
 
     init_mutex(task->get_mutex_groups());
-    create_single_trs();
+    shared_ptr < extra_tasks::SdacTask > sdac_task = dynamic_pointer_cast < extra_tasks::SdacTask > (task);
+    utils::g_log << "Creating transition relations..." << flush;
+    if (sdac_task == nullptr) {
+        create_single_trs();
+    } else {
+        create_single_sdac_trs(sdac_task, p.fast_sdac_generation);
+    }
+    utils::g_log << "Done!" << endl;
+    utils::g_log << "Merging transition relations: " << task->get_num_operators() << " => " << flush;
     init_transitions(indTRs);
+    int num_trs = 0;
+    for (auto const &pair : transitions) {
+        num_trs += pair.second.size();
+    }
+    utils::g_log << num_trs << endl;
+    cout << endl;
 }
 
 void OriginalStateSpace::create_single_trs() {
@@ -41,7 +58,7 @@ void OriginalStateSpace::create_single_trs() {
 
         // Ignore cost operators and set zero costs to 1
         // cout << "Creating TR of op " << i << " of cost " << cost << endl;
-        indTRs[cost].emplace_back(vars, OperatorID(i), cost);
+        indTRs[cost].emplace_back(vars, OperatorID(i), task);
         indTRs[cost].back().init();
         if (p.mutex_type == MutexType::MUTEX_EDELETION) {
             indTRs[cost].back().edeletion(notMutexBDDsByFluentFw,
@@ -57,8 +74,47 @@ void OriginalStateSpace::create_single_trs() {
     }
 }
 
+void OriginalStateSpace::create_single_sdac_trs(
+    shared_ptr < extra_tasks::SdacTask > sdac_task, bool fast_creation) {
+    if (!fast_creation) {
+        utils::g_log << "Normal SDAC TR generation." << endl;
+        for (int i = 0; i < sdac_task->get_num_operators(); i++) {
+            int cost = sdac_task->get_operator_cost(i, false);
+            indTRs[cost].emplace_back(vars, OperatorID(i), sdac_task);
+
+            indTRs[cost].back().init();
+            indTRs[cost].back().add_condition(sdac_task->get_operator_cost_condition(i, false));
+        }
+    } else {
+        utils::g_log << "Fast SDAC TR generation." << endl;
+        // Generate template TRs
+        vector < TransitionRelation > look_up;
+        int last_parent_id = -1;
+        for (int i = 0; i < sdac_task->get_num_operators(); i++) {
+            int parent_op_id = sdac_task->convert_operator_index_to_parent(i);
+            if (last_parent_id != parent_op_id) {
+                last_parent_id = parent_op_id;
+                look_up.emplace_back(vars, OperatorID(i), sdac_task);
+                look_up.back().init();
+            }
+        }
+
+        // Create actual TRs
+        for (int i = 0; i < sdac_task->get_num_operators(); i++) {
+            int parent_op_id = sdac_task->convert_operator_index_to_parent(i);
+            int cost = sdac_task->get_operator_cost(i, false);
+            indTRs[cost].emplace_back(vars, OperatorID(i), sdac_task);
+
+            indTRs[cost].back().init_from_tr(look_up[parent_op_id]);
+            indTRs[cost].back().set_cost(cost);
+            indTRs[cost].back().setOpsIds(set < OperatorID > ({OperatorID(i)}));
+            indTRs[cost].back().add_condition(sdac_task->get_operator_cost_condition(i, false));
+        }
+    }
+}
+
 void OriginalStateSpace::init_mutex(
-    const std::vector < MutexGroup > &mutex_groups) {
+    const vector < MutexGroup > &mutex_groups) {
     // If (a) is initialized OR not using mutex OR edeletion does not need mutex
     if (p.mutex_type == MutexType::MUTEX_NOT)
         return;     // Skip mutex initialization
@@ -83,7 +139,7 @@ void OriginalStateSpace::init_mutex(
     init_mutex(mutex_groups, genMutexBDD, genMutexBDDByFluent, true);
 }
 
-void OriginalStateSpace::init_mutex(const std::vector < MutexGroup > &mutex_groups,
+void OriginalStateSpace::init_mutex(const vector < MutexGroup > &mutex_groups,
                                     bool genMutexBDD, bool genMutexBDDByFluent,
                                     bool fw) {
     vector < vector < BDD >> &notMutexBDDsByFluent =
@@ -92,8 +148,8 @@ void OriginalStateSpace::init_mutex(const std::vector < MutexGroup > &mutex_grou
     vector < BDD > &notMutexBDDs = (fw ? notMutexBDDsFw : notMutexBDDsBw);
 
     // BDD validStates = vars->oneBDD();
-    int _num_mutex = 0;
-    int _num_invariants = 0;
+    int num_mutex = 0;
+    int num_invariants = 0;
 
     if (genMutexBDDByFluent) {
         // Initialize structure for notMutexBDDsByFluent
@@ -141,7 +197,7 @@ void OriginalStateSpace::init_mutex(const std::vector < MutexGroup > &mutex_grou
             }
 
             if (exactlyOneRelevant) {
-                _num_invariants++;
+                num_invariants++;
                 if (genMutexBDD) {
                     invariant_bdds_by_fluent[var][val] *= bddInvariant;
                 }
@@ -164,7 +220,7 @@ void OriginalStateSpace::init_mutex(const std::vector < MutexGroup > &mutex_grou
                 BDD f2 = vars->preBDD(var2, val2);
                 BDD mBDD = !(f1 * f2);
                 if (genMutexBDD) {
-                    _num_mutex++;
+                    num_mutex++;
                     mBDDByVar[min(var1, var2)] *= mBDD;
                     if (mBDDByVar[min(var1, var2)].nodeCount() > p.max_mutex_size) {
                         notMutexBDDs.push_back(mBDDByVar[min(var1, var2)]);
@@ -192,7 +248,7 @@ void OriginalStateSpace::init_mutex(const std::vector < MutexGroup > &mutex_grou
         }
 
         merge(vars, notMutexBDDs, mergeAndBDD, p.max_mutex_time, p.max_mutex_size);
-        std::reverse(notMutexBDDs.begin(), notMutexBDDs.end());
+        reverse(notMutexBDDs.begin(), notMutexBDDs.end());
     }
 }
 } // namespace symbolic

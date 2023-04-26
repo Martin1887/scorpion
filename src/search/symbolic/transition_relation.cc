@@ -1,6 +1,7 @@
 #include "transition_relation.h"
 
 #include "../task_proxy.h"
+#include "../utils/logging.h"
 #include "../utils/timer.h"
 #include "original_state_space.h"
 #include "sym_state_space_manager.h"
@@ -11,35 +12,33 @@
 using namespace std;
 
 namespace symbolic {
-TransitionRelation::TransitionRelation(SymVariables *sVars, OperatorID op_id,
-                                       int cost_)
-    : sV(sVars), cost(cost_), tBDD(sVars->oneBDD()),
+TransitionRelation::TransitionRelation(
+    SymVariables *sVars, OperatorID op_id,
+    const shared_ptr < AbstractTask > &task)
+    : sV(sVars), task_proxy(*task),
+      cost(task_proxy.get_operators()[op_id].get_cost()), tBDD(sVars->oneBDD()),
       existsVars(sVars->oneBDD()), existsBwVars(sVars->oneBDD()),
       absAfterImage(nullptr) {
     ops_ids.insert(op_id);
 }
 
 void TransitionRelation::init() {
-    TaskProxy task_proxy(*tasks::g_root_task);
     OperatorProxy op = task_proxy.get_operators()[ops_ids.begin()->get_index()];
 
-    for (auto const &pre : op.get_preconditions()) { // Put precondition of label
+    for (auto const &pre : op.get_preconditions()) {     // Put precondition of label
         FactPair fact = pre.get_pair();
         tBDD *= sV->get_axiom_compiliation()->get_primary_representation(
             fact.var, fact.value);
     }
 
-    std::string op_name = op.get_name();
-    std::remove(op_name.begin(), op_name.end(), ' ');
-
-    map<int, BDD> effect_conditions;
-    map<int, BDD> effects;
+    map < int, BDD > effect_conditions;
+    map < int, BDD > effects;
 
     // Get effects and the remaining conditions.
     for (auto const &eff : op.get_effects()) {
         FactPair eff_fact = eff.get_fact().get_pair();
         int var = eff_fact.var;
-        if (std::find(effVars.begin(), effVars.end(), var) == effVars.end()) {
+        if (find(effVars.begin(), effVars.end(), var) == effVars.end()) {
             effVars.push_back(var);
         }
 
@@ -62,6 +61,7 @@ void TransitionRelation::init() {
     }
 
     // Add effects to the tBDD
+    int counter = 0;
     for (auto it = effects.rbegin(); it != effects.rend(); ++it) {
         int var = it->first;
         BDD effectBDD = it->second;
@@ -72,10 +72,10 @@ void TransitionRelation::init() {
             effectBDD += (effect_conditions[var] * sV->biimp(var));
         }
         tBDD *= effectBDD;
+        counter++;
     }
     if (tBDD.IsZero()) {
-        cerr << "Operator is empty: " << op.get_name() << endl;
-        // exit(0);
+        utils::g_log << "Operator is empty: " << op.get_name() << endl;
     }
 
     sort(effVars.begin(), effVars.end());
@@ -97,15 +97,21 @@ void TransitionRelation::init() {
 
 void TransitionRelation::shrink(const SymStateSpaceManager &abs, int maxNodes) {
     tBDD = abs.shrinkTBDD(tBDD, maxNodes);
+}
 
-    // effVars
-    vector <int> newEffVars;
-    for (int var : effVars) {
-        if (abs.isRelevantVar(var)) {
-            newEffVars.push_back(var);
-        }
-    }
-    newEffVars.swap(effVars);
+void TransitionRelation::init_from_tr(const TransitionRelation &other) {
+    tBDD = other.getTrBDD();
+    ops_ids = other.getOpsIds();
+    cost = other.getCost();
+    effVars = other.getEffVars();
+    existsVars = other.getExistsVars();
+    existsBwVars = other.getExistBwVars();
+    swapVarsS = other.getSwapVars();
+    swapVarsSp = other.getSwapVarsP();
+}
+
+void TransitionRelation::add_condition(BDD cond) {
+    tBDD *= cond;
 }
 
 BDD TransitionRelation::image(const BDD &from) const {
@@ -120,7 +126,6 @@ BDD TransitionRelation::image(const BDD &from) const {
 }
 
 BDD TransitionRelation::image(const BDD &from, int maxNodes) const {
-    utils::Timer t;
     BDD aux = from;
     BDD tmp = tBDD.AndAbstract(aux, existsVars, maxNodes);
     BDD res = tmp.SwapVariables(swapVarsS, swapVarsSp);
@@ -142,7 +147,6 @@ BDD TransitionRelation::preimage(const BDD &from) const {
 }
 
 BDD TransitionRelation::preimage(const BDD &from, int maxNodes) const {
-    utils::Timer t;
     BDD tmp = from.SwapVariables(swapVarsS, swapVarsSp);
     BDD res = tBDD.AndAbstract(tmp, existsBwVars, maxNodes);
     if (absAfterImage) {
@@ -155,24 +159,24 @@ BDD TransitionRelation::preimage(const BDD &from, int maxNodes) const {
 void TransitionRelation::merge(const TransitionRelation &t2, int maxNodes) {
     assert(cost == t2.cost);
     if (cost != t2.cost) {
-        cout << "Error: merging transitions with different cost: " << cost << " "
+        cerr << "Error: merging transitions with different cost: " << cost << " "
              << t2.cost << endl;
         utils::exit_with(utils::ExitCode::SEARCH_CRITICAL_ERROR);
     }
 
-    //  cout << "set_union" << endl;
+    //  utils::g_log << "set_union" << endl;
     // Attempt to generate the new tBDD
-    vector<int> newEffVars;
+    vector < int > newEffVars;
     set_union(effVars.begin(), effVars.end(), t2.effVars.begin(),
               t2.effVars.end(), back_inserter(newEffVars));
 
     BDD newTBDD = tBDD;
     BDD newTBDD2 = t2.tBDD;
 
-    //    cout << "Eff vars" << endl;
-    vector<int>::const_iterator var1 = effVars.begin();
-    vector<int>::const_iterator var2 = t2.effVars.begin();
-    for (vector<int>::const_iterator var = newEffVars.begin();
+    //    utils::g_log << "Eff vars" << endl;
+    vector < int > ::const_iterator var1 = effVars.begin();
+    vector < int > ::const_iterator var2 = t2.effVars.begin();
+    for (vector < int > ::const_iterator var = newEffVars.begin();
          var != newEffVars.end(); ++var) {
         if (var1 == effVars.end() || *var1 != *var) {
             newTBDD *= sV->biimp(*var);
@@ -189,7 +193,7 @@ void TransitionRelation::merge(const TransitionRelation &t2, int maxNodes) {
     newTBDD = newTBDD.Or(newTBDD2, maxNodes);
 
     if (newTBDD.nodeCount() > maxNodes) {
-        throw BDDError(); // We could not sucessfully merge
+        throw BDDError();     // We could not successfully merge
     }
 
     tBDD = newTBDD;
@@ -212,17 +216,14 @@ void TransitionRelation::merge(const TransitionRelation &t2, int maxNodes) {
 // For each op, include relevant mutexes
 
 void TransitionRelation::edeletion(
-    const std::vector<std::vector<BDD>> &notMutexBDDsByFluentFw,
-    const std::vector<std::vector<BDD>> &notMutexBDDsByFluentBw,
-    const std::vector<std::vector<BDD>> &exactlyOneBDDsByFluent) {
+    const vector < vector < BDD >> &notMutexBDDsByFluentFw,
+    const vector < vector < BDD >> &notMutexBDDsByFluentBw,
+    const vector < vector < BDD >> &exactlyOneBDDsByFluent) {
     assert(ops_ids.size() == 1);
-    assert(notMutexBDDsByFluentFw.size() ==
-           tasks::g_root_task->get_num_variables());
-    assert(notMutexBDDsByFluentBw.size() ==
-           tasks::g_root_task->get_num_variables());
-    assert(exactlyOneBDDsByFluent.size() ==
-           tasks::g_root_task->get_num_variables());
-    TaskProxy task_proxy(*tasks::g_root_task);
+    assert(notMutexBDDsByFluentFw.size() == task_proxy.get_variables().size());
+    assert(notMutexBDDsByFluentBw.size() == task_proxy.get_variables().size());
+    assert(exactlyOneBDDsByFluent.size() == task_proxy.get_variables().size());
+
     // For each op, include relevant mutexes
     for (const OperatorID &op_id : ops_ids) {
         OperatorProxy op = task_proxy.get_operators()[op_id.get_index()];
@@ -243,7 +244,7 @@ void TransitionRelation::edeletion(
                 // That means that every previous value is possible
                 // for each value of the variable
                 for (int val = 0;
-                     val < tasks::g_root_task->get_variable_domain_size(pp.var);
+                     val < task_proxy.get_variables()[pp.var].get_domain_size();
                      val++) {
                     tBDD *= notMutexBDDsByFluentBw[pp.var][val];
                 }
@@ -263,11 +264,8 @@ void TransitionRelation::edeletion(
     }
 }
 
-ostream &operator<<(std::ostream &os, const TransitionRelation &tr) {
-    os << "TR(";
-    for (auto &op : tr.ops_ids) {
-        os << tasks::g_root_task->get_operator_name(op.get_index(), false) << ", ";
-    }
-    return os << "): " << tr.tBDD.nodeCount() << endl;
+const OperatorID &TransitionRelation::getUniqueOpId() const {
+    assert(ops_ids.size() == 1);
+    return *(getOpsIds().begin());
 }
-} // namespace symbolic
+}

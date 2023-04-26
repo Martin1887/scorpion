@@ -1,63 +1,88 @@
 #ifndef SYMBOLIC_PLAN_RECONSTRUCTION_SYM_SOLUTION_REGISTRY_H
 #define SYMBOLIC_PLAN_RECONSTRUCTION_SYM_SOLUTION_REGISTRY_H
 
+#include "sym_solution_cut.h"
+#include "../plan_selection/plan_selector.h"
+#include "../sym_variables.h"
+#include "../transition_relation.h"
 #include "../../plan_manager.h"
 #include "../../state_registry.h"
 #include "../../task_proxy.h"
-#include "../plan_selection/plan_database.h"
-#include "../sym_variables.h"
-#include "../transition_relation.h"
-#include "sym_solution_cut.h"
+
+#include "reconstruction_node.h"
 
 namespace symbolic {
+// We would like to use the prio queue implemented in FD but it requires
+// integer values as prio and we have a more complex comparison
+typedef std::priority_queue < ReconstructionNode, std::vector < ReconstructionNode >, CompareReconstructionNodes > ReconstructionQueue;
+
+enum class PlanPruning {
+    /* Multiple combinable options to specify which plans are allowed to be part of
+    the solution set. The Plan reconstruction will optimize to prune partial plans that
+    can not fulfill the constraints. */
+    SINGLE_SOLUTION = 0,
+    SIMPLE_SOLUTIONS = 1,
+    JUSTIFIED = 2
+};
+
+
 class UniformCostSearch;
 class ClosedList;
 
 class SymSolutionRegistry {
 protected:
-    bool single_solution;
+    // Pruning techniques
+    bool justified_solutions_pruning;
+    bool single_solution_pruning;
+    bool simple_solutions_pruning;
 
-    std::vector<SymSolutionCut> sym_cuts; // sorted in ascending order!
 
-    std::shared_ptr<SymVariables> sym_vars;
-    UniformCostSearch *fw_search;
-    UniformCostSearch *bw_search;
-    std::shared_ptr<PlanDataBase> plan_data_base;
-    std::map<int, std::vector<TransitionRelation>> trs;
-    int plan_cost_bound;
+    std::map < int, std::vector < SymSolutionCut >> sym_cuts;
 
-    bool task_has_zero_costs() const {return trs.count(0) > 0;}
+    std::shared_ptr < SymVariables > sym_vars;
+    std::shared_ptr < ClosedList > fw_closed;
+    std::shared_ptr < ClosedList > bw_closed;
+    std::shared_ptr < PlanSelector > plan_data_base;
+    std::map < int, std::vector < TransitionRelation >> trs;
 
-    BDD get_resulting_state(const Plan &plan) const;
-
-    void reconstruct_plans(const SymSolutionCut &cut);
+    // We would like to use the prio queue implemented in FD but it requires
+    // integer values as prio and we have a more complex comparison
+    ReconstructionQueue queue;
 
     void add_plan(const Plan &plan) const;
 
-    // Extracts all plans by a DFS, we copy the current plan suffix by every
-    // recusive call which is why we don't use any reference for plan
-    // BID: After reconstruction of the forward part we reverse the plan and
-    // call extract_all_plans in bw direction which completes the plan
-    // After completing a plan we store it in found plans!
-    void extract_all_plans(SymSolutionCut &sym_cut, bool fw, Plan plan);
+    void reconstruct_plans(const std::vector < SymSolutionCut > &sym_cuts);
 
-    void extract_all_cost_plans(SymSolutionCut &sym_cut, bool fw, Plan &plan);
-    void extract_all_zero_plans(SymSolutionCut &sym_cut, bool fw, Plan &plan);
+    void expand_actions(const ReconstructionNode &node);
 
-    // Return wether a zero cost reconstruction step was necessary
-    bool reconstruct_zero_action(SymSolutionCut &sym_cut, bool fw,
-                                 std::shared_ptr<ClosedList> closed,
-                                 const Plan &plan);
-    bool reconstruct_cost_action(SymSolutionCut &sym_cut, bool fw,
-                                 std::shared_ptr<ClosedList> closed,
-                                 const Plan &plan);
+    bool swap_to_bwd_phase(const ReconstructionNode &node) const;
+
+    bool is_solution(const ReconstructionNode &node) const;
+
+    bool task_has_zero_costs() const {return trs.count(0) > 0;}
+
+    bool justified_solutions() const {return justified_solutions_pruning;}
+
+    bool simple_solutions() const {return simple_solutions_pruning;}
+
+    bool single_solution() const {return single_solution_pruning;}
+
+    bool no_pruning() const {
+        return !single_solution() && !justified_solutions() && !simple_solutions();
+    }
 
 public:
     SymSolutionRegistry();
 
-    void init(std::shared_ptr<SymVariables> sym_vars,
-              UniformCostSearch *fwd_search, UniformCostSearch *bwd_search,
-              std::shared_ptr<PlanDataBase> plan_data_base, bool single_solution);
+    void init(std::shared_ptr < SymVariables > sym_vars,
+              std::shared_ptr < symbolic::ClosedList > fw_closed,
+              std::shared_ptr < symbolic::ClosedList > bw_closed,
+              std::map < int, std::vector < TransitionRelation >> &trs,
+              std::shared_ptr < PlanSelector > plan_data_base,
+              bool single_solution,
+              bool simple_solutions);
+
+    virtual ~SymSolutionRegistry() = default;
 
     void register_solution(const SymSolutionCut &solution);
     void construct_cheaper_solutions(int bound);
@@ -78,16 +103,16 @@ public:
     }
 
     double cheapest_solution_cost_found() const {
-        double cheapest = std::numeric_limits<double>::infinity();
+        double cheapest = std::numeric_limits < double > ::infinity();
         if (plan_data_base) {
             cheapest = std::min(cheapest, plan_data_base->get_first_plan_cost());
         }
         if (sym_cuts.size() > 0) {
-            cheapest = std::min(cheapest, (double)sym_cuts.at(0).get_f());
+            cheapest = std::min(cheapest, (double)sym_cuts.begin()->first);
         }
         return cheapest;
     }
 };
-} // namespace symbolic
+}
 
 #endif

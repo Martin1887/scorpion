@@ -1,6 +1,7 @@
 #ifndef SYMBOLIC_UNIFORM_COST_SEARCH_H
 #define SYMBOLIC_UNIFORM_COST_SEARCH_H
 
+#include "sym_search.h"
 #include "../closed_list.h"
 #include "../frontier.h"
 #include "../open_list.h"
@@ -8,10 +9,8 @@
 #include "../sym_estimate.h"
 #include "../sym_state_space_manager.h"
 #include "../sym_utils.h"
-#include "sym_search.h"
-#include <map>
+
 #include <memory>
-#include <vector>
 
 namespace symbolic {
 /*
@@ -27,37 +26,26 @@ namespace symbolic {
  * 4) else (S must have something) => expand_cost()
  *
  * Zero cost operators have been expanded iff !S.IsZero() && Szero.IsZero()
- *
- * David: Let S be the current states in forntier. Then image_0(S) = S_0
- * and image_c(S) = S_c is computed. So zero cost actions and cost actions
- * are applied at the same time. Next image_0(S_0) = S'_0 nad image_c(S_0) =
- * S'_c are computed and so on.
  */
 class SymController;
 class ClosedList;
 
 class UniformCostSearch : public SymSearch {
 protected:
-    bool fw; // Direction of the search. true=forward, false=backward
+    bool fw;     // Direction of the search. true=forward, false=backward
+
+    Estimation step_estimation;
 
     // Current state of the search:
-    std::shared_ptr<ClosedList> closed; // Closed list is a shared ptr to share
+    std::shared_ptr < ClosedList > closed;     // Closed list is a shared ptr to share
     OpenList open_list;
     Frontier frontier;
 
     // Opposite direction. Mostly relevant when bidirectional search ist used
-    std::shared_ptr<ClosedList> perfectHeuristic;
+    std::shared_ptr < ClosedList > perfectHeuristic;
 
-    SymStepCostEstimation estimationCost, estimationZero; // Time/nodes estimated
-    // NOTE: This was used to estimate the time and nodes needed to
-    // perform a step in case that the next bucket is still not prepared.
-    // Now, we always prepare the next bucket and when that fails no
-    // estimation is needed (the exploration is deemed as not searchable
-    // and is worse than any other exploration which has its next bucket
-    // to expand ready)
-    // SymStepCostEstimation estimationDisjCost, estimationDisjZero;
-    bool lastStepCost; // If the last step was a cost step (to know if we are in
-                       // estimationDisjCost or Zero)
+    bool lastStepCost;     // If the last step was a cost step (to know if we are in
+                           // estimationDisjCost or Zero)
 
     int last_g_cost;
 
@@ -77,32 +65,34 @@ protected:
 
     void closeStates(Bucket &bucket, int g);
 
-    void prepareBucket();
+    bool prepareBucket();
 
     virtual void filterFrontier();
-
-    void computeEstimation(bool prepare);
 
     //////////////////////////////////////////////////////////////////////////////
 public:
     UniformCostSearch(SymbolicSearch *eng, const SymParamsSearch &params);
     UniformCostSearch(const UniformCostSearch &) = delete;
     UniformCostSearch(UniformCostSearch &&) = default;
-    UniformCostSearch &operator=(const UniformCostSearch &) = delete;
-    UniformCostSearch &operator=(UniformCostSearch &&) = default;
+    UniformCostSearch &operator =(const UniformCostSearch &) = delete;
+    UniformCostSearch &operator =(UniformCostSearch &&) = default;
     virtual ~UniformCostSearch() = default;
 
-    virtual bool finished() const {
+    virtual bool finished() const override {
         return open_list.empty() && frontier.empty();
     }
 
-    virtual bool stepImage(int maxTime, int maxNodes);
+    virtual bool step() override {
+        return stepImage(0, 0);
+    }
+
+    virtual bool stepImage(int maxTime, int maxNodes) override;
 
     bool
-    init(std::shared_ptr<SymStateSpaceManager> manager, bool fw,
-         UniformCostSearch *opposite_search); // Init forward or backward search
+    init(std::shared_ptr < SymStateSpaceManager > manager, bool fw,
+         UniformCostSearch *opposite_search);     // Init forward or backward search
 
-    virtual bool isSearchableWithNodes(int maxNodes) const;
+    virtual bool isSearchableWithNodes(int maxNodes) const override;
 
     virtual int getF() const override {
         return open_list.minNextG(frontier, mgr->getAbsoluteMinTransitionCost());
@@ -112,13 +102,11 @@ public:
         return frontier.empty() ? open_list.minG() : frontier.g();
     }
 
-    std::shared_ptr<ClosedList> getClosedShared() const {return closed;}
+    std::shared_ptr < ClosedList > getClosedShared() const {
+        return closed;
+    }
 
     void filterDuplicates(Bucket &bucket);
-
-    virtual long nextStepTime() const override;
-    virtual long nextStepNodes() const override;
-    virtual long nextStepNodesResult() const override;
 
     // Returns the nodes that have been expanded by the algorithm (closed without
     // the current frontier)
@@ -127,9 +115,18 @@ public:
 
     // void write(const std::string & file) const;
 
+    Estimation *get_step_estimator() {return &step_estimation;}
+
     void filterMutex(Bucket &bucket) {
         mgr->filterMutex(bucket, fw, initialization());
     }
+
+    // dummy implementation of the following functions, allowing the maximum of
+    // time and nodes
+    virtual std::string get_last_dir() const override {return "";}
+    virtual long nextStepTime() const override {return std::numeric_limits < long > ::max();}
+    virtual long nextStepNodes() const override {return std::numeric_limits < long > ::max();}
+    virtual long nextStepNodesResult() const override {return std::numeric_limits < long > ::max();}
 };
 } // namespace symbolic
 #endif

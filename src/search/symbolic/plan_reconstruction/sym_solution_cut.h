@@ -21,6 +21,7 @@ public:
     int get_h() const;
     int get_f() const;
     BDD get_cut() const;
+
     void merge(const SymSolutionCut &other);
 
     void set_g(int g);

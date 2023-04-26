@@ -14,7 +14,8 @@ protected:
 
 public:
     TopkUniformCostSearch(SymbolicSearch *eng, const SymParamsSearch &params)
-        : UniformCostSearch(eng, params) {}
+        : UniformCostSearch(eng, params) {
+    }
 };
 } // namespace symbolic
 

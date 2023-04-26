@@ -1,10 +1,10 @@
 #ifndef SYMBOLIC_UNORDERED_SELECTOR_H
 #define SYMBOLIC_UNORDERED_SELECTOR_H
 
-#include "plan_database.h"
+#include "plan_selector.h"
 
 namespace symbolic {
-class UnorderedSelector : public PlanDataBase {
+class UnorderedSelector : public PlanSelector {
 public:
     UnorderedSelector(const options::Options &opts);
 
@@ -17,6 +17,6 @@ public:
 protected:
     void save_accepted_plan(const Plan &ordered_plan, const Plan &unordered_plan);
 };
-} // namespace symbolic
+}
 
-#endif /* SYMBOLIC_UNORDERED_SELECTOR_H */
+#endif

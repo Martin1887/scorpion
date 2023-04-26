@@ -39,6 +39,10 @@ int DelegatingTask::get_operator_cost(int index, bool is_axiom) const {
     return parent->get_operator_cost(index, is_axiom);
 }
 
+string DelegatingTask::get_operator_cost_function(int index, bool is_axiom) const {
+    return parent->get_operator_cost_function(index, is_axiom);
+}
+
 string DelegatingTask::get_operator_name(int index, bool is_axiom) const {
     return parent->get_operator_name(index, is_axiom);
 }

@@ -22,12 +22,12 @@ using utils::ExitCode;
 
 namespace tasks {
 static const int PRE_FILE_VERSION = 3;
-shared_ptr<AbstractTask> g_root_task = nullptr;
+shared_ptr < AbstractTask > g_root_task = nullptr;
 
 struct ExplicitVariable {
     int domain_size;
     string name;
-    vector<string> fact_names;
+    vector < string > fact_names;
     int axiom_layer;
     int axiom_default_value;
 
@@ -37,16 +37,17 @@ struct ExplicitVariable {
 
 struct ExplicitEffect {
     FactPair fact;
-    vector<FactPair> conditions;
+    vector < FactPair > conditions;
 
-    ExplicitEffect(int var, int value, vector<FactPair> &&conditions);
+    ExplicitEffect(int var, int value, vector < FactPair > &&conditions);
 };
 
 
 struct ExplicitOperator {
-    vector<FactPair> preconditions;
-    vector<ExplicitEffect> effects;
+    vector < FactPair > preconditions;
+    vector < ExplicitEffect > effects;
     int cost;
+    string cost_function;
     string name;
     bool is_an_axiom;
 
@@ -56,15 +57,15 @@ struct ExplicitOperator {
 
 
 class RootTask : public AbstractTask {
-    vector<ExplicitVariable> variables;
+    vector < ExplicitVariable > variables;
     // TODO: think about using hash sets here.
-    vector<vector<set<FactPair>>> mutexes;
-    vector<MutexGroup> mutex_groups;
-    vector<ExplicitOperator> operators;
-    vector<ExplicitOperator> axioms;
-    vector<int> initial_state_values;
-    vector<FactPair> goals;
-    map<FactPair, int> utilities;
+    vector < vector < set < FactPair >>> mutexes;
+    vector < MutexGroup > mutex_groups;
+    vector < ExplicitOperator > operators;
+    vector < ExplicitOperator > axioms;
+    vector < int > initial_state_values;
+    vector < FactPair > goals;
+    map < FactPair, int > utilities;
     int plan_bound;
 
     const ExplicitVariable &get_variable(int var) const;
@@ -84,6 +85,7 @@ public:
         const FactPair &fact1, const FactPair &fact2) const override;
 
     virtual int get_operator_cost(int index, bool is_axiom) const override;
+    virtual string get_operator_cost_function(int index, bool is_axiom) const override;
     virtual string get_operator_name(
         int index, bool is_axiom) const override;
     virtual int get_num_operators() const override;
@@ -107,21 +109,21 @@ public:
     virtual int get_num_goals() const override;
     virtual FactPair get_goal_fact(int index) const override;
 
-    virtual vector<int> get_initial_state_values() const override;
-    std::vector<MutexGroup> get_mutex_groups() const override;
+    virtual vector < int > get_initial_state_values() const override;
+    std::vector < MutexGroup > get_mutex_groups() const override;
 
-    virtual map<FactPair, int> get_utilities() const override;
+    virtual map < FactPair, int > get_utilities() const override;
     virtual int get_plan_bound() const override;
 
     virtual void convert_ancestor_state_values(
-        vector<int> &values,
+        vector < int > &values,
         const AbstractTask *ancestor_task) const override;
     virtual bool does_convert_ancestor_state_values(
         const AbstractTask *ancestor_task) const override;
 };
 
 
-static void check_fact(const FactPair &fact, const vector<ExplicitVariable> &variables) {
+static void check_fact(const FactPair &fact, const vector < ExplicitVariable > &variables) {
     if (!utils::in_bounds(fact.var, variables)) {
         cerr << "Invalid variable id: " << fact.var << endl;
         utils::exit_with(ExitCode::SEARCH_INPUT_ERROR);
@@ -132,13 +134,13 @@ static void check_fact(const FactPair &fact, const vector<ExplicitVariable> &var
     }
 }
 
-static void check_facts(const vector<FactPair> &facts, const vector<ExplicitVariable> &variables) {
+static void check_facts(const vector < FactPair > &facts, const vector < ExplicitVariable > &variables) {
     for (FactPair fact : facts) {
         check_fact(fact, variables);
     }
 }
 
-static void check_facts(const ExplicitOperator &action, const vector<ExplicitVariable> &variables) {
+static void check_facts(const ExplicitOperator &action, const vector < ExplicitVariable > &variables) {
     check_facts(action.preconditions, variables);
     for (const ExplicitEffect &eff : action.effects) {
         check_fact(eff.fact, variables);
@@ -161,10 +163,10 @@ void check_magic(istream &in, const string &magic) {
     }
 }
 
-vector<FactPair> read_facts(istream &in) {
+vector < FactPair > read_facts(istream &in) {
     int count;
     in >> count;
-    vector<FactPair> conditions;
+    vector < FactPair > conditions;
     conditions.reserve(count);
     for (int i = 0; i < count; ++i) {
         FactPair condition = FactPair::no_fact;
@@ -188,13 +190,13 @@ ExplicitVariable::ExplicitVariable(istream &in) {
 
 
 ExplicitEffect::ExplicitEffect(
-    int var, int value, vector<FactPair> &&conditions)
+    int var, int value, vector < FactPair > &&conditions)
     : fact(var, value), conditions(move(conditions)) {
 }
 
 
 void ExplicitOperator::read_pre_post(istream &in) {
-    vector<FactPair> conditions = read_facts(in);
+    vector < FactPair > conditions = read_facts(in);
     int var, value_pre, value_post;
     in >> var >> value_pre >> value_post;
     if (value_pre != -1) {
@@ -218,12 +220,30 @@ ExplicitOperator::ExplicitOperator(istream &in, bool is_an_axiom, bool use_metri
         }
 
         int op_cost;
-        in >> op_cost;
-        cost = use_metric ? op_cost : 1;
+
+        // Double to move to next line
+        getline(in, cost_function);
+        getline(in, cost_function);
+        bool sdac = cost_function.find_first_not_of("0123456789") != string::npos;
+
+        if (!sdac) {
+            op_cost = stoi(cost_function);
+            cost = use_metric ? op_cost : 1;
+            cost_function = to_string(cost);
+        } else {
+            op_cost = 1;     // dummy
+            if (use_metric) {
+                cost = op_cost;
+            } else {
+                cost = 1;
+                cost_function = "1";
+            }
+        }
         check_magic(in, "end_operator");
     } else {
         name = "<axiom>";
         cost = 0;
+        cost_function = "0";
         check_magic(in, "begin_rule");
         read_pre_post(in);
         check_magic(in, "end_rule");
@@ -252,10 +272,10 @@ bool read_metric(istream &in) {
     return use_metric;
 }
 
-vector<ExplicitVariable> read_variables(istream &in) {
+vector < ExplicitVariable > read_variables(istream &in) {
     int count;
     in >> count;
-    vector<ExplicitVariable> variables;
+    vector < ExplicitVariable > variables;
     variables.reserve(count);
     for (int i = 0; i < count; ++i) {
         variables.emplace_back(in);
@@ -263,10 +283,10 @@ vector<ExplicitVariable> read_variables(istream &in) {
     return variables;
 }
 
-vector<MutexGroup> read_mutex_groups(istream &in) {
+vector < MutexGroup > read_mutex_groups(istream &in) {
     int num_mutex_groups;
     in >> num_mutex_groups;
-    vector<MutexGroup> mutex_groups;
+    vector < MutexGroup > mutex_groups;
     mutex_groups.reserve(num_mutex_groups);
 
     for (int i = 0; i < num_mutex_groups; ++i) {
@@ -277,8 +297,8 @@ vector<MutexGroup> read_mutex_groups(istream &in) {
     return mutex_groups;
 }
 
-vector<vector<set<FactPair>>> read_mutexes(const vector<MutexGroup> &mutex_groups, const vector<ExplicitVariable> &variables) {
-    vector<vector<set<FactPair>>> inconsistent_facts(variables.size());
+vector < vector < set < FactPair >>> read_mutexes(const vector < MutexGroup > &mutex_groups, const vector < ExplicitVariable > &variables) {
+    vector < vector < set < FactPair >>> inconsistent_facts(variables.size());
     for (size_t i = 0; i < variables.size(); ++i)
         inconsistent_facts[i].resize(variables[i].domain_size);
 
@@ -293,7 +313,7 @@ vector<vector<set<FactPair>>> read_mutexes(const vector<MutexGroup> &mutex_group
     */
     for (int i = 0; i < num_mutex_groups; ++i) {
         int num_facts = mutex_groups.at(i).getFacts().size();
-        vector<FactPair> invariant_group;
+        vector < FactPair > invariant_group;
         invariant_group.reserve(num_facts);
         for (int j = 0; j < num_facts; ++j) {
             invariant_group.emplace_back(mutex_groups.at(i).getFacts()[j]);
@@ -319,9 +339,9 @@ vector<vector<set<FactPair>>> read_mutexes(const vector<MutexGroup> &mutex_group
     return inconsistent_facts;
 }
 
-vector<FactPair> read_goal(istream &in) {
+vector < FactPair > read_goal(istream &in) {
     check_magic(in, "begin_goal");
-    vector<FactPair> goals = read_facts(in);
+    vector < FactPair > goals = read_facts(in);
     check_magic(in, "end_goal");
     if (goals.empty()) {
         cerr << "Task has no goal condition!" << endl;
@@ -330,10 +350,10 @@ vector<FactPair> read_goal(istream &in) {
     return goals;
 }
 
-map<FactPair, int> read_utilities(istream &in) {
+map < FactPair, int > read_utilities(istream &in) {
     string word;
     in >> word;
-    map<FactPair, int> utilities;
+    map < FactPair, int > utilities;
     if (word != "begin_util") {
         // set pointer back
         in.seekg(-word.length(), std::ios::cur);
@@ -358,19 +378,19 @@ int read_plan_bound(istream &in) {
     if (word != "begin_bound") {
         // set pointer back
         in.seekg(-word.length(), std::ios::cur);
-        return std::numeric_limits<int>::max();
+        return std::numeric_limits < int > ::max();
     }
     in >> bound;
     check_magic(in, "end_bound");
-    return bound + 1; // we use strictly smaller
+    return bound + 1;     // we use strictly smaller
 }
 
-vector<ExplicitOperator> read_actions(
+vector < ExplicitOperator > read_actions(
     istream &in, bool is_axiom, bool use_metric,
-    const vector<ExplicitVariable> &variables) {
+    const vector < ExplicitVariable > &variables) {
     int count;
     in >> count;
-    vector<ExplicitOperator> actions;
+    vector < ExplicitOperator > actions;
     actions.reserve(count);
     for (int i = 0; i < count; ++i) {
         actions.emplace_back(in, is_axiom, use_metric);
@@ -476,6 +496,10 @@ int RootTask::get_operator_cost(int index, bool is_axiom) const {
     return get_operator_or_axiom(index, is_axiom).cost;
 }
 
+string RootTask::get_operator_cost_function(int index, bool is_axiom) const {
+    return get_operator_or_axiom(index, is_axiom).cost_function;
+}
+
 string RootTask::get_operator_name(int index, bool is_axiom) const {
     return get_operator_or_axiom(index, is_axiom).name;
 }
@@ -537,20 +561,22 @@ FactPair RootTask::get_goal_fact(int index) const {
     return goals[index];
 }
 
-vector<int> RootTask::get_initial_state_values() const {
+vector < int > RootTask::get_initial_state_values() const {
     return initial_state_values;
 }
 
-std::vector<MutexGroup> RootTask::get_mutex_groups() const {
+vector < MutexGroup > RootTask::get_mutex_groups() const {
     return mutex_groups;
 }
 
-map<FactPair, int> RootTask::get_utilities() const {return utilities;}
+map < FactPair, int > RootTask::get_utilities() const {
+    return utilities;
+}
 
 int RootTask::get_plan_bound() const {return plan_bound;}
 
 void RootTask::convert_ancestor_state_values(
-    vector<int> &, const AbstractTask *ancestor_task) const {
+    vector < int > &, const AbstractTask *ancestor_task) const {
     if (this != ancestor_task) {
         ABORT("Invalid state conversion");
     }
@@ -566,15 +592,15 @@ bool RootTask::does_convert_ancestor_state_values(
 
 void read_root_task(istream &in) {
     assert(!g_root_task);
-    g_root_task = make_shared<RootTask>(in);
+    g_root_task = make_shared < RootTask > (in);
 }
 
-static shared_ptr<AbstractTask> _parse(OptionParser &parser) {
+static shared_ptr < AbstractTask > _parse(OptionParser &parser) {
     if (parser.dry_run())
         return nullptr;
     else
         return g_root_task;
 }
 
-static Plugin<AbstractTask> _plugin("no_transform", _parse);
+static Plugin < AbstractTask > _plugin("no_transform", _parse);
 }

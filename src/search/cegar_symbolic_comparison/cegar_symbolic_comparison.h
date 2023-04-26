@@ -13,13 +13,13 @@ namespace cegar_symbolic_comparison {
   Only CEGAR heuristics are used for the search, the symbolic ones are
   only compared with them.
 */
-    class CegarSymbolicComparison: public cegar::AdditiveCartesianHeuristic {
+class CegarSymbolicComparison : public cegar::AdditiveCartesianHeuristic {
 protected:
-        virtual std::vector < cegar::CartesianHeuristicFunction > generate_heuristic_functions(
-            const options::Options &opts, utils::LogProxy &log) override;
+    virtual std::vector < cegar::CartesianHeuristicFunction > generate_heuristic_functions(
+        const options::Options &opts, utils::LogProxy &log) override;
 public:
-        explicit CegarSymbolicComparison(const options::Options &opts);
-    };
+    explicit CegarSymbolicComparison(const options::Options &opts);
+};
 }
 
 #endif

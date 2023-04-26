@@ -146,7 +146,7 @@ void GamerPDBsHeuristic::initialize(const Options &opts) {
 
     cout << "Initialize original search" << endl;
 
-    SymParamsMgr mgrParams(opts);
+    SymParamsMgr mgrParams(opts, task);
     cout << "mgrParams created";
     vars = make_shared < SymVariables > (opts, task);
     vars->init();
@@ -342,7 +342,7 @@ static shared_ptr < GamerPDBsHeuristic > _parse(OptionParser &parser) {
     Heuristic::add_options_to_parser(parser);
     SymbolicSearch::add_options_to_parser(parser);
 
-    parser.add_option < std::shared_ptr < symbolic::PlanDataBase >> (
+    parser.add_option < std::shared_ptr < symbolic::PlanSelector >> (
         "plan_selection", "plan selection strategy", "top_k(num_plans=1)");
 
     parser.add_option < int > ("generation_time", "maximum time used in heuristic generation", "1200");

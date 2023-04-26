@@ -4,29 +4,31 @@
 #include <memory>
 
 using namespace std;
-using utils::g_timer;
 
 namespace symbolic {
 BidirectionalSearch::BidirectionalSearch(SymbolicSearch *eng,
                                          const SymParamsSearch &params,
-                                         std::unique_ptr<UniformCostSearch> _fw,
-                                         unique_ptr<UniformCostSearch> _bw)
-    : SymSearch(eng, params), fw(std::move(_fw)), bw(std::move(_bw)) {
+                                         shared_ptr < UniformCostSearch > _fw,
+                                         shared_ptr < UniformCostSearch > _bw)
+    : SymSearch(eng, params), fw(_fw), bw(_bw), cur_dir(nullptr) {
     assert(fw->getStateSpace() == bw->getStateSpace());
     mgr = fw->getStateSpaceShared();
 }
 
-UniformCostSearch *BidirectionalSearch::selectBestDirection() const {
-    bool fwSearchable = fw->isSearchable();
-    bool bwSearchable = bw->isSearchable();
-    if (fwSearchable && !bwSearchable) {
+string BidirectionalSearch::get_last_dir() const {
+    return cur_dir ? cur_dir->get_last_dir() : "";
+}
+
+UniformCostSearch *BidirectionalSearch::selectBestDirection() {
+    Estimation &fw_est = *fw->get_step_estimator();
+    Estimation &bw_est = *bw->get_step_estimator();
+    if (fw_est.get_failed() && bw_est.get_failed()) {
+        p.increase_bound();
+        bw_est.set_data(bw_est.get_time(), bw_est.get_nodes(), false);
         return fw.get();
-    } else if (!fwSearchable && bwSearchable) {
-        return bw.get();
     }
-    // std::cout << (fw->nextStepNodes() <= bw->nextStepNodes() ? "fwd " : "bwd ")
-    // << std::flush;
-    return fw->nextStepNodes() <= bw->nextStepNodes() ? fw.get() : bw.get();
+    cur_dir = (bw_est < fw_est) ? bw : fw;
+    return cur_dir.get();
 }
 
 bool BidirectionalSearch::finished() const {

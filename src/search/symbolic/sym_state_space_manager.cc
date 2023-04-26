@@ -1,14 +1,16 @@
 #include "sym_state_space_manager.h"
 
+#include "sym_enums.h"
+#include "sym_utils.h"
+
 #include "../abstract_task.h"
 #include "../mutex_group.h"
 #include "../options/option_parser.h"
 #include "../options/options.h"
 #include "../task_proxy.h"
 #include "../task_utils/task_properties.h"
+#include "../utils/logging.h"
 #include "../utils/timer.h"
-#include "sym_enums.h"
-#include "sym_utils.h"
 
 #include <algorithm>
 #include <limits>
@@ -19,7 +21,7 @@ using namespace std;
 namespace symbolic {
 SymStateSpaceManager::SymStateSpaceManager(SymVariables *v,
                                            const SymParamsMgr &params,
-                                           const shared_ptr < AbstractTask > task,
+                                           const shared_ptr < AbstractTask > &task,
                                            const set < int > &relevant_vars_)
     : vars(v), p(params), task(task), relevant_vars(relevant_vars_),
       initialState(v->zeroBDD()), goal(v->zeroBDD()), min_transition_cost(0),
@@ -33,17 +35,17 @@ SymStateSpaceManager::SymStateSpaceManager(SymVariables *v,
 
 void SymStateSpaceManager::dumpMutexBDDs(bool fw) const {
     if (fw) {
-        cout << "Mutex BDD FW Size(" << p.max_mutex_size << "):";
+        utils::g_log << "Mutex BDD FW Size(" << p.max_mutex_size << "):";
         for (const auto &bdd : notMutexBDDsFw) {
-            cout << " " << bdd.nodeCount();
+            utils::g_log << " " << bdd.nodeCount();
         }
-        cout << endl;
+        utils::g_log << endl;
     } else {
-        cout << "Mutex BDD BW Size(" << p.max_mutex_size << "):";
+        utils::g_log << "Mutex BDD BW Size(" << p.max_mutex_size << "):";
         for (const auto &bdd : notMutexBDDsBw) {
-            cout << " " << bdd.nodeCount();
+            utils::g_log << " " << bdd.nodeCount();
         }
-        cout << endl;
+        utils::g_log << endl;
     }
 }
 
@@ -187,46 +189,33 @@ bool SymStateSpaceManager::is_relevant_op(const OperatorID &op) const {
 }
 
 SymParamsMgr::SymParamsMgr(const options::Options &opts,
-                           const shared_ptr < AbstractTask > task)
+                           const shared_ptr < AbstractTask > &task)
     : max_tr_size(opts.get < int > ("max_tr_size")),
       max_tr_time(opts.get < int > ("max_tr_time")),
-      mutex_type(MutexType(opts.get < MutexType > ("mutex_type"))),
+      mutex_type(opts.get < MutexType > ("mutex_type")),
       max_mutex_size(opts.get < int > ("max_mutex_size")),
       max_mutex_time(opts.get < int > ("max_mutex_time")),
       max_aux_nodes(opts.get < int > ("max_aux_nodes")),
-      max_aux_time(opts.get < int > ("max_aux_time")) {
+      max_aux_time(opts.get < int > ("max_aux_time")),
+      fast_sdac_generation(opts.get < bool > ("fast_sdac_generation")) {
     // Don't use edeletion with conditional effects
-    TaskProxy task_proxy(*task);
     if (mutex_type == MutexType::MUTEX_EDELETION &&
-        task_properties::has_conditional_effects(task_proxy)) {
-        cout << "Mutex type changed to mutex_and because the domain has "
-            "conditional effects"
-             << endl;
-        mutex_type = MutexType::MUTEX_AND;
-    }
-}
-
-SymParamsMgr::SymParamsMgr(const shared_ptr < AbstractTask > task)
-    : max_tr_size(100000), max_tr_time(60000),
-      mutex_type(MutexType::MUTEX_EDELETION), max_mutex_size(100000),
-      max_mutex_time(60000), max_aux_nodes(1000000), max_aux_time(2000) {
-    // Don't use edeletion with conditional effects
-    TaskProxy task_proxy(*task);
-    if (mutex_type == MutexType::MUTEX_EDELETION &&
-        task_properties::has_conditional_effects(task_proxy)) {
-        cout << "Mutex type changed to mutex_and because the domain has "
-            "conditional effects"
-             << endl;
+        (task_properties::has_conditional_effects(TaskProxy(*task))
+         || task_properties::has_axioms(TaskProxy(*task))
+         || task_properties::has_sdac_cost_operator(TaskProxy(*task)))) {
+        utils::g_log << "Mutex type changed to mutex_and because the domain has "
+            "conditional effects, axioms and/or sdac."
+                     << endl;
         mutex_type = MutexType::MUTEX_AND;
     }
 }
 
 void SymParamsMgr::print_options() const {
-    cout << "TR(time=" << max_tr_time << ", nodes=" << max_tr_size << ")" << endl;
-    cout << "Mutex(time=" << max_mutex_time << ", nodes=" << max_mutex_size
-         << ", type=" << mutex_type << ")" << endl;
-    cout << "Aux(time=" << max_aux_time << ", nodes=" << max_aux_nodes << ")"
-         << endl;
+    utils::g_log << "TR(time=" << max_tr_time << ", nodes=" << max_tr_size << ")" << endl;
+    utils::g_log << "Mutex(time=" << max_mutex_time << ", nodes=" << max_mutex_size
+                 << ", type=" << mutex_type << ")" << endl;
+    utils::g_log << "Aux(time=" << max_aux_time << ", nodes=" << max_aux_nodes << ")"
+                 << endl;
 }
 
 void SymParamsMgr::add_options_to_parser(options::OptionParser &parser) {
@@ -248,6 +237,10 @@ void SymParamsMgr::add_options_to_parser(options::OptionParser &parser) {
                                "1000000");
     parser.add_option < int > ("max_aux_time", "maximum time (ms) in pop operations",
                                "2000");
+    parser.add_option < bool > (
+        "fast_sdac_generation",
+        "Generates one TR per original operators and reuses it.",
+        "true");
 }
 
 std::ostream &operator <<(std::ostream &os, const SymStateSpaceManager &abs) {

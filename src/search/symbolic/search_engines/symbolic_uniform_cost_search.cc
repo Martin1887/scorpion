@@ -1,27 +1,30 @@
 #include "symbolic_uniform_cost_search.h"
-#include "../../option_parser.h"
 #include "../original_state_space.h"
 #include "../plugin.h"
 #include "../searches/bidirectional_search.h"
 #include "../searches/uniform_cost_search.h"
 
+#include "../../option_parser.h"
+
 #include <memory>
+
+using namespace std;
 
 namespace symbolic {
 void SymbolicUniformCostSearch::initialize() {
     SymbolicSearch::initialize();
-    mgr = std::make_shared < OriginalStateSpace > (vars.get(), mgrParams);
+    mgr = make_shared < OriginalStateSpace > (vars.get(), mgrParams, search_task);
 
-    std::unique_ptr < UniformCostSearch > fw_search = nullptr;
-    std::unique_ptr < UniformCostSearch > bw_search = nullptr;
+    unique_ptr < UniformCostSearch > fw_search = nullptr;
+    unique_ptr < UniformCostSearch > bw_search = nullptr;
 
     if (fw) {
-        fw_search = std::unique_ptr < UniformCostSearch > (
+        fw_search = unique_ptr < UniformCostSearch > (
             new UniformCostSearch(this, searchParams));
     }
 
     if (bw) {
-        bw_search = std::unique_ptr < UniformCostSearch > (
+        bw_search = unique_ptr < UniformCostSearch > (
             new UniformCostSearch(this, searchParams));
     }
 
@@ -33,13 +36,19 @@ void SymbolicUniformCostSearch::initialize() {
         bw_search->init(mgr, false, fw_search.get());
     }
 
-    plan_data_base->init(vars);
-    solution_registry.init(vars, fw_search.get(), bw_search.get(), plan_data_base,
-                           true);
+    auto individual_trs = fw ? fw_search->getStateSpaceShared()->getIndividualTRs() :  bw_search->getStateSpaceShared()->getIndividualTRs();
+
+    solution_registry->init(vars,
+                            fw_search ? fw_search->getClosedShared() : nullptr,
+                            bw_search ? bw_search->getClosedShared() : nullptr,
+                            individual_trs,
+                            plan_data_base,
+                            single_solution,
+                            simple);
 
     if (fw && bw) {
-        search = std::unique_ptr < BidirectionalSearch > (new BidirectionalSearch(
-                                                              this, searchParams, move(fw_search), move(bw_search)));
+        search = unique_ptr < BidirectionalSearch > (new BidirectionalSearch(
+                                                         this, searchParams, move(fw_search), move(bw_search)));
     } else {
         search.reset(fw ? fw_search.release() : bw_search.release());
     }
@@ -47,64 +56,64 @@ void SymbolicUniformCostSearch::initialize() {
 
 SymbolicUniformCostSearch::SymbolicUniformCostSearch(
     const options::Options &opts, bool fw, bool bw,
-    const std::shared_ptr < AbstractTask > task)
+    const shared_ptr < AbstractTask > task)
     : SymbolicSearch(opts, task), fw(fw), bw(bw) {}
 
 void SymbolicUniformCostSearch::new_solution(const SymSolutionCut &sol) {
-    if (!solution_registry.found_all_plans() && sol.get_f() < upper_bound) {
-        solution_registry.register_solution(sol);
+    if (!solution_registry->found_all_plans() && sol.get_f() < upper_bound) {
+        solution_registry->register_solution(sol);
         upper_bound = sol.get_f();
     }
 }
 } // namespace symbolic
 
-static std::shared_ptr < SearchEngine > _parse_forward_ucs(OptionParser &parser) {
+static shared_ptr < SearchEngine > _parse_forward_ucs(OptionParser &parser) {
     parser.document_synopsis("Symbolic Forward Uniform Cost Search", "");
     symbolic::SymbolicSearch::add_options_to_parser(parser);
-    parser.add_option < std::shared_ptr < symbolic::PlanDataBase >> (
+    parser.add_option < shared_ptr < symbolic::PlanSelector >> (
         "plan_selection", "plan selection strategy", "top_k(num_plans=1)");
     Options opts = parser.parse();
 
-    std::shared_ptr < symbolic::SymbolicSearch > engine = nullptr;
+    shared_ptr < symbolic::SymbolicSearch > engine = nullptr;
     if (!parser.dry_run()) {
-        engine = std::make_shared < symbolic::SymbolicUniformCostSearch > (opts, true,
-                                                                           false);
-        std::cout << "Symbolic Forward Uniform Cost Search" << std::endl;
+        engine = make_shared < symbolic::SymbolicUniformCostSearch > (opts, true,
+                                                                      false);
+        utils::g_log << "Symbolic Forward Uniform Cost Search" << endl;
     }
 
     return engine;
 }
 
-static std::shared_ptr < SearchEngine > _parse_backward_ucs(OptionParser &parser) {
+static shared_ptr < SearchEngine > _parse_backward_ucs(OptionParser &parser) {
     parser.document_synopsis("Symbolic Backward Uniform Cost Search", "");
     symbolic::SymbolicSearch::add_options_to_parser(parser);
-    parser.add_option < std::shared_ptr < symbolic::PlanDataBase >> (
+    parser.add_option < shared_ptr < symbolic::PlanSelector >> (
         "plan_selection", "plan selection strategy", "top_k(num_plans=1)");
     Options opts = parser.parse();
 
-    std::shared_ptr < symbolic::SymbolicSearch > engine = nullptr;
+    shared_ptr < symbolic::SymbolicSearch > engine = nullptr;
     if (!parser.dry_run()) {
-        engine = std::make_shared < symbolic::SymbolicUniformCostSearch > (opts, false,
-                                                                           true);
-        std::cout << "Symbolic Backward Uniform Cost Search" << std::endl;
+        engine = make_shared < symbolic::SymbolicUniformCostSearch > (opts, false,
+                                                                      true);
+        utils::g_log << "Symbolic Backward Uniform Cost Search" << endl;
     }
 
     return engine;
 }
 
-static std::shared_ptr < SearchEngine >
+static shared_ptr < SearchEngine >
 _parse_bidirectional_ucs(OptionParser &parser) {
     parser.document_synopsis("Symbolic Bidirectional Uniform Cost Search", "");
     symbolic::SymbolicSearch::add_options_to_parser(parser);
-    parser.add_option < std::shared_ptr < symbolic::PlanDataBase >> (
+    parser.add_option < shared_ptr < symbolic::PlanSelector >> (
         "plan_selection", "plan selection strategy", "top_k(num_plans=1)");
     Options opts = parser.parse();
 
-    std::shared_ptr < symbolic::SymbolicSearch > engine = nullptr;
+    shared_ptr < symbolic::SymbolicSearch > engine = nullptr;
     if (!parser.dry_run()) {
         engine =
-            std::make_shared < symbolic::SymbolicUniformCostSearch > (opts, true, true);
-        std::cout << "Symbolic Bidirectional Uniform Cost Search" << std::endl;
+            make_shared < symbolic::SymbolicUniformCostSearch > (opts, true, true);
+        utils::g_log << "Symbolic Bidirectional Uniform Cost Search" << endl;
     }
 
     return engine;

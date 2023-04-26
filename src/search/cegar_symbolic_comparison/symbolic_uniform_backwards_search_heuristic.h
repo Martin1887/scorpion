@@ -7,48 +7,48 @@
 #include "../heuristic.h"
 
 namespace cegar_symbolic_comparison {
-    class SymUniformBackSearch: public symbolic::SymbolicSearch {
+class SymUniformBackSearch : public symbolic::SymbolicSearch {
 protected:
-        std::unique_ptr < symbolic::UniformCostSearch > uc_search;
+    std::shared_ptr < symbolic::UniformCostSearch > uc_search;
 
-        virtual void initialize() override;
+    virtual void initialize() override;
 
-        virtual SearchStatus step() override {return SymbolicSearch::step();}
+    virtual SearchStatus step() override {return SymbolicSearch::step();}
 public:
-        SymUniformBackSearch(const options::Options &opts,
-                             std::shared_ptr < symbolic::SymStateSpaceManager > originalStateSpace,
-                             std::shared_ptr < symbolic::SymVariables > vars);
-        virtual ~SymUniformBackSearch() = default;
+    SymUniformBackSearch(const options::Options &opts,
+                         std::shared_ptr < symbolic::SymStateSpaceManager > originalStateSpace,
+                         std::shared_ptr < symbolic::SymVariables > vars);
+    virtual ~SymUniformBackSearch() = default;
 
-        virtual void new_solution(const symbolic::SymSolutionCut &sol) override;
+    virtual void new_solution(const symbolic::SymSolutionCut &sol) override;
 
-        void search(int generationTime = 0, double generationMemory = 0);
+    void search(int generationTime = 0, double generationMemory = 0);
 
-        ADD getHeuristic() const;
-    };
+    ADD getHeuristic() const;
+};
 
 
-    class SymUniformBackSearchHeuristic: public Heuristic {
-        std::unique_ptr < SymUniformBackSearch > search_engine;
-        std::shared_ptr < symbolic::SymVariables > vars;
-        const std::shared_ptr < AbstractTask > task;
-        std::vector < BDD > notMutexBDDs;
-        std::unique_ptr < ADD > heuristic;
+class SymUniformBackSearchHeuristic : public Heuristic {
+    std::unique_ptr < SymUniformBackSearch > search_engine;
+    std::shared_ptr < symbolic::SymVariables > vars;
+    const std::shared_ptr < AbstractTask > task;
+    std::vector < BDD > notMutexBDDs;
+    std::unique_ptr < ADD > heuristic;
 
-        void initialize(const options::Options &opts);
+    void initialize(const options::Options &opts);
 protected:
-        virtual int compute_heuristic(const State &ancestor_state) override;
+    virtual int compute_heuristic(const State &ancestor_state) override;
 
 public:
-        SymUniformBackSearchHeuristic(const options::Options &opts,
-                                      std::shared_ptr < symbolic::SymVariables > vars);
-        SymUniformBackSearchHeuristic(const options::Options &opts,
-                                      std::shared_ptr < symbolic::SymVariables > vars,
-                                      const std::shared_ptr < AbstractTask > task);
-        virtual ~SymUniformBackSearchHeuristic() = default;
+    SymUniformBackSearchHeuristic(const options::Options &opts,
+                                  std::shared_ptr < symbolic::SymVariables > vars);
+    SymUniformBackSearchHeuristic(const options::Options &opts,
+                                  std::shared_ptr < symbolic::SymVariables > vars,
+                                  const std::shared_ptr < AbstractTask > task);
+    virtual ~SymUniformBackSearchHeuristic() = default;
 
-        int h_value(const State &ancestor_state) {return compute_heuristic(ancestor_state);}
-    };
+    int h_value(const State &ancestor_state) {return compute_heuristic(ancestor_state);}
+};
 }
 
 #endif

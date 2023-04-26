@@ -7,24 +7,27 @@
 namespace symbolic {
 class BidirectionalSearch : public SymSearch {
 private:
-    std::unique_ptr<UniformCostSearch> fw, bw;
+    std::shared_ptr < UniformCostSearch > fw, bw;
+    std::shared_ptr < UniformCostSearch > cur_dir;
 
     // Returns the best direction to search the bd exp
-    UniformCostSearch *selectBestDirection() const;
+    UniformCostSearch *selectBestDirection();
 
 public:
     BidirectionalSearch(SymbolicSearch *eng, const SymParamsSearch &params,
-                        std::unique_ptr<UniformCostSearch> fw,
-                        std::unique_ptr<UniformCostSearch> bw);
+                        std::shared_ptr < UniformCostSearch > fw,
+                        std::shared_ptr < UniformCostSearch > bw);
 
     virtual bool finished() const override;
+
+    virtual std::string get_last_dir() const override;
 
     virtual bool stepImage(int maxTime, int maxNodes) override;
 
     virtual int getF() const override {
-        return std::max<int>(std::max<int>(fw->getF(), bw->getF()),
-                             fw->getG() + bw->getG() +
-                             mgr->getAbsoluteMinTransitionCost());
+        return std::max < int > (std::max < int > (fw->getF(), bw->getF()),
+                                 fw->getG() + bw->getG() +
+                                 mgr->getAbsoluteMinTransitionCost());
     }
 
     virtual bool isSearchableWithNodes(int maxNodes) const override {
@@ -33,15 +36,15 @@ public:
     }
 
     virtual long nextStepTime() const override {
-        return std::min<int>(fw->nextStepTime(), bw->nextStepTime());
+        return std::min < int > (fw->nextStepTime(), bw->nextStepTime());
     }
 
     virtual long nextStepNodes() const override {
-        return std::min<int>(fw->nextStepNodes(), bw->nextStepNodes());
+        return std::min < int > (fw->nextStepNodes(), bw->nextStepNodes());
     }
 
     virtual long nextStepNodesResult() const override {
-        return std::min<int>(fw->nextStepNodesResult(), bw->nextStepNodesResult());
+        return std::min < int > (fw->nextStepNodesResult(), bw->nextStepNodesResult());
     }
 
     bool isExpFor(BidirectionalSearch *bdExp) const;
@@ -50,8 +53,8 @@ public:
 
     inline UniformCostSearch *getBw() const {return bw.get();}
 
-    friend std::ostream &operator<<(std::ostream &os,
-                                    const BidirectionalSearch &other);
+    friend std::ostream &operator <<(std::ostream &os,
+                                     const BidirectionalSearch &other);
 };
 } // namespace symbolic
 #endif

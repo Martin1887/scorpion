@@ -5,8 +5,6 @@
 #include "../utils/timer.h"
 
 using namespace std;
-using utils::g_timer;
-using utils::Timer;
 
 namespace symbolic {
 Frontier::Frontier() : mgr(nullptr), g_value(0) {}
@@ -29,7 +27,7 @@ bool Frontier::nextStepZero() const {
 
 Result Frontier::prepare(int maxTime, int maxNodes, bool fw,
                          bool initialization) {
-    Timer filterTime;
+    utils::Timer filterTime;
     if (!Sfilter.empty()) {
         // First, if possible, attempt to merge the g-Sopen (only
         // uses pop_time). This is only to reuse the most resources
@@ -38,32 +36,25 @@ Result Frontier::prepare(int maxTime, int maxNodes, bool fw,
         int numFiltered =
             mgr->filterMutexBucket(Sfilter, fw, initialization, maxTime, maxNodes);
         if (numFiltered > 0) {
-            Smerge.insert(std::end(Smerge), std::begin(Sfilter),
-                          std::begin(Sfilter) + numFiltered);
+            Smerge.insert(Smerge.end(), Sfilter.begin(),
+                          Sfilter.begin() + numFiltered);
         }
         if (numFiltered == (int)(Sfilter.size())) {
             Bucket().swap(Sfilter);
         } else {
-            Sfilter.erase(std::begin(Sfilter), std::begin(Sfilter) + numFiltered);
+            Sfilter.erase(Sfilter.begin(), Sfilter.begin() + numFiltered);
             return Result(TruncatedReason::FILTER_MUTEX, filterTime());
         }
     }
 
     if (!Smerge.empty()) {
         if (Smerge.size() > 1) {
-            int remainingTime = maxTime - 1000 * filterTime();
-            if (remainingTime < 0 ||
-                !mgr->mergeBucket(Smerge, remainingTime, maxNodes)) {
-                return Result(TruncatedReason::MERGE_BUCKET, filterTime());
-            }
+            mgr->mergeBucket(Smerge, 60000, 10000000);
+            return Result(TruncatedReason::MERGE_BUCKET, filterTime());
         }
 
-        // Successfully merged
-        // a) close Smerge
-
-        // b) put result on Szero or S (or both)
         if (mgr->hasTransitions0()) {
-            S.insert(std::end(S), std::begin(Smerge), std::end(Smerge));
+            S.insert(std::end(S), Smerge.begin(), Smerge.end());
             assert(Szero.empty());
             Szero.swap(Smerge);
         } else {
@@ -74,10 +65,8 @@ Result Frontier::prepare(int maxTime, int maxNodes, bool fw,
     // If there are zero cost operators, merge S
     if (mgr->hasTransitions0() && Szero.empty()) {
         if (S.size() > 1) {
-            int remainingTime = maxTime - 1000 * filterTime();
-            if (remainingTime < 0 || !mgr->mergeBucket(S, remainingTime, maxNodes)) {
-                return Result(TruncatedReason::MERGE_BUCKET_COST, filterTime());
-            }
+            mgr->mergeBucket(Smerge, 60000, 10000000);
+            return Result(TruncatedReason::MERGE_BUCKET_COST, filterTime());
         }
     }
 
@@ -119,51 +108,47 @@ int Frontier::buckets() const {
 ResultExpansion Frontier::expand_zero(int maxTime, int maxNodes, bool fw) {
     // Image with respect to 0-cost actions
     assert(expansionReady() && nodeCount(Szero) <= maxNodes);
-    Timer image_time;
+    utils::Timer image_time;
 
     mgr->setTimeLimit(maxTime);
     // Compute image, storing the result on Simg
     try {
-        int numImagesComputed = 0;
         for (size_t i = 0; i < Szero.size(); i++) {
-            Simg.push_back(map<int, Bucket>());
+            Simg.push_back(map < int, Bucket > ());
             mgr->zero_image(fw, Szero[i], Simg[i][0], maxNodes);
-            ++numImagesComputed;
         }
         mgr->unsetTimeLimit();
-    } catch (BDDError e) {
+    }catch (BDDError e) {
         mgr->unsetTimeLimit();
         return ResultExpansion(true, TruncatedReason::IMAGE_ZERO, image_time());
     }
 
-    Bucket().swap(Szero); // Delete Szero because it has been expanded
+    Bucket().swap(Szero);     // Delete Szero because it has been expanded
 
     return ResultExpansion(true, Simg, image_time());
 }
 
 ResultExpansion Frontier::expand_cost(int maxTime, int maxNodes, bool fw) {
-    assert(expansionReady());
-    assert(nodeCount(S) <= maxNodes);
-    Timer image_time;
+    utils::Timer image_time;
     mgr->setTimeLimit(maxTime);
     try {
         for (size_t i = 0; i < S.size(); i++) {
-            Simg.push_back(map<int, Bucket>());
+            Simg.push_back(map < int, Bucket > ());
             mgr->cost_image(fw, S[i], Simg[i], maxNodes);
         }
         mgr->unsetTimeLimit();
-    } catch (BDDError e) {
+    }catch (BDDError e) {
         // Update estimation
         mgr->unsetTimeLimit();
 
         return ResultExpansion(false, TruncatedReason::IMAGE_COST, image_time());
     }
 
-    Bucket().swap(S); // Delete Szero because it has been expanded
+    Bucket().swap(S);     // Delete Szero because it has been expanded
     return ResultExpansion(false, Simg, image_time());
 }
 
-std::ostream &operator<<(std::ostream &os, const Frontier &frontier) {
+ostream &operator <<(ostream &os, const Frontier &frontier) {
     if (!frontier.Sfilter.empty())
         os << "Sf: " << nodeCount(frontier.Sfilter) << " ";
     if (!frontier.Smerge.empty())
