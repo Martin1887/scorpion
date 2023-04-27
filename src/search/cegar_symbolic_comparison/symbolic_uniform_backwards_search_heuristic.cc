@@ -36,15 +36,13 @@ void SymUniformBackSearch::search(int generationTime, double generationMemory) {
 
     while (!uc_search->finished() &&
            (generationTime == 0 || utils::g_timer() < generationTime) &&
-           (generationMemory == 0 || (mgr->getVars()->totalMemory()) < generationMemory) &&
-           !solved()) {
-        if (!uc_search->step())
+           (generationMemory == 0 || (mgr->getVars()->totalMemory()) < generationMemory)) {
+        // solved() condition has been removed because full search is desired
+        // to compare h values with CEGAR
+        if (!uc_search->step()) {
             break;
+        }
     }
-
-    assert(!uc_search->finished() ||
-           solved() ||
-           mgr->isAbstracted());
 
     cout << "Finished symbolic uniform backwards search" << endl;
 }

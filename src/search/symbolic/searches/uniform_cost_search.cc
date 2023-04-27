@@ -23,7 +23,7 @@ UniformCostSearch::UniformCostSearch(SymbolicSearch *eng,
       closed(make_shared < ClosedList > ()),
       lastStepCost(true) {}
 
-bool UniformCostSearch::init(std::shared_ptr < SymStateSpaceManager > manager,
+bool UniformCostSearch::init(shared_ptr < SymStateSpaceManager > manager,
                              bool forward, UniformCostSearch *opposite_search) {
     mgr = manager;
     fw = forward;

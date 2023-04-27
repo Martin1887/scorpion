@@ -50,7 +50,6 @@ Result Frontier::prepare(int maxTime, int maxNodes, bool fw,
     if (!Smerge.empty()) {
         if (Smerge.size() > 1) {
             mgr->mergeBucket(Smerge, 60000, 10000000);
-            return Result(TruncatedReason::MERGE_BUCKET, filterTime());
         }
 
         if (mgr->hasTransitions0()) {
@@ -65,8 +64,7 @@ Result Frontier::prepare(int maxTime, int maxNodes, bool fw,
     // If there are zero cost operators, merge S
     if (mgr->hasTransitions0() && Szero.empty()) {
         if (S.size() > 1) {
-            mgr->mergeBucket(Smerge, 60000, 10000000);
-            return Result(TruncatedReason::MERGE_BUCKET_COST, filterTime());
+            mgr->mergeBucket(S, 60000, 10000000);
         }
     }
 
