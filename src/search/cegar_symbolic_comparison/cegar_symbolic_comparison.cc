@@ -29,6 +29,11 @@ CegarSymbolicComparison::generate_heuristic_functions(const options::Options &op
     if (log.is_at_least_normal()) {
         log << "Initializing cegar-symbolic comparison..." << endl;
     }
+    // The opts is duplicated making "max_time" infinity, because
+    // usually the actual search is wanted to be stopped instantly but
+    // abstractions and symbolic search without time limit
+    options::Options inf_time_opts = options::Options(opts);
+    inf_time_opts.set("max_time", numeric_limits<double>::infinity());
     shared_ptr < AbstractTask > root_task = opts.get < shared_ptr < AbstractTask >> ("transform");
     shared_ptr < symbolic::SymVariables > vars = make_shared < symbolic::SymVariables > (opts, task);
     vars->init();
@@ -38,7 +43,7 @@ CegarSymbolicComparison::generate_heuristic_functions(const options::Options &op
         utils::parse_rng_from_options(opts);
     CegarSymbolicComparingCostSaturation cost_saturation(
         subtask_generators, opts.get < int > ("max_states"),
-        opts.get < int > ("max_transitions"), opts.get < double > ("max_time"),
+        opts.get < int > ("max_transitions"), inf_time_opts.get < double > ("max_time"),
         opts.get < bool > ("use_general_costs"),
         opts.get < PickFlawedAbstractState > ("pick_flawed_abstract_state"),
         opts.get < PickSplit > ("pick_split"), opts.get < PickSplit > ("tiebreak_split"),
@@ -47,7 +52,7 @@ CegarSymbolicComparison::generate_heuristic_functions(const options::Options &op
         opts.get < SearchStrategy > ("search_strategy"),
         opts.get < int > ("memory_padding"), *rng, log,
         opts.get < DotGraphVerbosity > ("dot_graph_verbosity"),
-        opts,
+        inf_time_opts,
         vars);
     return cost_saturation.generate_heuristic_functions(root_task);
 }
@@ -73,8 +78,6 @@ static shared_ptr < Heuristic > _parse(OptionParser &parser) {
         "plan_selection", "plan selection strategy", "top_k(num_plans=1)");
 
     Options opts = parser.parse();
-    // non-stop must be true to do the symbolic searches until the end
-    opts.set("non_stop", true);
 
     if (parser.dry_run())
         return nullptr;

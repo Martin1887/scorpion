@@ -36,9 +36,8 @@ void SymUniformBackSearch::search(int generationTime, double generationMemory) {
 
     while (!uc_search->finished() &&
            (generationTime == 0 || utils::g_timer() < generationTime) &&
-           (generationMemory == 0 || (mgr->getVars()->totalMemory()) < generationMemory)) {
-        // solved() condition has been removed because full search is desired
-        // to compare h values with CEGAR
+           (generationMemory == 0 || (mgr->getVars()->totalMemory()) < generationMemory) &&
+           !solved()) {
         if (!uc_search->step()) {
             break;
         }

@@ -71,7 +71,7 @@ void CegarSymbolicComparingCostSaturation::build_abstractions(
         // print the h value in the initial state
         SymUniformBackSearchHeuristic sym(opts, vars, subtask);
         int h0 = sym.h_value(subtask_proxy.get_initial_state());
-        log << "Pre-CEGAR symbolic initial h value: " << h0 << endl << endl;
+        log << "Symbolic initial h value: " << h0 << endl << endl;
 
         CEGAR cegar(
             subtask,
@@ -103,6 +103,13 @@ void CegarSymbolicComparingCostSaturation::build_abstractions(
             abstraction->get_transition_system().get_incoming_transitions(),
             costs,
             abstraction->get_goals());
+
+        int num_unsolvable_states = count(goal_distances.begin(), goal_distances.end(), INF);
+        log << "Unsolvable Cartesian states: " << num_unsolvable_states << endl;
+        log << "CEGAR initial h value: "
+            << goal_distances[abstraction->get_initial_state().get_id()]
+            << endl << endl;
+
         vector < int > saturated_costs = compute_saturated_costs(
             abstraction->get_transition_system(),
             init_distances,
@@ -111,18 +118,45 @@ void CegarSymbolicComparingCostSaturation::build_abstractions(
 
         reduce_remaining_costs(saturated_costs);
 
-        // call the symbolic uniform cost back search on this subtask and
+        // call CEGAR and the symbolic uniform cost back search on this subtask and
         // print the h value in the initial state
         shared_ptr<AbstractTask> remaining_costs_subtask = get_remaining_costs_task(subtask);
         SymUniformBackSearchHeuristic sym_post(opts, vars, remaining_costs_subtask);
         int h0_post = sym_post.h_value(subtask_proxy.get_initial_state());
-        log << "Post-CEGAR (with subtrated saturated costs) symbolic initial h value: " << h0_post << endl << endl;
+        log << "After costs reduction symbolic initial h value: " << h0_post << endl << endl;
+        CEGAR cegar_post(
+            remaining_costs_subtask,
+            max(1, (max_states - num_states) / rem_subtasks),
+            max(1, (max_non_looping_transitions - num_non_looping_transitions) /
+                rem_subtasks),
+            timer.get_remaining_time() / rem_subtasks,
+            pick_flawed_abstract_state,
+            pick_split,
+            tiebreak_split,
+            max_concrete_states_per_abstract_state,
+            max_state_expansions,
+            search_strategy,
+            rng,
+            log,
+            dot_graph_verbosity);
 
-        int num_unsolvable_states = count(goal_distances.begin(), goal_distances.end(), INF);
-        log << "Unsolvable Cartesian states: " << num_unsolvable_states << endl;
-        log << "CEGAR initial h value: "
-            << goal_distances[abstraction->get_initial_state().get_id()]
+        unique_ptr < Abstraction > abstraction_post = cegar_post.extract_abstraction();
+        vector < int > costs_post = task_properties::get_operator_costs(TaskProxy(*remaining_costs_subtask));
+        vector < int > init_distances_post = compute_distances(
+            abstraction_post->get_transition_system().get_outgoing_transitions(),
+            costs_post,
+            {abstraction_post->get_initial_state().get_id()});
+        vector < int > goal_distances_post = compute_distances(
+            abstraction_post->get_transition_system().get_incoming_transitions(),
+            costs_post,
+            abstraction_post->get_goals());
+
+        int num_unsolvable_states_post = count(goal_distances_post.begin(), goal_distances_post.end(), INF);
+        log << "After costs reduction nsolvable Cartesian states: " << num_unsolvable_states_post << endl;
+        log << "After costs reduction CEGAR initial h value: "
+            << goal_distances_post[abstraction_post->get_initial_state().get_id()]
             << endl << endl;
+
 
         heuristic_functions.emplace_back(
             abstraction->extract_refinement_hierarchy(),
