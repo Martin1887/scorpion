@@ -104,6 +104,8 @@ public:
         return expand_cost(maxTime, maxNodes, fw);
     }
 
+    void make_empty();
+
     friend std::ostream &operator<<(std::ostream &os, const Frontier &frontier);
 };
 } // namespace symbolic

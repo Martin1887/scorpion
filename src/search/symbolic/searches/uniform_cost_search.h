@@ -121,6 +121,7 @@ public:
         mgr->filterMutex(bucket, fw, initialization());
     }
 
+    void closeMinOpenAndCheckCut();
     // dummy implementation of the following functions, allowing the maximum of
     // time and nodes
     virtual std::string get_last_dir() const override {return "";}

@@ -146,6 +146,15 @@ ResultExpansion Frontier::expand_cost(int maxTime, int maxNodes, bool fw) {
     return ResultExpansion(false, Simg, image_time());
 }
 
+
+    void Frontier::make_empty() {
+        Bucket().swap(S);
+        Bucket().swap(Sfilter);
+        Bucket().swap(Smerge);
+        Bucket().swap(Szero);
+    }
+
+
 ostream &operator <<(ostream &os, const Frontier &frontier) {
     if (!frontier.Sfilter.empty())
         os << "Sf: " << nodeCount(frontier.Sfilter) << " ";

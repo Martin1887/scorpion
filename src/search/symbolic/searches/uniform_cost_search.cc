@@ -72,6 +72,16 @@ void UniformCostSearch::checkFrontierCut(Bucket &bucket, int g) {
     }
 }
 
+
+void UniformCostSearch::closeMinOpenAndCheckCut() {
+    int up_to =frontier.g() + mgr->getAbsoluteMinTransitionCost();
+    while(!open_list.empty() && frontier.g() < up_to){
+        prepareBucket();
+        frontier.make_empty();
+    }
+}
+
+
 bool UniformCostSearch::provable_no_more_plans() {return open_list.empty();}
 
 bool UniformCostSearch::prepareBucket() {

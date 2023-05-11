@@ -40,6 +40,12 @@ bool BidirectionalSearch::stepImage(int maxTime, int maxNodes) {
     engine->setLowerBound(getF());
     engine->setMinG(fw->getG() + bw->getG());
 
+
+    if (engine->solved()){
+        fw->closeMinOpenAndCheckCut();
+        bw->closeMinOpenAndCheckCut();
+    }
+
     return res;
 }
 } // namespace symbolic

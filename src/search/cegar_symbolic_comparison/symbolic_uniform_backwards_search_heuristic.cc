@@ -43,6 +43,7 @@ void SymUniformBackSearch::search(int generationTime, double generationMemory) {
         }
     }
 
+    uc_search->closeMinOpenAndCheckCut();
     cout << "Finished symbolic uniform backwards search" << endl;
 }
 
