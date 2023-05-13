@@ -61,6 +61,14 @@ void CegarSymbolicComparingCostSaturation::build_abstractions(
     const utils::CountdownTimer &timer,
     const function < bool() > &should_abort) {
     int rem_subtasks = subtasks.size();
+    int subtasks_factor = 2;
+    // The remaining time is divided by 2 (symbolic and CEGAR) when there is
+    // only a task and by 4 when there are more subtasks because the
+    // post-reducing-costs symbolic and CEGAR executions
+    if (subtasks.size() > 1) {
+        subtasks_factor = 4;
+    }
+
     for (shared_ptr < AbstractTask > subtask : subtasks) {
         subtask = get_remaining_costs_task(subtask);
         assert(num_states < max_states);
@@ -69,7 +77,7 @@ void CegarSymbolicComparingCostSaturation::build_abstractions(
 
         // call the symbolic uniform cost back search on this subtask and
         // print the h value in the initial state
-        SymUniformBackSearchHeuristic sym(opts, vars, subtask);
+        SymUniformBackSearchHeuristic sym(opts, vars, timer.get_remaining_time() / rem_subtasks / subtasks_factor, subtask);
         int h0 = sym.h_value(subtask_proxy.get_initial_state());
         log << "Symbolic initial h value: " << h0 << endl << endl;
 
@@ -78,7 +86,7 @@ void CegarSymbolicComparingCostSaturation::build_abstractions(
             max(1, (max_states - num_states) / rem_subtasks),
             max(1, (max_non_looping_transitions - num_non_looping_transitions) /
                 rem_subtasks),
-            timer.get_remaining_time() / rem_subtasks,
+            timer.get_remaining_time() / rem_subtasks / subtasks_factor,
             pick_flawed_abstract_state,
             pick_split,
             tiebreak_split,
@@ -119,43 +127,45 @@ void CegarSymbolicComparingCostSaturation::build_abstractions(
         reduce_remaining_costs(saturated_costs);
 
         // call CEGAR and the symbolic uniform cost back search on this subtask and
-        // print the h value in the initial state
-        shared_ptr<AbstractTask> remaining_costs_subtask = get_remaining_costs_task(subtask);
-        SymUniformBackSearchHeuristic sym_post(opts, vars, remaining_costs_subtask);
-        int h0_post = sym_post.h_value(subtask_proxy.get_initial_state());
-        log << "After costs reduction symbolic initial h value: " << h0_post << endl << endl;
-        CEGAR cegar_post(
-            remaining_costs_subtask,
-            max(1, (max_states - num_states) / rem_subtasks),
-            max(1, (max_non_looping_transitions - num_non_looping_transitions) /
-                rem_subtasks),
-            timer.get_remaining_time() / rem_subtasks,
-            pick_flawed_abstract_state,
-            pick_split,
-            tiebreak_split,
-            max_concrete_states_per_abstract_state,
-            max_state_expansions,
-            search_strategy,
-            rng,
-            log,
-            dot_graph_verbosity);
+        // print the h value in the initial state only if additive (more than 1 subtasks)
+        if (subtasks.size() > 1) {
+            shared_ptr<AbstractTask> remaining_costs_subtask = get_remaining_costs_task(subtask);
+            SymUniformBackSearchHeuristic sym_post(opts, vars, timer.get_remaining_time() / rem_subtasks / subtasks_factor, remaining_costs_subtask);
+            int h0_post = sym_post.h_value(subtask_proxy.get_initial_state());
+            log << "After costs reduction symbolic initial h value: " << h0_post << endl << endl;
+            CEGAR cegar_post(
+                remaining_costs_subtask,
+                max(1, (max_states - num_states) / rem_subtasks),
+                max(1, (max_non_looping_transitions - num_non_looping_transitions) /
+                    rem_subtasks),
+                timer.get_remaining_time() / rem_subtasks / subtasks_factor,
+                pick_flawed_abstract_state,
+                pick_split,
+                tiebreak_split,
+                max_concrete_states_per_abstract_state,
+                max_state_expansions,
+                search_strategy,
+                rng,
+                log,
+                dot_graph_verbosity);
 
-        unique_ptr < Abstraction > abstraction_post = cegar_post.extract_abstraction();
-        vector < int > costs_post = task_properties::get_operator_costs(TaskProxy(*remaining_costs_subtask));
-        vector < int > init_distances_post = compute_distances(
-            abstraction_post->get_transition_system().get_outgoing_transitions(),
-            costs_post,
-            {abstraction_post->get_initial_state().get_id()});
-        vector < int > goal_distances_post = compute_distances(
-            abstraction_post->get_transition_system().get_incoming_transitions(),
-            costs_post,
-            abstraction_post->get_goals());
+            unique_ptr < Abstraction > abstraction_post = cegar_post.extract_abstraction();
+            vector < int > costs_post = task_properties::get_operator_costs(TaskProxy(*remaining_costs_subtask));
+            vector < int > init_distances_post = compute_distances(
+                abstraction_post->get_transition_system().get_outgoing_transitions(),
+                costs_post,
+                {abstraction_post->get_initial_state().get_id()});
+            vector < int > goal_distances_post = compute_distances(
+                abstraction_post->get_transition_system().get_incoming_transitions(),
+                costs_post,
+                abstraction_post->get_goals());
 
-        int num_unsolvable_states_post = count(goal_distances_post.begin(), goal_distances_post.end(), INF);
-        log << "After costs reduction nsolvable Cartesian states: " << num_unsolvable_states_post << endl;
-        log << "After costs reduction CEGAR initial h value: "
-            << goal_distances_post[abstraction_post->get_initial_state().get_id()]
-            << endl << endl;
+            int num_unsolvable_states_post = count(goal_distances_post.begin(), goal_distances_post.end(), INF);
+            log << "After costs reduction nsolvable Cartesian states: " << num_unsolvable_states_post << endl;
+            log << "After costs reduction CEGAR initial h value: "
+                << goal_distances_post[abstraction_post->get_initial_state().get_id()]
+                << endl << endl;
+        }
 
 
         heuristic_functions.emplace_back(
