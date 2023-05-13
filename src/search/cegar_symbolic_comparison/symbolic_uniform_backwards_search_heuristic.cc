@@ -25,7 +25,7 @@ void SymUniformBackSearch::new_solution(const SymSolutionCut &sol) {
         upper_bound = sol.get_f();
     }
 }
-void SymUniformBackSearch::search(int generationTime, double generationMemory) {
+void SymUniformBackSearch::search(double generationTime, double generationMemory) {
     uc_search = make_shared<UniformCostSearch>(this, searchParams);
     uc_search->init(mgr, false, nullptr);
     plan_data_base->init(vars, task, plan_manager);
@@ -35,7 +35,7 @@ void SymUniformBackSearch::search(int generationTime, double generationMemory) {
                             plan_data_base, single_solution, simple);
 
     while (!uc_search->finished() &&
-           (generationTime == 0 || utils::g_timer() < generationTime) &&
+           (generationTime < 0.0001 || utils::g_timer() < generationTime) &&
            (generationMemory == 0 || (mgr->getVars()->totalMemory()) < generationMemory) &&
            !solved()) {
         if (!uc_search->step()) {
@@ -57,17 +57,21 @@ ADD SymUniformBackSearch::getHeuristic() const {
 
 
 SymUniformBackSearchHeuristic::SymUniformBackSearchHeuristic(const Options &opts,
-                                                             shared_ptr < SymVariables > vars)
+                                                             shared_ptr < SymVariables > vars,
+                                                             double max_time)
     : Heuristic(opts),
       vars(vars),
+      max_time(max_time),
       task(tasks::g_root_task) {
     initialize(opts);
 }
 SymUniformBackSearchHeuristic::SymUniformBackSearchHeuristic(const Options &opts,
                                                              shared_ptr < SymVariables > vars,
+                                                             double max_time,
                                                              const shared_ptr < AbstractTask > task)
     : Heuristic(opts),
       vars(vars),
+      max_time(max_time),
       task(task) {
     initialize(opts);
 }
@@ -80,7 +84,7 @@ void SymUniformBackSearchHeuristic::initialize(const Options &opts) {
     notMutexBDDs = originalStateSpace->getNotMutexBDDs(true);
 
     search_engine = unique_ptr < SymUniformBackSearch > (new SymUniformBackSearch(opts, originalStateSpace, vars));
-    search_engine->search();
+    search_engine->search(max_time);
 
     heuristic = unique_ptr < ADD > (new ADD(std::move(search_engine->getHeuristic())));
 }

@@ -22,7 +22,7 @@ public:
 
     virtual void new_solution(const symbolic::SymSolutionCut &sol) override;
 
-    void search(int generationTime = 0, double generationMemory = 0);
+    void search(double generationTime = 0, double generationMemory = 0);
 
     ADD getHeuristic() const;
 };
@@ -31,6 +31,7 @@ public:
 class SymUniformBackSearchHeuristic : public Heuristic {
     std::unique_ptr < SymUniformBackSearch > search_engine;
     std::shared_ptr < symbolic::SymVariables > vars;
+    double max_time;
     const std::shared_ptr < AbstractTask > task;
     std::vector < BDD > notMutexBDDs;
     std::unique_ptr < ADD > heuristic;
@@ -41,9 +42,11 @@ protected:
 
 public:
     SymUniformBackSearchHeuristic(const options::Options &opts,
-                                  std::shared_ptr < symbolic::SymVariables > vars);
+                                  std::shared_ptr < symbolic::SymVariables > vars,
+                                  double max_time);
     SymUniformBackSearchHeuristic(const options::Options &opts,
                                   std::shared_ptr < symbolic::SymVariables > vars,
+                                  double max_time,
                                   const std::shared_ptr < AbstractTask > task);
     virtual ~SymUniformBackSearchHeuristic() = default;
 
