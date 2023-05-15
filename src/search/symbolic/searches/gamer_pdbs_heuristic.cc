@@ -73,6 +73,7 @@ void PDBSearch::search(int generationTime, double generationMemory) {
            solved() ||
            state_space->isAbstracted());
     average_hval = uc_search->getClosedShared()->average_hvalue();
+    uc_search->closeMinOpenAndCheckCut();
     cout << "Finished PDB: " << *this << flush << "   Average value: " << average_hval << " g_time: " << utils::g_timer() << endl;
 }
 

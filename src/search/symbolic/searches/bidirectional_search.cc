@@ -41,7 +41,7 @@ bool BidirectionalSearch::stepImage(int maxTime, int maxNodes) {
     engine->setMinG(fw->getG() + bw->getG());
 
 
-    if (engine->solved()){
+    if (engine->solved()) {
         fw->closeMinOpenAndCheckCut();
         bw->closeMinOpenAndCheckCut();
     }

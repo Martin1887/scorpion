@@ -36,6 +36,8 @@ bool UniformCostSearch::init(shared_ptr < SymStateSpaceManager > manager,
 
     closed->init(mgr.get());
     closed->insert(0, init_bdd);
+    closed->setHNotClosed(open_list.minNextG(frontier, mgr->getAbsoluteMinTransitionCost()));
+    closed->setFNotClosed(getF());
 
     if (opposite_search) {
         perfectHeuristic = opposite_search->getClosedShared();
@@ -74,8 +76,8 @@ void UniformCostSearch::checkFrontierCut(Bucket &bucket, int g) {
 
 
 void UniformCostSearch::closeMinOpenAndCheckCut() {
-    int up_to =frontier.g() + mgr->getAbsoluteMinTransitionCost();
-    while(!open_list.empty() && frontier.g() < up_to){
+    int up_to = frontier.g() + mgr->getAbsoluteMinTransitionCost();
+    while (!open_list.empty() && frontier.g() < up_to) {
         prepareBucket();
         frontier.make_empty();
     }
@@ -86,6 +88,10 @@ bool UniformCostSearch::provable_no_more_plans() {return open_list.empty();}
 
 bool UniformCostSearch::prepareBucket() {
     if (!frontier.bucketReady()) {
+        if (open_list.empty()) {
+            closed->setHNotClosed(numeric_limits<int>::max());
+            closed->setFNotClosed(numeric_limits<int>::max());
+        }
         if (provable_no_more_plans()) {
             engine->setLowerBound(numeric_limits < int > ::max());
             return true;
@@ -108,6 +114,8 @@ bool UniformCostSearch::prepareBucket() {
         }
         engine->setLowerBound(getF());
         engine->setMinG(getG());
+        closed->setHNotClosed(open_list.minNextG(frontier, mgr->getAbsoluteMinTransitionCost()));
+        closed->setFNotClosed(getF());
     }
 
     if (engine->solved()) {

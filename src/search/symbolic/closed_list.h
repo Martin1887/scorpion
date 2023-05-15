@@ -20,7 +20,7 @@ private:
 
     std::map<int, BDD> closed; // Mapping from cost to set of states
 
-    // Auxiliar BDDs for the number of 0-cost action steps
+    // Auxiliary BDDs for the number of 0-cost action steps
     // ALERT: The information here might be wrong
     // It is just used to extract path more quickly, but the information
     // here is an (admissible) estimation and this should be taken into account
@@ -28,6 +28,10 @@ private:
     BDD closedTotal; // All closed states.
 
     int hNotClosed, fNotClosed; // Bounds on h and g for those states not in closed
+    std::map<int, BDD> closedUpTo;  // Disjunction of BDDs in closed  (auxiliary useful to take the maximum between several BDDs)
+    std::set<int> h_values; //Set of h_values of the heuristic
+
+    void newHValue(int h_value);
 
 public:
     ClosedList();
@@ -36,6 +40,8 @@ public:
     void init(SymStateSpaceManager *manager, const ClosedList &other);
 
     void insert(int h, const BDD &S);
+    void setHNotClosed(int h);
+    void setFNotClosed(int f);
 
     BDD getPartialClosed(int upper_bound) const;
 
@@ -59,10 +65,10 @@ public:
         return fNotClosed;
     }
 
-    ADD getHeuristic(int previousMaxH = -1) const;
-
     void getHeuristic(std::vector<ADD> &heuristics,
                       std::vector <int> &maxHeuristicValues) const;
+
+    ADD getHeuristic(int previousMaxH = -1) const;
 
     BDD get_start_states() const {
         if (get_num_zero_closed_layers(0) == 0) {

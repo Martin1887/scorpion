@@ -17,6 +17,8 @@ ClosedList::ClosedList() : mgr(nullptr) {}
 
 void ClosedList::init(SymStateSpaceManager *manager) {
     mgr = manager;
+    set<int>().swap(h_values);
+    map<int, BDD>().swap(closedUpTo);
     map<int, vector<BDD>>().swap(zeroCostClosed);
     map<int, BDD>().swap(closed);
     closedTotal = mgr->zeroBDD();
@@ -26,6 +28,8 @@ void ClosedList::init(SymStateSpaceManager *manager) {
 
 void ClosedList::init(SymStateSpaceManager *manager, const ClosedList &other) {
     mgr = manager;
+    set<int>().swap(h_values);
+    map<int, BDD>().swap(closedUpTo);
     map<int, vector<BDD>>().swap(zeroCostClosed);
     map<int, BDD>().swap(closed);
     closedTotal = mgr->zeroBDD();
@@ -34,8 +38,13 @@ void ClosedList::init(SymStateSpaceManager *manager, const ClosedList &other) {
     closed[0] = closedTotal;
 }
 
+void ClosedList::newHValue(int h_value) {
+    h_values.insert(h_value);
+}
+
 void ClosedList::insert(int h, const BDD &S) {
     if (closed.count(h)) {
+        assert(h_values.count(h));
         closed[h] += S;
     } else {
         closed[h] = S;
@@ -45,6 +54,26 @@ void ClosedList::insert(int h, const BDD &S) {
         zeroCostClosed[h].push_back(S);
     }
     closedTotal += S;
+
+    // Introduce in closedUpTo
+    auto c = closedUpTo.lower_bound(h);
+    while (c != std::end(closedUpTo)) {
+        c->second += S;
+        c++;
+    }
+}
+
+void ClosedList::setHNotClosed(int newHNotClosed) {
+    if (newHNotClosed > hNotClosed) {
+        hNotClosed = newHNotClosed;
+        newHValue(newHNotClosed);     //Add newHNotClosed to list of h values (and those of parents)
+    }
+}
+
+void ClosedList::setFNotClosed(int f) {
+    if (f > fNotClosed) {
+        fNotClosed = f;
+    }
 }
 
 BDD ClosedList::getPartialClosed(int upper_bound) const {
@@ -77,7 +106,7 @@ SymSolutionCut ClosedList::getCheapestCut(const BDD &states, int g,
             }
         }
     }
-    std::cerr << "Inconsitent cut result" << std::endl;
+    std::cerr << "Inconsistent cut result" << std::endl;
     exit(0);
     return SymSolutionCut();
 }
@@ -153,9 +182,9 @@ ADD ClosedList::getHeuristic(int previousMaxH /*= -1*/) const {
         }*/
     BDD statesWithHNotClosed = !closedTotal;
     ADD h = mgr->mgr()->constant(-1);
-    //cout << "New heuristic with h [";
+    // cout << "New heuristic with h [";
     for (auto &it : closed) {
-        //cout << it.first << " ";
+        // cout << it.first << " ";
         int h_val = it.first;
 
         /*If h_val < previousMaxH we can put it to that value
@@ -170,7 +199,7 @@ ADD ClosedList::getHeuristic(int previousMaxH /*= -1*/) const {
             statesWithHNotClosed += it.second;
         }
     }
-    //cout << hNotClosed << "]" << endl;
+    // cout << hNotClosed << "]" << endl;
 
     if (hNotClosed != numeric_limits<int>::max() && hNotClosed >= 0 && !statesWithHNotClosed.IsZero()) {
         h += statesWithHNotClosed.Add() * mgr->mgr()->constant(hNotClosed + 1);

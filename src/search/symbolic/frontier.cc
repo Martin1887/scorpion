@@ -53,7 +53,7 @@ Result Frontier::prepare(int maxTime, int maxNodes, bool fw,
         }
 
         if (mgr->hasTransitions0()) {
-            S.insert(std::end(S), Smerge.begin(), Smerge.end());
+            S.insert(S.end(), Smerge.begin(), Smerge.end());
             assert(Szero.empty());
             Szero.swap(Smerge);
         } else {
@@ -147,12 +147,12 @@ ResultExpansion Frontier::expand_cost(int maxTime, int maxNodes, bool fw) {
 }
 
 
-    void Frontier::make_empty() {
-        Bucket().swap(S);
-        Bucket().swap(Sfilter);
-        Bucket().swap(Smerge);
-        Bucket().swap(Szero);
-    }
+void Frontier::make_empty() {
+    Bucket().swap(S);
+    Bucket().swap(Sfilter);
+    Bucket().swap(Smerge);
+    Bucket().swap(Szero);
+}
 
 
 ostream &operator <<(ostream &os, const Frontier &frontier) {
