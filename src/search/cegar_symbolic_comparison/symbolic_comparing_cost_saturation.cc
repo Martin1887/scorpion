@@ -77,14 +77,14 @@ void CegarSymbolicComparingCostSaturation::build_abstractions(
 
         // call the symbolic uniform cost back search on this subtask and
         // print the h value in the initial state
-        double t0 = timer.get_remaining_time();
+        double t0 = timer.get_elapsed_time();
         SymUniformBackSearchHeuristic sym(opts, vars, timer.get_remaining_time() / rem_subtasks / subtasks_factor, subtask);
-        double t1 = timer.get_remaining_time();
-        log << "Symbolic time duration: " << (t0 - t1) << endl << endl;
+        double t1 = timer.get_elapsed_time();
+        log << "Symbolic time duration: " << (t1 - t0) << endl << endl;
         int h0 = sym.h_value(subtask_proxy.get_initial_state());
         log << "Symbolic initial h value: " << h0 << endl << endl;
 
-        double t2 = timer.get_remaining_time();
+        double t2 = timer.get_elapsed_time();
         CEGAR cegar(
             subtask,
             max(1, (max_states - num_states) / rem_subtasks),
@@ -100,8 +100,8 @@ void CegarSymbolicComparingCostSaturation::build_abstractions(
             rng,
             log,
             dot_graph_verbosity);
-        double t3 = timer.get_remaining_time();
-        log << "CEGAR time duration: " << (t2 - t3) << endl << endl;
+        double t3 = timer.get_elapsed_time();
+        log << "CEGAR time duration: " << (t3 - t2) << endl << endl;
 
         unique_ptr < Abstraction > abstraction = cegar.extract_abstraction();
         num_states += abstraction->get_num_states();
@@ -136,14 +136,14 @@ void CegarSymbolicComparingCostSaturation::build_abstractions(
         // print the h value in the initial state only if additive (more than 1 subtasks)
         if (subtasks.size() > 1) {
             shared_ptr<AbstractTask> remaining_costs_subtask = get_remaining_costs_task(subtask);
-            double t4 = timer.get_remaining_time();
+            double t4 = timer.get_elapsed_time();
             SymUniformBackSearchHeuristic sym_post(opts, vars, timer.get_remaining_time() / rem_subtasks / subtasks_factor, remaining_costs_subtask);
-            double t5 = timer.get_remaining_time();
-            log << "After costs reduction symbolic time duration: " << (t4 - t5) << endl << endl;
+            double t5 = timer.get_elapsed_time();
+            log << "After costs reduction symbolic time duration: " << (t5 - t4) << endl << endl;
             int h0_post = sym_post.h_value(subtask_proxy.get_initial_state());
             log << "After costs reduction symbolic initial h value: " << h0_post << endl << endl;
 
-            double t6 = timer.get_remaining_time();
+            double t6 = timer.get_elapsed_time();
             CEGAR cegar_post(
                 remaining_costs_subtask,
                 max(1, (max_states - num_states) / rem_subtasks),
@@ -159,8 +159,8 @@ void CegarSymbolicComparingCostSaturation::build_abstractions(
                 rng,
                 log,
                 dot_graph_verbosity);
-            double t7 = timer.get_remaining_time();
-            log << "After costs reduction CEGAR time duration: " << (t6 - t7) << endl << endl;
+            double t7 = timer.get_elapsed_time();
+            log << "After costs reduction CEGAR time duration: " << (t7 - t6) << endl << endl;
 
             unique_ptr < Abstraction > abstraction_post = cegar_post.extract_abstraction();
             vector < int > costs_post = task_properties::get_operator_costs(TaskProxy(*remaining_costs_subtask));
