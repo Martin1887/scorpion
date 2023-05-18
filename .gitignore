@@ -7,3 +7,14 @@ __pycache__/
 /experiments/*/data/
 /misc/.tox/
 /misc/autodoc/downward-xmlrpc.secret
+.cache
+compile_commands.json
+src/dd_libs/cudd-3.0.0/Makefile.in
+src/dd_libs/cudd-3.0.0/aclocal.m4
+src/dd_libs/cudd-3.0.0/autom4te.cache
+src/dd_libs/cudd-3.0.0/configure
+src/preprocess_h2/CMakeFiles
+src/preprocess_h2/Makefile
+src/preprocess_h2/cmake_install.cmake
+src/search/Makefile
+src/search/cmake_install.cmake
