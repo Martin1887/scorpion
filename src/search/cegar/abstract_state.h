@@ -2,6 +2,7 @@
 #define CEGAR_ABSTRACT_STATE_H
 
 #include "cartesian_set.h"
+#include "pseudo_state.h"
 #include "types.h"
 
 #include <vector>
@@ -52,6 +53,7 @@ public:
     bool includes(const AbstractState &other) const;
     bool includes(const State &concrete_state) const;
     bool includes(const std::vector<FactPair> &facts) const;
+    bool includes(const PseudoState &other) const;
 
     // IDs are consecutive, so they can be used to index states in vectors.
     int get_id() const;

@@ -91,6 +91,16 @@ bool AbstractState::includes(const AbstractState &other) const {
     return cartesian_set.is_superset_of(other.cartesian_set);
 }
 
+bool AbstractState::includes(const PseudoState &other) const {
+    vector<int> other_values = other.get_values();
+    for (size_t var = 0; var < other_values.size(); var++) {
+        if (other_values[var] != -1 && !cartesian_set.test(var, other_values[var]))
+            return false;
+    }
+
+    return true;
+}
+
 int AbstractState::get_id() const {
     return state_id;
 }

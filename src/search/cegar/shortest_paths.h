@@ -91,27 +91,49 @@ class ShortestPaths {
     HeapQueue candidate_queue;
     HeapQueue open_queue;
     std::vector<Cost> goal_distances;
+    std::vector<Cost> init_distances;
     std::vector<bool> dirty_candidate;
     std::vector<int> dirty_states;
     Transitions shortest_path;
+    // shortest path to the initial state
+    Transitions reverse_shortest_path;
 
     static Cost add_costs(Cost a, Cost b);
     int convert_to_32_bit_cost(Cost cost) const;
     Cost convert_to_64_bit_cost(int cost) const;
 
-    void mark_dirty(int state);
+    void mark_dirty(int state, bool backward);
+
+    void recompute_forward(
+        const std::vector<Transitions> &transitions,
+        const std::unordered_set<int> &goals);
+    void recompute_backward(
+        const std::vector<Transitions> &transitions,
+        const int initial_state);
+
+    void update_incrementally_in_direction(
+        const std::vector<Transitions> &in,
+        const std::vector<Transitions> &out,
+        int v, int v1, int v2,
+        const std::unordered_set<int> &goals,
+        const int initial_state,
+        bool backward);
 public:
     ShortestPaths(const std::vector<int> &costs, utils::LogProxy &log);
 
     // Use Dijkstra's algorithm to compute the shortest path tree from scratch.
     void recompute(
         const std::vector<Transitions> &transitions,
-        const std::unordered_set<int> &goals);
+        const std::unordered_set<int> &goals,
+        const int initial_state);
     // Reflect the split of v into v1 and v2.
     void update_incrementally(
         const std::vector<Transitions> &in,
         const std::vector<Transitions> &out,
-        int v, int v1, int v2);
+        int v, int v1, int v2,
+        const std::unordered_set<int> &goals,
+        const int initial_state);
+
     // Extract solution from shortest path tree.
     std::unique_ptr<Solution> extract_solution(
         int init_id,
@@ -120,6 +142,7 @@ public:
     Cost get_64bit_goal_distance(int abstract_state_id) const;
     int get_32bit_goal_distance(int abstract_state_id) const;
     bool is_optimal_transition(int start_id, int op_id, int target_id) const;
+    bool is_backward_optimal_transition(int start_id, int op_id, int target_id) const;
 
     // For debugging.
     bool test_distances(

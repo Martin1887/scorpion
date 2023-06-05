@@ -4,6 +4,7 @@
 #include "abstract_search.h"
 #include "abstract_state.h"
 #include "cartesian_set.h"
+#include "flaw_search.h"
 #include "shortest_paths.h"
 #include "transition_system.h"
 #include "utils.h"
@@ -165,12 +166,38 @@ void CEGAR::refinement_loop() {
         assert(!abstraction->get_goals().count(abstraction->get_initial_state().get_id()));
         assert(abstraction->get_goals().size() == 1);
     }
+    // If the refinement is executed in backward direction, the initial state
+    // must be split iteratively until the abstract initial state is exactly
+    // the concrete initial state, as done with goals in forward direction
+    // because the refinement functions only work with optimal transitions and
+    // the initial abstract state has not any (because it is the state with
+    // distance to init=0 and all operators have cost>=0).
+    if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD) {
+        for (FactProxy init_value : task_proxy.get_initial_state()) {
+            FactPair fact = init_value.get_pair();
+            // The other values are split from the initial state
+            VariableProxy var = task_proxy.get_variables()[fact.var];
+            vector<int> other_values{};
+            for (int i = 0; i < var.get_domain_size(); i++) {
+                int var_value = var.get_fact(i).get_value();
+                if (var_value != fact.value &&
+                    abstraction->get_initial_state().contains(fact.var, var_value)) {
+                    other_values.push_back(var_value);
+                }
+            }
+            if (!other_values.empty()) {
+                abstraction->refine(abstraction->get_initial_state(), fact.var, other_values);
+            }
+        }
+    }
+
 
     // Initialize abstract goal distances and shortest path tree.
     if (search_strategy == SearchStrategy::INCREMENTAL) {
         shortest_paths->recompute(
             abstraction->get_transition_system().get_incoming_transitions(),
-            abstraction->get_goals());
+            abstraction->get_goals(),
+            abstraction->get_initial_state().get_id());
         assert(shortest_paths->test_distances(
                    abstraction->get_transition_system().get_incoming_transitions(),
                    abstraction->get_transition_system().get_outgoing_transitions(),
@@ -234,6 +261,8 @@ void CEGAR::refinement_loop() {
         if (pick_flawed_abstract_state ==
             PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH) {
             split = flaw_search->get_split_legacy(*solution);
+        } else if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD) {
+            split = flaw_search->get_split_legacy(*solution, true);
         } else {
             split = flaw_search->get_split(timer);
         }
@@ -273,7 +302,9 @@ void CEGAR::refinement_loop() {
             shortest_paths->update_incrementally(
                 abstraction->get_transition_system().get_incoming_transitions(),
                 abstraction->get_transition_system().get_outgoing_transitions(),
-                state_id, new_state_ids.first, new_state_ids.second);
+                state_id, new_state_ids.first, new_state_ids.second,
+                abstraction->get_goals(),
+                abstraction->get_initial_state().get_id());
             assert(shortest_paths->test_distances(
                        abstraction->get_transition_system().get_incoming_transitions(),
                        abstraction->get_transition_system().get_outgoing_transitions(),

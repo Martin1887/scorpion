@@ -715,6 +715,7 @@ fast_downward_plugin(
         cegar/cost_saturation
         cegar/flaw
         cegar/flaw_search
+        cegar/pseudo_state
         cegar/refinement_hierarchy
         cegar/shortest_paths
         cegar/split_selector

@@ -2,6 +2,7 @@
 #define CEGAR_FLAW_SEARCH_H
 
 #include "flaw.h"
+#include "pseudo_state.h"
 #include "split_selector.h"
 #include "types.h"
 
@@ -32,6 +33,10 @@ enum class PickFlawedAbstractState {
     // Legacy code: follow the arbitrary solution in shortest path tree (no flaw search).
     // Consider first encountered flawed abstract state + a random concrete state.
     FIRST_ON_SHORTEST_PATH,
+    // Follow the arbitrary solution in shortest path in backward direction
+    // (from the goal).
+    // Consider first encountered flawed abstract state + a random concrete state.
+    FIRST_ON_SHORTEST_PATH_BACKWARD,
     // Collect all flawed abstract states.
     // Consider a random abstract state + a random concrete state.
     RANDOM,
@@ -87,6 +92,7 @@ class FlawSearch {
     Cost get_h_value(int abstract_state_id) const;
     void add_flaw(int abs_id, const State &state);
     OptimalTransitions get_f_optimal_transitions(int abstract_state_id) const;
+    OptimalTransitions get_f_optimal_backward_transitions(int abstract_state_id) const;
 
     void initialize();
     SearchStatus step();
@@ -94,10 +100,17 @@ class FlawSearch {
 
     std::unique_ptr<Split> create_split(
         const std::vector<StateID> &state_ids, int abstract_state_id);
+    std::unique_ptr<Split> create_split(
+        const std::vector<PseudoState> &states, int abstract_state_id);
+    std::unique_ptr<Split> create_backward_split(
+        const std::vector<PseudoState> &states, int abstract_state_id);
 
     FlawedState get_flawed_state_with_min_h();
     std::unique_ptr<Split> get_single_split(const utils::CountdownTimer &cegar_timer);
     std::unique_ptr<Split> get_min_h_batch_split(const utils::CountdownTimer &cegar_timer);
+
+    std::unique_ptr<Split> get_split_legacy_forward(const Solution &solution);
+    std::unique_ptr<Split> get_split_legacy_backward(const Solution &solution);
 
 public:
     FlawSearch(
@@ -113,7 +126,8 @@ public:
         const utils::LogProxy &log);
 
     std::unique_ptr<Split> get_split(const utils::CountdownTimer &cegar_timer);
-    std::unique_ptr<Split> get_split_legacy(const Solution &solution);
+    std::unique_ptr<Split> get_split_legacy(const Solution &solution,
+                                            const bool backward = false);
 
     void print_statistics() const;
 };
