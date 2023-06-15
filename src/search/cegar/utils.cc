@@ -107,6 +107,7 @@ static void add_pick_flawed_abstract_state_strategies(options::OptionParser &par
     parser.add_enum_option<cegar::PickFlawedAbstractState>(
         "pick_flawed_abstract_state",
         {"FIRST", "FIRST_ON_SHORTEST_PATH", "FIRST_ON_SHORTEST_PATH_BACKWARD",
+         "FIRST_ON_SHORTEST_PATH_BACKWARD_REFINING_INIT_STATE",
          "RANDOM", "MIN_H", "MAX_H", "BATCH_MIN_H"},
         "flaw-selection strategy",
         "BATCH_MIN_H");

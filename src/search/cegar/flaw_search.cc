@@ -15,6 +15,7 @@
 #include "../utils/rng.h"
 
 #include <iterator>
+#include <locale>
 
 using namespace std;
 
@@ -614,7 +615,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
         log << "Create split for abstract state " << abstract_state_id << " and "
             << states.size() << " pseudo-concrete states." << endl;
     }
-    
+
     vector<vector<Split>> splits(task_proxy.get_variables().size());
     for (auto &pair : get_f_optimal_backward_transitions(abstract_state_id)) {
         if (log.is_at_least_debug()) {
@@ -669,8 +670,8 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                             << state_value_count[value] << ")" << endl;
                     }
                     add_split(splits, Split(
-                                    abstract_state_id, var, value,
-                                    {eff_value}, state_value_count[var][value]));
+                                  abstract_state_id, var, value,
+                                  {eff_value}, state_value_count[var][value]));
                 }
             }
         }
@@ -714,6 +715,59 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                     get_unaffected_variables(op, num_vars),
                     abstraction.get_state(source), domain_sizes, splits);
             }
+        }
+    }
+
+    int num_splits = 0;
+    for (auto &var_splits : splits) {
+        num_splits += var_splits.size();
+    }
+    if (log.is_at_least_debug()) {
+        log << "Unique splits: " << num_splits << endl;
+    }
+    compute_splits_timer.stop();
+
+    if (num_splits == 0) {
+        return nullptr;
+    }
+
+    pick_split_timer.resume();
+    Split split = split_selector.pick_split(abstract_state, move(splits), rng);
+    pick_split_timer.stop();
+    return utils::make_unique_ptr<Split>(move(split));
+}
+
+unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
+    const vector<PseudoState> &states, int abstract_state_id) {
+    compute_splits_timer.resume();
+    const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
+
+    if (log.is_at_least_debug()) {
+        log << endl;
+        log << "Create split for abstract state " << abstract_state_id << " and "
+            << states.size() << " pseudo-concrete states." << endl;
+    }
+
+    const State init_state = task_proxy.get_initial_state();
+    vector<vector<Split>> splits(task_proxy.get_variables().size());
+    int num_vars = (int)domain_sizes.size();
+    for (int var = 0; var < num_vars; var++) {
+        if (abstract_state.count(var) > 1) {
+            vector<int> other_values{};
+            int init_value = init_state[var].get_value();
+            for (int value = 0; value < domain_sizes[var]; value++) {
+                if (value != init_value && abstract_state.contains(var, value)) {
+                    other_values.push_back(value);
+                }
+            }
+
+            if (log.is_at_least_debug()) {
+                log << "add_split(var " << var << ", val " << init_value
+                    << "!=" << other_values << endl;
+            }
+            add_split(splits, Split(
+                          abstract_state_id, var, init_value,
+                          move(other_values), 1));
         }
     }
 
@@ -1026,8 +1080,12 @@ unique_ptr<Split> FlawSearch::get_split_legacy_forward(const Solution &solution)
 unique_ptr<Split> FlawSearch::get_split_legacy_backward(const Solution &solution) {
     state_registry = utils::make_unique_ptr<StateRegistry>(task_proxy);
     bool debug = log.is_at_least_debug();
-    if (debug)
+    if (debug) {
         log << "Check solution:" << endl;
+        for (size_t i = 0; i < solution.size(); i++) {
+            log << solution.at(i) << endl;
+        }
+    }
 
     // The concrete transition system trace starts in the goals,
     // that usually is an abstract state
@@ -1035,7 +1093,12 @@ unique_ptr<Split> FlawSearch::get_split_legacy_backward(const Solution &solution
     vector<FactPair> goals_facts = task_properties::get_fact_pairs(task_proxy.get_goals());
     PseudoState pseudo_concrete_state(task_proxy.get_variables().size(), move(goals_facts));
     const AbstractState *initial_abstract_state = &abstraction.get_initial_state();
-    const AbstractState *abstract_state = &abstraction.get_state(solution.back().target_id);
+    const AbstractState *abstract_state;
+    if (solution.empty()) {
+        abstract_state = initial_abstract_state;
+    } else {
+        abstract_state = &abstraction.get_state(solution.back().target_id);
+    }
     if (debug) {
         log << "  Initial abstract state: " << *initial_abstract_state << endl;
         log << "  Start (goal) abstract state: " << *abstract_state << endl;
@@ -1078,13 +1141,11 @@ unique_ptr<Split> FlawSearch::get_split_legacy_backward(const Solution &solution
         // We found a concrete solution.
         return nullptr;
     } else {
-        // This never happens because the initial abstarct state is equal to
-        // the concrete initial state to avoid this
-        // before getting splits, and it does not work because the initial state
-        // has not optimal backward transitions.
+        // This only happens if the initial abstarct state is not refined
+        // before starting the refinement steps.
         if (debug)
             log << "  Initial state test failed." << endl;
-        return create_backward_split({pseudo_concrete_state}, abstract_state->get_id());
+        return create_backward_split_from_init_state({pseudo_concrete_state}, abstract_state->get_id());
     }
 }
 

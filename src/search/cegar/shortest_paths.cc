@@ -161,12 +161,12 @@ void ShortestPaths::update_incrementally(
     const int initial_state) {
     assert(in.size() == out.size());
     int num_states = in.size();
-    
+
     shortest_path.resize(num_states);
     reverse_shortest_path.resize(num_states);
     goal_distances.resize(num_states, 0);
     init_distances.resize(num_states, 0);
-    
+
     dirty_candidate.resize(num_states, false);
     dirty_states.clear();
     update_incrementally_in_direction(in, out, v, v1, v2, goals, initial_state, false);
@@ -332,7 +332,7 @@ void ShortestPaths::update_incrementally_in_direction(
 #endif
 
 
-    
+
     /*
       Perform a Dijkstra-style exploration to recompute all h values as
       follows. The "initial state" of the search is a virtual state that

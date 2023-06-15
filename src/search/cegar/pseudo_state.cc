@@ -95,5 +95,4 @@ PseudoState PseudoState::get_backward_sucessor_state(const OperatorProxy &op) co
 
     return succ;
 }
-
 }

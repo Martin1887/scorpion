@@ -37,6 +37,10 @@ enum class PickFlawedAbstractState {
     // (from the goal).
     // Consider first encountered flawed abstract state + a random concrete state.
     FIRST_ON_SHORTEST_PATH_BACKWARD,
+    // Follow the arbitrary solution in shortest path in backward direction
+    // (from the goal) refining the init state before refinement steps.
+    // Consider first encountered flawed abstract state + a random concrete state.
+    FIRST_ON_SHORTEST_PATH_BACKWARD_REFINING_INIT_STATE,
     // Collect all flawed abstract states.
     // Consider a random abstract state + a random concrete state.
     RANDOM,
@@ -103,6 +107,8 @@ class FlawSearch {
     std::unique_ptr<Split> create_split(
         const std::vector<PseudoState> &states, int abstract_state_id);
     std::unique_ptr<Split> create_backward_split(
+        const std::vector<PseudoState> &states, int abstract_state_id);
+    std::unique_ptr<Split> create_backward_split_from_init_state(
         const std::vector<PseudoState> &states, int abstract_state_id);
 
     FlawedState get_flawed_state_with_min_h();

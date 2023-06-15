@@ -9,7 +9,6 @@
 #include <vector>
 
 namespace cegar {
-
 // Class used to search flaws in the concrete state space from goals.
 // Since goals can be partially defined, some of the variables can have
 // undefined value (-1) and the class provides methods to apply operators
@@ -20,7 +19,7 @@ class PseudoState {
 public:
     PseudoState(std::size_t n_vars, std::vector<FactPair> facts);
     PseudoState(const PseudoState &other)
-        : values(std::make_shared<std::vector<int>>(other.get_values())) {};
+        : values(std::make_shared<std::vector<int>>(other.get_values())) {}
     PseudoState &operator=(const PseudoState &other) {
         if (this == &other) {
             return *this;
@@ -36,7 +35,7 @@ public:
 
     std::vector<int> &get_values() const {
         return *values;
-    };
+    }
 
     bool includes(const FactProxy &fact) const {
         int fact_var = fact.get_variable().get_id();
@@ -75,7 +74,6 @@ public:
 
     PseudoState get_backward_sucessor_state(const OperatorProxy &op) const;
 };
-
 }
 
 #endif

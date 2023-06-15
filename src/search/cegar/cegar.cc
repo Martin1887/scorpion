@@ -107,9 +107,9 @@ void CEGAR::separate_facts_unreachable_before_goal() const {
     }
     abstraction->mark_all_states_as_goals();
     /*
-      Split off the goal fact from the initial state. Then the new initial
-      state is the only non-goal state and no goal state will have to be split
-      later.
+    Split off the goal fact from the initial state. Then the new initial
+    state is the only non-goal state and no goal state will have to be split
+    later.
     */
     abstraction->refine(
         abstraction->get_initial_state(), goal.get_variable().get_id(), {goal.get_value()});
@@ -166,13 +166,12 @@ void CEGAR::refinement_loop() {
         assert(!abstraction->get_goals().count(abstraction->get_initial_state().get_id()));
         assert(abstraction->get_goals().size() == 1);
     }
-    // If the refinement is executed in backward direction, the initial state
-    // must be split iteratively until the abstract initial state is exactly
-    // the concrete initial state, as done with goals in forward direction
-    // because the refinement functions only work with optimal transitions and
-    // the initial abstract state has not any (because it is the state with
-    // distance to init=0 and all operators have cost>=0).
-    if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD) {
+    if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_REFINING_INIT_STATE) {
+        // Split iteratively until the abstract initial state is exactly
+        // the concrete initial state, as done with goals in forward direction
+        // because the refinement functions only work with optimal transitions and
+        // the initial abstract state has not any (because it is the state with
+        // distance to init=0 and all operators have cost>=0).
         for (FactProxy init_value : task_proxy.get_initial_state()) {
             FactPair fact = init_value.get_pair();
             // The other values are split from the initial state
