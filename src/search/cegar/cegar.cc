@@ -260,7 +260,8 @@ void CEGAR::refinement_loop() {
         if (pick_flawed_abstract_state ==
             PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH) {
             split = flaw_search->get_split_legacy(*solution);
-        } else if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD) {
+        } else if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD
+                   || pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_REFINING_INIT_STATE) {
             split = flaw_search->get_split_legacy(*solution, true);
         } else {
             split = flaw_search->get_split(timer);
