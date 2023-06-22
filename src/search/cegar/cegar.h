@@ -62,7 +62,7 @@ class CEGAR {
       for other subtasks with a single goal fact doesn't hurt and
       simplifies the implementation.
     */
-    void separate_facts_unreachable_before_goal() const;
+    void separate_facts_unreachable_before_goal(bool refine_goals) const;
 
     // Build abstraction.
     void refinement_loop();

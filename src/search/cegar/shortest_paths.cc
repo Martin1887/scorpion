@@ -401,7 +401,8 @@ unique_ptr<Solution> ShortestPaths::extract_solution(
 
     int current_state = init_id;
     unique_ptr<Solution> solution = utils::make_unique_ptr<Solution>();
-    assert(!goals.count(current_state));
+    // This happens at the beginning (when only the trivial state exists).
+    // assert(!goals.count(current_state));
     while (!goals.count(current_state)) {
         assert(utils::in_bounds(current_state, shortest_path));
         const Transition &t = shortest_path[current_state];

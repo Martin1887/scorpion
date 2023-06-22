@@ -184,18 +184,24 @@ SearchStatus FlawSearch::step() {
     return IN_PROGRESS;
 }
 
-static void add_split(vector<vector<Split>> &splits, Split &&new_split) {
-    vector<Split> &var_splits = splits[new_split.var_id];
-    bool is_duplicate = false;
-    for (auto &old_split : var_splits) {
-        if (old_split == new_split) {
-            is_duplicate = true;
-            old_split.count += new_split.count;
-            break;
+static void add_split(vector<vector<Split>> &splits, Split &&new_split,
+                      bool split_unwanted_values=false) {
+    // When splitting by unwanted values splits cannot be grouped by variable.
+    if (split_unwanted_values) {
+        splits.push_back({move(new_split)});
+    } else {
+        vector<Split> &var_splits = splits[new_split.var_id];
+        bool is_duplicate = false;
+        for (auto &old_split : var_splits) {
+            if (old_split == new_split) {
+                is_duplicate = true;
+                old_split.count += new_split.count;
+                break;
+            }
         }
-    }
-    if (!is_duplicate) {
-        var_splits.push_back(move(new_split));
+        if (!is_duplicate) {
+            var_splits.push_back(move(new_split));
+        }
     }
 }
 
@@ -332,7 +338,8 @@ static void get_deviation_backward_splits(
     const vector<int> &unaffected_variables,
     const AbstractState &source_abs_state,
     const vector<int> &domain_sizes,
-    vector<vector<Split>> &splits) {
+    vector<vector<Split>> &splits,
+    bool split_unwanted_values) {
     /*
       For each fact in the concrete pseudo-state that is not contained in the
       source abstract state, loop over all values in the domain of the
@@ -373,9 +380,17 @@ static void get_deviation_backward_splits(
                     }
                 }
                 assert(!wanted.empty());
-                add_split(splits, Split(
-                              abs_state.get_id(), var, value, move(wanted),
-                              fact_count[var][value]));
+                if (split_unwanted_values) {
+                    for (int want : wanted) {
+                        add_split(splits, Split(
+                                    abs_state.get_id(), var, want, {value},
+                                    fact_count[var][value]), true);
+                    }
+                } else {
+                    add_split(splits, Split(
+                                abs_state.get_id(), var, value, move(wanted),
+                                fact_count[var][value]));
+            }
             }
         }
     }
@@ -606,7 +621,7 @@ unique_ptr<Split> FlawSearch::create_split(
 }
 
 unique_ptr<Split> FlawSearch::create_backward_split(
-    const vector<PseudoState> &states, int abstract_state_id) {
+    const vector<PseudoState> &states, int abstract_state_id, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
@@ -616,7 +631,13 @@ unique_ptr<Split> FlawSearch::create_backward_split(
             << states.size() << " pseudo-concrete states." << endl;
     }
 
-    vector<vector<Split>> splits(task_proxy.get_variables().size());
+    vector<vector<Split>> splits;
+    // Splits are grouped by variable only if split by wanted values.
+    if (split_unwanted_values) {
+        splits = vector<vector<Split>>();
+    } else {
+        splits = vector<vector<Split>>(task_proxy.get_variables().size());
+    }
     for (auto &pair : get_f_optimal_backward_transitions(abstract_state_id)) {
         if (log.is_at_least_debug()) {
             log << "Optimal backward transition(s): " << pair.first << ", "
@@ -669,9 +690,15 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                             << "!=" << eff_value << ", state_value_count: "
                             << state_value_count[value] << ")" << endl;
                     }
-                    add_split(splits, Split(
-                                  abstract_state_id, var, value,
-                                  {eff_value}, state_value_count[var][value]));
+                    if (split_unwanted_values) {
+                        add_split(splits, Split(
+                                    abstract_state_id, var, eff_value,
+                                    {value}, state_value_count[var][value]), true);
+                    } else {
+                        add_split(splits, Split(
+                                    abstract_state_id, var, value,
+                                    {eff_value}, state_value_count[var][value]));
+                    }
                 }
             }
         }
@@ -713,7 +740,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                 get_deviation_backward_splits(
                     abstract_state, deviation_states,
                     get_unaffected_variables(op, num_vars),
-                    abstraction.get_state(source), domain_sizes, splits);
+                    abstraction.get_state(source), domain_sizes, splits, split_unwanted_values);
             }
         }
     }
@@ -738,7 +765,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
 }
 
 unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
-    const vector<PseudoState> &states, int abstract_state_id) {
+    const vector<PseudoState> &states, int abstract_state_id, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
@@ -749,7 +776,13 @@ unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
     }
 
     const State init_state = task_proxy.get_initial_state();
-    vector<vector<Split>> splits(task_proxy.get_variables().size());
+    vector<vector<Split>> splits;
+    // Splits are grouped by variable only if split by wanted values.
+    if (split_unwanted_values) {
+        splits = vector<vector<Split>>();
+    } else {
+        splits = vector<vector<Split>>(task_proxy.get_variables().size());
+    }
     int num_vars = (int)domain_sizes.size();
     for (int var = 0; var < num_vars; var++) {
         if (abstract_state.count(var) > 1) {
@@ -761,13 +794,24 @@ unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
                 }
             }
 
-            if (log.is_at_least_debug()) {
-                log << "add_split(var " << var << ", val " << init_value
-                    << "!=" << other_values << endl;
+            if (split_unwanted_values) {
+                for (PseudoState state : states) {
+                    int state_value = state.get_values()[var];
+                    if (state_value != -1 && state_value != init_value) {
+                        add_split(splits, Split(
+                                    abstract_state_id, var, init_value,
+                                    {state_value}, 1), true);
+                    }
+                }
+            } else {
+                if (log.is_at_least_debug()) {
+                    log << "add_split(var " << var << ", val " << init_value
+                        << "!=" << other_values << ")" << endl;
+                }
+                add_split(splits, Split(
+                            abstract_state_id, var, init_value,
+                            move(other_values), 1));
             }
-            add_split(splits, Split(
-                          abstract_state_id, var, init_value,
-                          move(other_values), 1));
         }
     }
 
@@ -1017,13 +1061,14 @@ unique_ptr<Split> FlawSearch::get_split(const utils::CountdownTimer &cegar_timer
 }
 
 unique_ptr<Split> FlawSearch::get_split_legacy(const Solution &solution,
-                                               const bool backward) {
+                                               const bool backward,
+                                               const bool split_owned_values) {
     if (log.is_at_least_debug()) {
         log << "Abstraction: " << endl;
         abstraction.get_transition_system().dump();
     }
     if (backward) {
-        return get_split_legacy_backward(solution);
+        return get_split_legacy_backward(solution, split_owned_values);
     } else {
         return get_split_legacy_forward(solution);
     }
@@ -1077,7 +1122,8 @@ unique_ptr<Split> FlawSearch::get_split_legacy_forward(const Solution &solution)
     }
 }
 
-unique_ptr<Split> FlawSearch::get_split_legacy_backward(const Solution &solution) {
+unique_ptr<Split> FlawSearch::get_split_legacy_backward(const Solution &solution,
+                                                        const bool split_unwanted_values) {
     state_registry = utils::make_unique_ptr<StateRegistry>(task_proxy);
     bool debug = log.is_at_least_debug();
     if (debug) {
@@ -1126,14 +1172,14 @@ unique_ptr<Split> FlawSearch::get_split_legacy_backward(const Solution &solution
             if (!next_abstract_state->includes(next_pseudo_concrete_state)) {
                 if (debug)
                     log << "  Paths deviate." << endl;
-                return create_backward_split({pseudo_concrete_state}, abstract_state->get_id());
+                return create_backward_split({pseudo_concrete_state}, abstract_state->get_id(), split_unwanted_values);
             }
             abstract_state = next_abstract_state;
             pseudo_concrete_state = move(next_pseudo_concrete_state);
         } else {
             if (debug)
                 log << "  Operator not applicable: " << op.get_name() << endl;
-            return create_backward_split({pseudo_concrete_state}, abstract_state->get_id());
+            return create_backward_split({pseudo_concrete_state}, abstract_state->get_id(), split_unwanted_values);
         }
     }
     assert(initial_abstract_state->get_id() == abstract_state->get_id());
@@ -1145,7 +1191,7 @@ unique_ptr<Split> FlawSearch::get_split_legacy_backward(const Solution &solution
         // before starting the refinement steps.
         if (debug)
             log << "  Initial state test failed." << endl;
-        return create_backward_split_from_init_state({pseudo_concrete_state}, abstract_state->get_id());
+        return create_backward_split_from_init_state({pseudo_concrete_state}, abstract_state->get_id(), split_unwanted_values);
     }
 }
 

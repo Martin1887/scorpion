@@ -109,8 +109,10 @@ pair<int, int> Abstraction::refine(
     }
 
     // Ensure that the initial state always has state ID 0.
-    if (v1_id == init_id &&
-        v2_cartesian_set.test(var, concrete_initial_state[var].get_value())) {
+    if ((v1_id == init_id &&
+        v2_cartesian_set.test(var, concrete_initial_state[var].get_value()))
+        || (v2_id == init_id &&
+            v1_cartesian_set.test(var, concrete_initial_state[var].get_value()))) {
         swap(v1_id, v2_id);
     }
 

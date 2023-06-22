@@ -85,7 +85,7 @@ unique_ptr<Abstraction> CEGAR::extract_abstraction() {
     return move(abstraction);
 }
 
-void CEGAR::separate_facts_unreachable_before_goal() const {
+void CEGAR::separate_facts_unreachable_before_goal(bool refine_goals) const {
     assert(abstraction->get_goals().size() == 1);
     assert(abstraction->get_num_states() == 1);
     assert(task_proxy.get_goals().size() == 1);
@@ -111,8 +111,10 @@ void CEGAR::separate_facts_unreachable_before_goal() const {
     state is the only non-goal state and no goal state will have to be split
     later.
     */
-    abstraction->refine(
-        abstraction->get_initial_state(), goal.get_variable().get_id(), {goal.get_value()});
+    if (refine_goals) {
+        abstraction->refine(
+            abstraction->get_initial_state(), goal.get_variable().get_id(), {goal.get_value()});
+    }
 }
 
 bool CEGAR::may_keep_refining() const {
@@ -152,9 +154,10 @@ void CEGAR::refinement_loop() {
       to simplify the implementation. This way, we don't have to split
       goal states later.
     */
+    bool refine_goals = pick_flawed_abstract_state != PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD;
     if (task_proxy.get_goals().size() == 1) {
-        separate_facts_unreachable_before_goal();
-    } else {
+        separate_facts_unreachable_before_goal(refine_goals);
+    } else if (refine_goals) {
         // Iteratively split off the next goal fact from the current goal state.
         assert(abstraction->get_num_states() == 1);
         const AbstractState *current = &abstraction->get_initial_state();
@@ -166,7 +169,7 @@ void CEGAR::refinement_loop() {
         assert(!abstraction->get_goals().count(abstraction->get_initial_state().get_id()));
         assert(abstraction->get_goals().size() == 1);
     }
-    if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_REFINING_INIT_STATE) {
+    if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE) {
         // Split iteratively until the abstract initial state is exactly
         // the concrete initial state, as done with goals in forward direction
         // because the refinement functions only work with optimal transitions and
@@ -260,9 +263,11 @@ void CEGAR::refinement_loop() {
         if (pick_flawed_abstract_state ==
             PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH) {
             split = flaw_search->get_split_legacy(*solution);
-        } else if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD
-                   || pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_REFINING_INIT_STATE) {
+        } else if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES
+                   || pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE) {
             split = flaw_search->get_split_legacy(*solution, true);
+        } else if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD) {
+            split = flaw_search->get_split_legacy(*solution, true, true);
         } else {
             split = flaw_search->get_split(timer);
         }
@@ -287,7 +292,8 @@ void CEGAR::refinement_loop() {
         refine_timer.resume();
         int state_id = split->abstract_state_id;
         const AbstractState &abstract_state = abstraction->get_state(state_id);
-        assert(!abstraction->get_goals().count(state_id));
+        // This may not happen in the backward direction.
+        // assert(!abstraction->get_goals().count(state_id));
 
         pair<int, int> new_state_ids = abstraction->refine(
             abstract_state, split->var_id, split->values);
