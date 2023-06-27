@@ -741,6 +741,13 @@ fast_downward_plugin(
 )
 
 fast_downward_plugin(
+    NAME SYMBW_PERIMETER
+    SOURCES
+        symbw_perimeter/symbw_perimeter
+        DEPENDS CEGAR_SYMBOLIC_COMPARISON
+)
+
+fast_downward_plugin(
     NAME COST_SATURATION
     HELP "Saturated cost partitioning"
     SOURCES

@@ -56,6 +56,10 @@ ADD SymUniformBackSearch::getHeuristic() const {
 
 
 
+SymUniformBackSearchHeuristic::SymUniformBackSearchHeuristic(const Options &opts)
+    : Heuristic(opts),
+      task(tasks::g_root_task) {
+}
 SymUniformBackSearchHeuristic::SymUniformBackSearchHeuristic(const Options &opts,
                                                              shared_ptr < SymVariables > vars,
                                                              double max_time)
@@ -76,6 +80,13 @@ SymUniformBackSearchHeuristic::SymUniformBackSearchHeuristic(const Options &opts
     initialize(opts);
 }
 
+void SymUniformBackSearchHeuristic::initialize_from_parser(const options::Options &opts) {
+    vars = make_shared<SymVariables>(opts, task);
+    vars->init();
+    max_time = opts.get<double>("symbw_time");
+
+    initialize(opts);
+}
 
 void SymUniformBackSearchHeuristic::initialize(const Options &opts) {
     SymParamsMgr mgrParams(opts, task);

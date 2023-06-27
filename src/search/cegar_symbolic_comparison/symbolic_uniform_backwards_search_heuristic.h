@@ -41,6 +41,7 @@ protected:
     virtual int compute_heuristic(const State &ancestor_state) override;
 
 public:
+    SymUniformBackSearchHeuristic(const options::Options &opts);
     SymUniformBackSearchHeuristic(const options::Options &opts,
                                   std::shared_ptr < symbolic::SymVariables > vars,
                                   double max_time);
@@ -49,6 +50,7 @@ public:
                                   double max_time,
                                   const std::shared_ptr < AbstractTask > task);
     virtual ~SymUniformBackSearchHeuristic() = default;
+    void initialize_from_parser(const options::Options &opts);
 
     int h_value(const State &ancestor_state) {return compute_heuristic(ancestor_state);}
 };
