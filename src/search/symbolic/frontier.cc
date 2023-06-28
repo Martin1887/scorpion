@@ -105,7 +105,6 @@ int Frontier::buckets() const {
 
 ResultExpansion Frontier::expand_zero(int maxTime, int maxNodes, bool fw) {
     // Image with respect to 0-cost actions
-    assert(expansionReady() && nodeCount(Szero) <= maxNodes);
     utils::Timer image_time;
 
     mgr->setTimeLimit(maxTime);
@@ -116,7 +115,7 @@ ResultExpansion Frontier::expand_zero(int maxTime, int maxNodes, bool fw) {
             mgr->zero_image(fw, Szero[i], Simg[i][0], maxNodes);
         }
         mgr->unsetTimeLimit();
-    }catch (BDDError e) {
+    } catch (BDDError e) {
         mgr->unsetTimeLimit();
         return ResultExpansion(true, TruncatedReason::IMAGE_ZERO, image_time());
     }
