@@ -10,7 +10,7 @@ static shared_ptr<Heuristic> _parse(OptionParser &parser) {
     parser.add_option<double> (
         "symbw_time",
         "Time in seconds for the symbolic backward perimeter",
-        "1500.0",
+        "1200.0",
         Bounds("0.0", "infinity"));
     Heuristic::add_options_to_parser(parser);
     symbolic::SymbolicSearch::add_options_to_parser(parser);

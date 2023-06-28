@@ -90,14 +90,14 @@ void SymUniformBackSearchHeuristic::initialize_from_parser(const options::Option
 
 void SymUniformBackSearchHeuristic::initialize(const Options &opts) {
     SymParamsMgr mgrParams(opts, task);
-    auto originalStateSpace = make_shared < OriginalStateSpace > (vars.get(), mgrParams, task);
+    auto originalStateSpace = make_shared<OriginalStateSpace>(vars.get(), mgrParams, task);
 
     notMutexBDDs = originalStateSpace->getNotMutexBDDs(true);
 
-    search_engine = unique_ptr < SymUniformBackSearch > (new SymUniformBackSearch(opts, originalStateSpace, vars));
+    search_engine = unique_ptr<SymUniformBackSearch>(new SymUniformBackSearch(opts, originalStateSpace, vars));
     search_engine->search(max_time);
 
-    heuristic = unique_ptr < ADD > (new ADD(std::move(search_engine->getHeuristic())));
+    heuristic = unique_ptr<ADD>(new ADD(std::move(search_engine->getHeuristic())));
 }
 
 int SymUniformBackSearchHeuristic::compute_heuristic(const State &state) {
