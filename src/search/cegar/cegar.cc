@@ -45,6 +45,7 @@ CEGAR::CEGAR(
       pick_flawed_abstract_state(pick_flawed_abstract_state),
       abstraction(utils::make_unique_ptr<Abstraction>(task, log)),
       timer(max_time),
+      max_time(max_time),
       log(log),
       dot_graph_verbosity(dot_graph_verbosity) {
     assert(max_states >= 1);
@@ -117,18 +118,22 @@ void CEGAR::separate_facts_unreachable_before_goal(bool refine_goals) const {
     }
 }
 
-bool CEGAR::may_keep_refining() const {
-    if (abstraction->get_num_states() >= max_states) {
+bool CEGAR::may_keep_refining(bool in_current_direction) const {
+    int divider = 1;
+    if (in_current_direction) {
+        divider = 2;
+    }
+    if (abstraction->get_num_states() >= max_states / divider) {
         if (log.is_at_least_normal()) {
             log << "Reached maximum number of states." << endl;
         }
         return false;
-    } else if (abstraction->get_transition_system().get_num_non_loops() >= max_non_looping_transitions) {
+    } else if (abstraction->get_transition_system().get_num_non_loops() >= max_non_looping_transitions / divider) {
         if (log.is_at_least_normal()) {
             log << "Reached maximum number of transitions." << endl;
         }
         return false;
-    } else if (timer.is_expired()) {
+    } else if (max_time != numeric_limits<double>::infinity() && timer.get_elapsed_time() >= max_time / double(divider)) {
         if (log.is_at_least_normal()) {
             log << "Reached time limit." << endl;
         }
@@ -211,7 +216,35 @@ void CEGAR::refinement_loop() {
     utils::Timer refine_timer(false);
     utils::Timer update_goal_distances_timer(false);
 
+    // true if the current bidirectional direction is backward and false
+    // if the current bidirectional direction is forward.
+    // The current bidirectional direction depends on the iteration
+    // (even or odd) when interleaved and in the time/transitions used when
+    // batched.
+    //
+    // Note that the interleaved case starts as backward but its value is
+    // modified inside the loop.
+    bool current_bidirectional_direction_backward = false;
+    bool batched_bidirectional_already_changed_direction = false;
+    if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD) {
+        current_bidirectional_direction_backward = true;
+    }
     while (may_keep_refining()) {
+        // Update the current direction for bidirectional picks
+        switch (pick_flawed_abstract_state) {
+            case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED:
+                current_bidirectional_direction_backward = !current_bidirectional_direction_backward;
+                break;
+            case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD:
+            case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_FORWARD_BACKWARD:
+                if (!batched_bidirectional_already_changed_direction && !may_keep_refining(true)) {
+                    current_bidirectional_direction_backward = !current_bidirectional_direction_backward;
+                    batched_bidirectional_already_changed_direction = true;
+                }
+                break;
+            default:
+                break;
+        }
         find_trace_timer.resume();
         unique_ptr<Solution> solution;
         if (search_strategy == SearchStrategy::ASTAR) {
@@ -260,16 +293,28 @@ void CEGAR::refinement_loop() {
         }
 
         unique_ptr<Split> split;
-        if (pick_flawed_abstract_state ==
-            PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH) {
-            split = flaw_search->get_split_legacy(*solution);
-        } else if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES
-                   || pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE) {
-            split = flaw_search->get_split_legacy(*solution, true);
-        } else if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD) {
-            split = flaw_search->get_split_legacy(*solution, true, true);
-        } else {
-            split = flaw_search->get_split(timer);
+        switch (pick_flawed_abstract_state) {
+            case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH:
+                split = flaw_search->get_split_legacy(*solution);
+                break;
+            case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
+            case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE:
+                split = flaw_search->get_split_legacy(*solution, true);
+                break;
+            case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD:
+                split = flaw_search->get_split_legacy(*solution, true, true);
+                break;
+            case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED:
+            case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD:
+            case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_FORWARD_BACKWARD:
+                if (current_bidirectional_direction_backward) {
+                    split = flaw_search->get_split_legacy(*solution, true, true);
+                } else {
+                    split = flaw_search->get_split_legacy(*solution);
+                }
+                break;
+            default:
+                split = flaw_search->get_split(timer);
         }
 
         find_flaw_timer.stop();

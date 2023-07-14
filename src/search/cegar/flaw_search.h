@@ -45,6 +45,18 @@ enum class PickFlawedAbstractState {
     // before refinement steps.
     // Consider first encountered flawed abstract state + a random concrete state.
     FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE,
+    // Follow the arbitrary solution in shortest path in backward and forward
+    // directions interleaving them.
+    // Consider first encountered flawed abstract state + a random concrete state.
+    FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED,
+    // Follow the arbitrary solution in shortest path in backward direction the
+    // first half of the time/states/transitions and in the forward direction the other one.
+    // Consider first encountered flawed abstract state + a random concrete state.
+    FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD,
+    // Follow the arbitrary solution in shortest path in forward direction the
+    // first half of the time/states/transitions and in the backward direction the other one.
+    // Consider first encountered flawed abstract state + a random concrete state.
+    FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_FORWARD_BACKWARD,
     // Collect all flawed abstract states.
     // Consider a random abstract state + a random concrete state.
     RANDOM,

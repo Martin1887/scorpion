@@ -45,6 +45,7 @@ class CEGAR {
 
     // Limit the time for building the abstraction.
     utils::CountdownTimer timer;
+    double max_time;
 
     utils::LogProxy &log;
     const DotGraphVerbosity dot_graph_verbosity;
@@ -52,7 +53,7 @@ class CEGAR {
     // Only used for logging progress.
     int old_abstract_solution_cost = -1;
 
-    bool may_keep_refining() const;
+    bool may_keep_refining(bool in_current_direction = false) const;
 
     /*
       Map all states that can only be reached after reaching the goal
