@@ -159,7 +159,8 @@ void CEGAR::refinement_loop() {
       to simplify the implementation. This way, we don't have to split
       goal states later.
     */
-    bool refine_goals = pick_flawed_abstract_state != PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD;
+    bool refine_goals = pick_flawed_abstract_state != PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD
+        && pick_flawed_abstract_state != PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE;
     if (task_proxy.get_goals().size() == 1) {
         separate_facts_unreachable_before_goal(refine_goals);
     } else if (refine_goals) {
