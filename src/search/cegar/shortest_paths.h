@@ -105,10 +105,10 @@ class ShortestPaths {
     void mark_dirty(int state, bool backward);
 
     void recompute_forward(
-        const std::vector<Transitions> &transitions,
+        const std::vector<Transitions> &inc,
         const std::unordered_set<int> &goals);
     void recompute_backward(
-        const std::vector<Transitions> &transitions,
+        const std::vector<Transitions> &out,
         const int initial_state);
 
     void update_incrementally_in_direction(
@@ -123,7 +123,8 @@ public:
 
     // Use Dijkstra's algorithm to compute the shortest path tree from scratch.
     void recompute(
-        const std::vector<Transitions> &transitions,
+        const std::vector<Transitions> &in,
+        const std::vector<Transitions> &out,
         const std::unordered_set<int> &goals,
         const int initial_state);
     // Reflect the split of v into v1 and v2.

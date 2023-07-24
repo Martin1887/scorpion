@@ -204,6 +204,7 @@ void CEGAR::refinement_loop() {
     if (search_strategy == SearchStrategy::INCREMENTAL) {
         shortest_paths->recompute(
             abstraction->get_transition_system().get_incoming_transitions(),
+            abstraction->get_transition_system().get_outgoing_transitions(),
             abstraction->get_goals(),
             abstraction->get_initial_state().get_id());
         assert(shortest_paths->test_distances(

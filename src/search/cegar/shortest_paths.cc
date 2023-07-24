@@ -58,6 +58,7 @@ Cost ShortestPaths::convert_to_64_bit_cost(int cost) const {
 
 void ShortestPaths::recompute(
     const vector<Transitions> &in,
+    const vector<Transitions> &out,
     const unordered_set<int> &goals,
     const int initial_state) {
     shortest_path = Transitions(in.size());
@@ -67,7 +68,7 @@ void ShortestPaths::recompute(
     open_queue.clear();
     recompute_forward(in, goals);
     open_queue.clear();
-    recompute_backward(in, initial_state);
+    recompute_backward(out, initial_state);
 }
 
 void ShortestPaths::recompute_forward(
@@ -105,10 +106,11 @@ void ShortestPaths::recompute_forward(
 }
 
 void ShortestPaths::recompute_backward(
-    const vector<Transitions> &in,
+    const vector<Transitions> &out,
     const int initial_state) {
     Cost dist = 0;
     init_distances[initial_state] = dist;
+    reverse_shortest_path[initial_state] = Transition();
     open_queue.push(dist, initial_state);
 
     while (!open_queue.empty()) {
@@ -122,7 +124,7 @@ void ShortestPaths::recompute_backward(
         if (dist < old_dist)
             continue;
         assert(utils::in_bounds(state_id, in));
-        for (const Transition &t : in[state_id]) {
+        for (const Transition &t : out[state_id]) {
             int succ_id = t.target_id;
             int op_id = t.op_id;
             Cost op_cost = operator_costs[op_id];
@@ -429,6 +431,11 @@ bool ShortestPaths::is_optimal_transition(int start_id, int op_id, int target_id
 }
 
 bool ShortestPaths::is_backward_optimal_transition(int start_id, int op_id, int target_id) const {
+        if (log.is_at_least_debug()) {
+            log << "init_distances[start_id]: " << init_distances[start_id]
+                << " - operator_costs[op_id]: " << operator_costs[op_id]
+                << " == init_distances[target_id]?: " << init_distances[target_id] << endl;
+        }
     return init_distances[start_id] - operator_costs[op_id] == init_distances[target_id];
 }
 

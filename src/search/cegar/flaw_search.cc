@@ -43,6 +43,10 @@ OptimalTransitions FlawSearch::get_f_optimal_backward_transitions(int abstract_s
     OptimalTransitions transitions;
     for (const Transition &t :
          abstraction.get_transition_system().get_incoming_transitions()[abstract_state_id]) {
+        if (log.is_at_least_debug()) {
+            OperatorProxy op = task_proxy.get_operators()[t.op_id];
+            log << "Incoming transition: " << op.get_name() << ", " << t.target_id << endl;
+        }
         if (shortest_paths.is_backward_optimal_transition(abstract_state_id, t.op_id, t.target_id)) {
             transitions[t.op_id].push_back(t.target_id);
         }
@@ -706,6 +710,9 @@ unique_ptr<Split> FlawSearch::create_backward_split(
         phmap::flat_hash_map<int, vector<PseudoState>> deviation_states_by_source;
         for (size_t i = 0; i < states.size(); ++i) {
             if (!applicable[i]) {
+                if (log.is_at_least_debug()) {
+                    log << "Not applicable" << endl;
+                }
                 continue;
             }
             const PseudoState &state = states[i];
@@ -721,6 +728,13 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                 if (!source_hit && abstraction.get_state(source).includes(succ_state)) {
                     // No flaw
                     source_hit = true;
+                    if (log.is_at_least_debug()) {
+                        log << "source_hit, state: " << state << ", source: "
+                            << source << endl;
+                        log << "source: " << abstraction.get_state(source) << endl;
+                        log << "succ_state: " << succ_state << endl;
+                        log << "state: " << state << endl;
+                    }
                 } else {
                     // Deviation flaw
                     if (log.is_at_least_debug()) {
@@ -1065,7 +1079,7 @@ unique_ptr<Split> FlawSearch::get_split_legacy(const Solution &solution,
                                                const bool split_owned_values) {
     if (log.is_at_least_debug()) {
         log << "Abstraction: " << endl;
-        abstraction.get_transition_system().dump();
+        abstraction.dump();
     }
     if (backward) {
         return get_split_legacy_backward(solution, split_owned_values);
@@ -1084,8 +1098,14 @@ unique_ptr<Split> FlawSearch::get_split_legacy_forward(const Solution &solution)
     State concrete_state = state_registry->get_initial_state();
     assert(abstract_state->includes(concrete_state));
 
-    if (debug)
+    if (debug) {
         log << "  Initial abstract state: " << *abstract_state << endl;
+        log << "  Abstract plan:" << endl;
+        for (const Transition &step : solution) {
+            OperatorProxy op = task_proxy.get_operators()[step.op_id];
+            log << "    " << op.get_name() << endl;
+        }
+    }
 
     for (const Transition &step : solution) {
         OperatorProxy op = task_proxy.get_operators()[step.op_id];
@@ -1130,6 +1150,11 @@ unique_ptr<Split> FlawSearch::get_split_legacy_backward(const Solution &solution
         log << "Check solution:" << endl;
         for (size_t i = 0; i < solution.size(); i++) {
             log << solution.at(i) << endl;
+        }
+        log << "  Abstract plan:" << endl;
+        for (const Transition &step : solution) {
+            OperatorProxy op = task_proxy.get_operators()[step.op_id];
+            log << "    " << op.get_name() << endl;
         }
     }
 
