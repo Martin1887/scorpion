@@ -20,6 +20,7 @@ class CartesianSet {
 public:
     explicit CartesianSet(const std::vector<int> &domain_sizes);
 
+    int n_vars() const;
     void add(int var, int value);
     void set_single_value(int var, int value);
     void remove(int var, int value);

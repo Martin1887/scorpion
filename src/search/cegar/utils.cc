@@ -253,5 +253,10 @@ void add_common_cegar_options(options::OptionParser &parser) {
         "maximum number of state expansions per flaw search",
         "1M",
         Bounds("1", "infinity"));
+
+    parser.add_option<bool>(
+        "print_h_distribution_and_avg",
+        "print h distribution and avg in the concrete space",
+        "false");
 }
 }

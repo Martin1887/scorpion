@@ -40,6 +40,7 @@ class CostSaturation {
     const int max_state_expansions;
     const SearchStrategy search_strategy;
     const int memory_padding_mb;
+    const bool print_h_distribution_and_avg;
     utils::RandomNumberGenerator &rng;
     utils::LogProxy &log;
     const cegar::DotGraphVerbosity dot_graph_verbosity;
@@ -74,6 +75,7 @@ public:
         int max_state_expansions,
         SearchStrategy search_strategy,
         int memory_padding_mb,
+        bool print_h_distribution_and_avg,
         utils::RandomNumberGenerator &rng,
         utils::LogProxy &log,
         DotGraphVerbosity dot_graph_verbosity);

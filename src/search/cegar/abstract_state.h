@@ -38,6 +38,9 @@ public:
     // Return the size of var's abstract domain for this state.
     int count(int var) const;
 
+    // Return the number of concrete states represented by this state.
+    int count() const;
+
     bool contains(int var, int value) const;
 
     // Return the Cartesian set in which applying "op" can lead to this state.

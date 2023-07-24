@@ -26,6 +26,7 @@ class TransitionSystem;
   RefinementHierarchy.
 */
 class Abstraction {
+    const TaskProxy task_proxy;
     const std::unique_ptr<TransitionSystem> transition_system;
     const State concrete_initial_state;
     const std::vector<FactPair> goal_facts;
@@ -67,6 +68,12 @@ public:
         const AbstractState &state, int var, const std::vector<int> &wanted);
 
     void print_statistics() const;
+
+    void dump() const;
+
+    // Print the distribution of h values and the average h value in the
+    // concrete space.
+    void h_avg_and_distribution(const std::vector<int> &goal_distances) const;
 };
 }
 

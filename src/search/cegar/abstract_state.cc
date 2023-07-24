@@ -23,6 +23,16 @@ int AbstractState::count(int var) const {
     return cartesian_set.count(var);
 }
 
+int AbstractState::count() const {
+    int states = 1;
+    int n_vars = cartesian_set.n_vars();
+    for (int var = 0; var < n_vars; var++) {
+        states *= cartesian_set.count(var);
+    }
+
+    return states;
+}
+
 bool AbstractState::contains(int var, int value) const {
     return cartesian_set.test(var, value);
 }

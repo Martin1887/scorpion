@@ -20,9 +20,10 @@ using namespace std;
 
 namespace cegar {
 Abstraction::Abstraction(const shared_ptr<AbstractTask> &task, utils::LogProxy &log)
-    : transition_system(utils::make_unique_ptr<TransitionSystem>(TaskProxy(*task).get_operators())),
-      concrete_initial_state(TaskProxy(*task).get_initial_state()),
-      goal_facts(task_properties::get_fact_pairs(TaskProxy(*task).get_goals())),
+    : task_proxy(TaskProxy(*task)),
+      transition_system(utils::make_unique_ptr<TransitionSystem>(task_proxy.get_operators())),
+      concrete_initial_state(task_proxy.get_initial_state()),
+      goal_facts(task_properties::get_fact_pairs(task_proxy.get_goals())),
       refinement_hierarchy(utils::make_unique_ptr<RefinementHierarchy>(task)),
       log(log) {
     initialize_trivial_abstraction(get_domain_sizes(TaskProxy(*task)));
@@ -160,5 +161,44 @@ void Abstraction::print_statistics() const {
         log << "Nodes in refinement hierarchy: "
             << refinement_hierarchy->get_num_nodes() << endl;
     }
+}
+
+void Abstraction::dump() const {
+    auto outgoing = transition_system->get_outgoing_transitions();
+    for (int i = 0; i < get_num_states(); i++) {
+        cout << "State " << i << ":" << endl;
+        cout << "    " << get_state(i) << endl;
+        cout << "    Outgoing transitions:" << endl;
+        for (Transition out : outgoing[i]) {
+            OperatorProxy op = task_proxy.get_operators()[out.op_id];
+            cout << "        " << op.get_name() << " " << out.target_id << endl;
+        }
+    }
+}
+
+void Abstraction::h_avg_and_distribution(const vector<int> &goal_distances) const {
+    // For each h value, the number of states with it as h value.
+    utils::HashMap<int, int> h_distribution{};
+    double avg_h = 0;
+    int n_states = get_num_states();
+    int n_concrete_states = 0;
+
+    for (int i = 0; i < n_states; i++) {
+        int n_states = get_state(i).count();
+        int h = goal_distances[i];
+        if (h != INF) {
+             h_distribution[h] += n_states;
+        }
+    }
+
+    for (auto h_nstates : h_distribution) {
+        avg_h += h_nstates.first * h_nstates.second;
+        n_concrete_states += h_nstates.second;
+        log << "Distribution of h, h=" << h_nstates.first << " for "
+            << h_nstates.second << " concrete states" << endl;
+    }
+    avg_h /= n_concrete_states;
+
+    log << "Average h value in the concrete space: " << avg_h << endl;
 }
 }
