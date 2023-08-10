@@ -85,7 +85,7 @@ CostSaturation::CostSaturation(
     int max_state_expansions,
     SearchStrategy search_strategy,
     int memory_padding_mb,
-    bool print_h_distribution_and_avg,
+    bool print_h_distribution,
     utils::RandomNumberGenerator &rng,
     utils::LogProxy &log,
     DotGraphVerbosity dot_graph_verbosity)
@@ -101,7 +101,7 @@ CostSaturation::CostSaturation(
       max_state_expansions(max_state_expansions),
       search_strategy(search_strategy),
       memory_padding_mb(memory_padding_mb),
-      print_h_distribution_and_avg(print_h_distribution_and_avg),
+      print_h_distribution(print_h_distribution),
       rng(rng),
       log(log),
       dot_graph_verbosity(dot_graph_verbosity),
@@ -237,8 +237,8 @@ void CostSaturation::build_abstractions(
             goal_distances,
             use_general_costs);
 
-        if (print_h_distribution_and_avg) {
-            abstraction->h_avg_and_distribution(goal_distances);
+        if (print_h_distribution) {
+            abstraction->h_distribution(goal_distances);
         }
 
         reduce_remaining_costs(saturated_costs);

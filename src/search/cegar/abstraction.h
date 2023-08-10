@@ -71,9 +71,9 @@ public:
 
     void dump() const;
 
-    // Print the distribution of h values and the average h value in the
-    // concrete space.
-    void h_avg_and_distribution(const std::vector<int> &goal_distances) const;
+    // Print the distribution of h values as a vector with the numbers to
+    // multiply to get the final number of states
+    void h_distribution(const std::vector<int> &goal_distances) const;
 };
 }
 

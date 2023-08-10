@@ -255,8 +255,8 @@ void add_common_cegar_options(options::OptionParser &parser) {
         Bounds("1", "infinity"));
 
     parser.add_option<bool>(
-        "print_h_distribution_and_avg",
-        "print h distribution and avg in the concrete space",
+        "print_h_distribution",
+        "print h distribution in the concrete space",
         "false");
 }
 }

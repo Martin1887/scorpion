@@ -176,29 +176,24 @@ void Abstraction::dump() const {
     }
 }
 
-void Abstraction::h_avg_and_distribution(const vector<int> &goal_distances) const {
+void Abstraction::h_distribution(const vector<int> &goal_distances) const {
     // For each h value, the number of states with it as h value.
-    utils::HashMap<int, int> h_distribution{};
-    double avg_h = 0;
-    int n_states = get_num_states();
-    int n_concrete_states = 0;
+    utils::HashMap<int, vector<int>> h_distribution{};
+    int n_abstract_states = get_num_states();
 
-    for (int i = 0; i < n_states; i++) {
-        int n_states = get_state(i).count();
+    for (int i = 0; i < n_abstract_states; i++) {
+        vector<int> n_states = get_state(i).count();
         int h = goal_distances[i];
         if (h != INF) {
-             h_distribution[h] += n_states;
+            vector<int> current = h_distribution[h];
+            current.insert(current.end(), n_states.begin(), n_states.end());
+            h_distribution[h] = current;
         }
     }
 
     for (auto h_nstates : h_distribution) {
-        avg_h += h_nstates.first * h_nstates.second;
-        n_concrete_states += h_nstates.second;
         log << "Distribution of h, h=" << h_nstates.first << " for "
             << h_nstates.second << " concrete states" << endl;
     }
-    avg_h /= n_concrete_states;
-
-    log << "Average h value in the concrete space: " << avg_h << endl;
 }
 }

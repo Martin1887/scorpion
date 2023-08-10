@@ -40,7 +40,7 @@ static vector<CartesianHeuristicFunction> generate_heuristic_functions(
         opts.get<int>("max_state_expansions"),
         opts.get<SearchStrategy>("search_strategy"),
         opts.get<int>("memory_padding"),
-        opts.get<bool>("print_h_distribution_and_avg"),
+        opts.get<bool>("print_h_distribution"),
         *rng,
         log,
         opts.get<DotGraphVerbosity>("dot_graph_verbosity"));

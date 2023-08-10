@@ -38,8 +38,9 @@ public:
     // Return the size of var's abstract domain for this state.
     int count(int var) const;
 
-    // Return the number of concrete states represented by this state.
-    int count() const;
+    // Return a vector with the number of concrete states represented by each
+    // variable.
+    std::vector<int> count() const;
 
     bool contains(int var, int value) const;
 
