@@ -238,7 +238,7 @@ void CostSaturation::build_abstractions(
             use_general_costs);
 
         if (print_h_distribution) {
-            abstraction->h_distribution(goal_distances);
+            abstraction->h_distribution(goal_distances, init_distances);
         }
 
         reduce_remaining_costs(saturated_costs);

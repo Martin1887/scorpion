@@ -176,10 +176,12 @@ void Abstraction::dump() const {
     }
 }
 
-void Abstraction::h_distribution(const vector<int> &goal_distances) const {
+void Abstraction::h_distribution(const vector<int> &goal_distances,
+                                 const vector<int> &init_distances) const {
     // For each h value, the number of states with it as h value.
     utils::HashMap<int, vector<vector<int>>> h_distribution{};
     int n_abstract_states = get_num_states();
+    vector<vector<int>> unreachable_states{};
 
     for (int i = 0; i < n_abstract_states; i++) {
         vector<int> n_states = get_state(i).count();
@@ -187,11 +189,15 @@ void Abstraction::h_distribution(const vector<int> &goal_distances) const {
         vector<vector<int>> current = h_distribution[h];
         current.push_back(n_states);
         h_distribution[h] = current;
+        if (init_distances[i] == INF) {
+            unreachable_states.push_back(n_states);
+        }
     }
 
     log << "Total number of concrete states: " << get_domain_sizes(task_proxy)
         << endl;
 
+    log << "Number of unreachable concrete states: " << unreachable_states << endl;
     for (auto h_nstates : h_distribution) {
         log << "Distribution of h, h=" << h_nstates.first << " for "
             << h_nstates.second << " concrete states" << endl;
