@@ -958,7 +958,7 @@ unique_ptr<Split>
 FlawSearch::get_min_h_batch_split(const utils::CountdownTimer &cegar_timer) {
     assert(pick_flawed_abstract_state == PickFlawedAbstractState::BATCH_MIN_H);
     if (last_refined_flawed_state != FlawedState::no_state) {
-        // Handle flaws of the last refined abstract state.
+        // Recycle flaws of the last refined abstract state.
         Cost old_h = last_refined_flawed_state.h;
         for (const StateID &state_id : last_refined_flawed_state.concrete_states) {
             State state = state_registry->lookup_state(state_id);
@@ -980,10 +980,6 @@ FlawSearch::get_min_h_batch_split(const utils::CountdownTimer &cegar_timer) {
         }
     }
 
-    if (log.is_at_least_debug()) {
-        log << "Use flawed state: " << flawed_state << " with h=" << flawed_state.h << endl;
-    }
-
     // Memory padding
     if (search_status == TIMEOUT)
         return nullptr;
@@ -991,6 +987,10 @@ FlawSearch::get_min_h_batch_split(const utils::CountdownTimer &cegar_timer) {
     if (search_status == FAILED) {
         // There are flaws to refine.
         assert(flawed_state != FlawedState::no_state);
+
+        if (log.is_at_least_debug()) {
+            log << "Use flawed state: " << flawed_state << endl;
+        }
 
         unique_ptr<Split> split;
         split = create_split(flawed_state.concrete_states, flawed_state.abs_id);
@@ -1221,22 +1221,21 @@ unique_ptr<Split> FlawSearch::get_split_legacy_backward(const Solution &solution
 }
 
 void FlawSearch::print_statistics() const {
-    // Avoid division by zero for corner cases.
-    int flaws = max(1, abstraction.get_num_states() - 1);
-    int searches = max(1, num_searches);
+    int refinements = abstraction.get_num_states() - 1;
     int expansions = num_overall_expanded_concrete_states;
-    log << "Flaw searches: " << searches << endl;
-    log << "Refined flaws: " << flaws << endl;
+    log << "Flaw searches: " << num_searches << endl;
     log << "Expanded concrete states: " << expansions << endl;
     log << "Maximum expanded concrete states in single flaw search: "
         << max_expanded_concrete_states << endl;
     log << "Flaw search time: " << flaw_search_timer << endl;
     log << "Time for computing splits: " << compute_splits_timer << endl;
     log << "Time for selecting splits: " << pick_split_timer << endl;
-    log << "Average number of refined flaws: "
-        << flaws / static_cast<float>(searches) << endl;
-    log << "Average number of expanded concrete states per flaw search: "
-        << expansions / static_cast<float>(searches) << endl;
-    log << "Average flaw search time: " << flaw_search_timer() / searches << endl;
+    if (num_searches > 0) {
+        log << "Average number of refinements per flaw search: "
+            << refinements / static_cast<float>(num_searches) << endl;
+        log << "Average number of expanded concrete states per flaw search: "
+            << expansions / static_cast<float>(num_searches) << endl;
+        log << "Average flaw search time: " << flaw_search_timer() / num_searches << endl;
+    }
 }
 }

@@ -38,7 +38,6 @@ class CostSaturation {
     const PickSplit tiebreak_split;
     const int max_concrete_states_per_abstract_state;
     const int max_state_expansions;
-    const SearchStrategy search_strategy;
     const int memory_padding_mb;
     const bool print_h_distribution;
     utils::RandomNumberGenerator &rng;
@@ -73,7 +72,6 @@ public:
         PickSplit tiebreak_split,
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
-        SearchStrategy search_strategy,
         int memory_padding_mb,
         bool print_h_distribution,
         utils::RandomNumberGenerator &rng,
