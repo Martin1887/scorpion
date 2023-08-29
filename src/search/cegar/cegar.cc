@@ -157,8 +157,19 @@ void CEGAR::refinement_loop() {
       to simplify the implementation. This way, we don't have to split
       goal states later.
     */
-    bool refine_goals = pick_flawed_abstract_state != PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD
-        && pick_flawed_abstract_state != PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE;
+    bool refine_goals = false;
+    switch (pick_flawed_abstract_state) {
+        case PickFlawedAbstractState::FIRST:
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH:
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
+        case PickFlawedAbstractState::RANDOM:
+        case PickFlawedAbstractState::MIN_H:
+        case PickFlawedAbstractState::MAX_H:
+        case PickFlawedAbstractState::BATCH_MIN_H:
+            refine_goals = true;
+        default:
+            break;
+    }
     if (task_proxy.get_goals().size() == 1) {
         separate_facts_unreachable_before_goal(refine_goals);
     } else if (refine_goals) {
@@ -183,6 +194,9 @@ void CEGAR::refinement_loop() {
         // the initial abstract state has not any (because it is the state with
         // distance to init=0 and all operators have cost>=0).
         for (FactProxy init_value : task_proxy.get_initial_state()) {
+            if (!may_keep_refining()) {
+                break;
+            }
             FactPair fact = init_value.get_pair();
             // The other values are split from the initial state
             VariableProxy var = task_proxy.get_variables()[fact.var];
