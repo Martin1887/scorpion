@@ -112,6 +112,7 @@ static void add_pick_flawed_abstract_state_strategies(options::OptionParser &par
          "FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED",
          "FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD",
          "FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_FORWARD_BACKWARD",
+         "FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_CLOSEST_TO_GOAL",
          "RANDOM", "MIN_H", "MAX_H", "BATCH_MIN_H"},
         "flaw-selection strategy",
         "BATCH_MIN_H");

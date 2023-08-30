@@ -38,25 +38,23 @@ enum class PickFlawedAbstractState {
     FIRST_ON_SHORTEST_PATH_BACKWARD,
     // Follow the arbitrary solution in shortest path in backward direction
     // (from the goal) splitting the wanted values.
-    // Consider first encountered flawed abstract state + a random concrete state.
     FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES,
     // Follow the arbitrary solution in shortest path in backward direction
     // (from the goal) splitting the wanted values refining the init state
     // before refinement steps.
-    // Consider first encountered flawed abstract state + a random concrete state.
     FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE,
     // Follow the arbitrary solution in shortest path in backward and forward
     // directions interleaving them.
-    // Consider first encountered flawed abstract state + a random concrete state.
     FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED,
     // Follow the arbitrary solution in shortest path in backward direction the
     // first half of the time/states/transitions and in the forward direction the other one.
-    // Consider first encountered flawed abstract state + a random concrete state.
     FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD,
     // Follow the arbitrary solution in shortest path in forward direction the
     // first half of the time/states/transitions and in the backward direction the other one.
-    // Consider first encountered flawed abstract state + a random concrete state.
     FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_FORWARD_BACKWARD,
+    // Follow the arbitrary solution in shortest path in the direction where
+    // the found flaw is closer to the goal.
+    FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_CLOSEST_TO_GOAL,
     // Collect all flawed abstract states.
     // Consider a random abstract state + a random concrete state.
     RANDOM,
@@ -73,6 +71,35 @@ enum class PickFlawedAbstractState {
 };
 
 using OptimalTransitions = phmap::flat_hash_map<int, std::vector<int>>;
+
+struct ForwardLegacyFlaw {
+    StateID concrete_state_id;
+    int abstract_state_id;
+
+    ForwardLegacyFlaw(StateID concrete_state_id,
+                      int abstract_state_id)
+        : concrete_state_id(concrete_state_id),
+          abstract_state_id(abstract_state_id) {};
+};
+struct BackwardLegacyFlaw {
+    PseudoState pseudo_concrete_state_id;
+    int abstract_state_id;
+    bool split_init_state;
+
+    BackwardLegacyFlaw(PseudoState pseudo_id,
+                       int abstract_id,
+                       bool split_init_state)
+        : pseudo_concrete_state_id(pseudo_id),
+          abstract_state_id(abstract_id),
+          split_init_state(split_init_state) {};
+};
+struct SplitAndDirection {
+    std::unique_ptr<Split> split;
+    bool backward_direction;
+
+    SplitAndDirection(std::unique_ptr<Split> split, bool backward_direction)
+        : split(std::move(split)), backward_direction(backward_direction) {};
+};
 
 class FlawSearch {
     TaskProxy task_proxy;
@@ -131,9 +158,10 @@ class FlawSearch {
     std::unique_ptr<Split> get_single_split(const utils::CountdownTimer &cegar_timer);
     std::unique_ptr<Split> get_min_h_batch_split(const utils::CountdownTimer &cegar_timer);
 
-    std::unique_ptr<Split> get_split_legacy_forward(const Solution &solution);
-    std::unique_ptr<Split> get_split_legacy_backward(const Solution &solution,
-                                                     const bool split_unwanted_values);
+    // Return concrete state id and abstract state id where create the split.
+    std::unique_ptr<ForwardLegacyFlaw> get_split_legacy_forward(const Solution &solution);
+    // Return pseudo-concrete state id and abstract state id where create the split.
+    std::unique_ptr<BackwardLegacyFlaw> get_split_legacy_backward(const Solution &solution);
 
 public:
     FlawSearch(
@@ -152,6 +180,8 @@ public:
     std::unique_ptr<Split> get_split_legacy(const Solution &solution,
                                             const bool backward = false,
                                             const bool split_unwanted_values = false);
+    SplitAndDirection get_split_legacy_closest_to_goal(const Solution &solution,
+                                                      const bool split_unwanted_values);
 
     void print_statistics() const;
 };

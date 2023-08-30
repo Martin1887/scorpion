@@ -146,6 +146,8 @@ bool CEGAR::may_keep_refining(bool in_current_direction) const {
 }
 
 void CEGAR::refinement_loop() {
+    int forward_refinements = 0;
+    int backward_refinements = 0;
     /*
       For landmark tasks we have to map all states in which the
       landmark might have been achieved to arbitrary abstract goal
@@ -244,6 +246,7 @@ void CEGAR::refinement_loop() {
     if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD) {
         current_bidirectional_direction_backward = true;
     }
+    int n_refinements = abstraction->get_num_states() - 1;
     while (may_keep_refining()) {
         // Update the current direction for bidirectional picks
         switch (pick_flawed_abstract_state) {
@@ -294,6 +297,7 @@ void CEGAR::refinement_loop() {
         }
 
         unique_ptr<Split> split;
+        bool backward_dir = false;
         switch (pick_flawed_abstract_state) {
             case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH:
                 split = flaw_search->get_split_legacy(*solution);
@@ -301,17 +305,27 @@ void CEGAR::refinement_loop() {
             case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
             case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE:
                 split = flaw_search->get_split_legacy(*solution, true);
+                backward_dir = true;
                 break;
             case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD:
                 split = flaw_search->get_split_legacy(*solution, true, true);
+                backward_dir = true;
                 break;
             case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED:
             case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD:
             case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_FORWARD_BACKWARD:
                 if (current_bidirectional_direction_backward) {
                     split = flaw_search->get_split_legacy(*solution, true, true);
+                    backward_dir = true;
                 } else {
                     split = flaw_search->get_split_legacy(*solution);
+                }
+                break;
+            case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_CLOSEST_TO_GOAL:
+                {
+                    SplitAndDirection split_dir = flaw_search->get_split_legacy_closest_to_goal(*solution, true);
+                    split = move(split_dir.split);
+                    backward_dir = split_dir.backward_direction;
                 }
                 break;
             default:
@@ -345,6 +359,20 @@ void CEGAR::refinement_loop() {
             abstract_state, split->var_id, split->values);
         refine_timer.stop();
 
+        n_refinements++;
+        if (backward_dir) {
+            backward_refinements++;
+        } else {
+            forward_refinements++;
+        }
+        if (n_refinements % 100 == 0) {
+            if (log.is_at_least_normal()) {
+                log << "Number of refinements: " << n_refinements << endl;
+                log << "Forward refinements " << forward_refinements << endl;
+                log << "Backward refinements " << backward_refinements << endl;
+            }
+        }
+
         update_goal_distances_timer.resume();
         shortest_paths->update_incrementally(
             abstraction->get_transition_system().get_incoming_transitions(),
@@ -370,7 +398,9 @@ void CEGAR::refinement_loop() {
         log << "Time for finding flaws and computing splits: " << find_flaw_timer << endl;
         log << "Time for splitting states: " << refine_timer << endl;
         log << "Time for updating goal distances: " << update_goal_distances_timer << endl;
-        log << "Number of refinements: " << abstraction->get_num_states() - 1 << endl;
+        log << "Number of refinements: " << n_refinements << endl;
+        log << "Forward refinements " << forward_refinements << endl;
+        log << "Backward refinements " << backward_refinements << endl;
     }
 }
 

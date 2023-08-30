@@ -1081,14 +1081,64 @@ unique_ptr<Split> FlawSearch::get_split_legacy(const Solution &solution,
         log << "Abstraction: " << endl;
         abstraction.dump();
     }
+    unique_ptr<pair<StateID, int>> split_pair;
     if (backward) {
-        return get_split_legacy_backward(solution, split_owned_values);
+        unique_ptr<BackwardLegacyFlaw> backward_flaw = get_split_legacy_backward(solution);
+        if (!backward_flaw) {
+            return nullptr;
+        }
+        if (backward_flaw->split_init_state) {
+            return create_backward_split_from_init_state({backward_flaw->pseudo_concrete_state_id},
+                                                         backward_flaw->abstract_state_id,
+                                                         split_owned_values);
+        } else {
+            return create_backward_split({backward_flaw->pseudo_concrete_state_id},
+                                         backward_flaw->abstract_state_id,
+                                         split_owned_values);
+        }
     } else {
-        return get_split_legacy_forward(solution);
+        unique_ptr<ForwardLegacyFlaw> forward_flaw = get_split_legacy_forward(solution);
+        if (!forward_flaw) {
+            return nullptr;
+        }
+        return create_split({forward_flaw->concrete_state_id}, forward_flaw->abstract_state_id);
     }
 }
 
-unique_ptr<Split> FlawSearch::get_split_legacy_forward(const Solution &solution) {
+SplitAndDirection FlawSearch::get_split_legacy_closest_to_goal(
+    const Solution &solution,
+    const bool split_owned_values) {
+    if (log.is_at_least_debug()) {
+        log << "Abstraction: " << endl;
+        abstraction.dump();
+    }
+
+    unique_ptr<ForwardLegacyFlaw> forward_flaw = get_split_legacy_forward(solution);
+    unique_ptr<BackwardLegacyFlaw> backward_flaw = get_split_legacy_backward(solution);
+    
+    if (!backward_flaw && !forward_flaw) {
+        return SplitAndDirection(nullptr, false);
+    } else if (!backward_flaw) {
+        return SplitAndDirection(create_split({forward_flaw->concrete_state_id}, forward_flaw->abstract_state_id), false);
+    } else if (shortest_paths.get_64bit_goal_distance(backward_flaw->abstract_state_id) >
+        shortest_paths.get_64bit_goal_distance(forward_flaw->abstract_state_id)) {
+        return SplitAndDirection(create_split({forward_flaw->concrete_state_id}, forward_flaw->abstract_state_id), false);
+    } else {
+        if (backward_flaw->split_init_state) {
+            return SplitAndDirection(create_backward_split_from_init_state(
+                {backward_flaw->pseudo_concrete_state_id},
+                backward_flaw->abstract_state_id,
+                split_owned_values), true);
+        } else {
+            return SplitAndDirection(create_backward_split(
+                {backward_flaw->pseudo_concrete_state_id},
+                backward_flaw->abstract_state_id,
+                split_owned_values), true);
+        }
+    }
+}
+
+unique_ptr<ForwardLegacyFlaw> FlawSearch::get_split_legacy_forward(const Solution &solution) {
     state_registry = utils::make_unique_ptr<StateRegistry>(task_proxy);
     bool debug = log.is_at_least_debug();
     if (debug)
@@ -1118,14 +1168,14 @@ unique_ptr<Split> FlawSearch::get_split_legacy_forward(const Solution &solution)
             if (!next_abstract_state->includes(next_concrete_state)) {
                 if (debug)
                     log << "  Paths deviate." << endl;
-                return create_split({concrete_state.get_id()}, abstract_state->get_id());
+                return utils::make_unique_ptr<ForwardLegacyFlaw>(concrete_state.get_id(), abstract_state->get_id());
             }
             abstract_state = next_abstract_state;
             concrete_state = move(next_concrete_state);
         } else {
             if (debug)
                 log << "  Operator not applicable: " << op.get_name() << endl;
-            return create_split({concrete_state.get_id()}, abstract_state->get_id());
+            return utils::make_unique_ptr<ForwardLegacyFlaw>(concrete_state.get_id(), abstract_state->get_id());
         }
     }
     assert(abstraction.get_goals().count(abstract_state->get_id()));
@@ -1138,13 +1188,11 @@ unique_ptr<Split> FlawSearch::get_split_legacy_forward(const Solution &solution)
         // has not optimal transitions.
         if (debug)
             log << "  Goal test failed." << endl;
-        return create_split({concrete_state.get_id()}, abstract_state->get_id());
+        return utils::make_unique_ptr<ForwardLegacyFlaw>(concrete_state.get_id(), abstract_state->get_id());
     }
 }
 
-unique_ptr<Split> FlawSearch::get_split_legacy_backward(const Solution &solution,
-                                                        const bool split_unwanted_values) {
-    state_registry = utils::make_unique_ptr<StateRegistry>(task_proxy);
+unique_ptr<BackwardLegacyFlaw> FlawSearch::get_split_legacy_backward(const Solution &solution) {
     bool debug = log.is_at_least_debug();
     if (debug) {
         log << "Check solution:" << endl;
@@ -1197,14 +1245,14 @@ unique_ptr<Split> FlawSearch::get_split_legacy_backward(const Solution &solution
             if (!next_abstract_state->includes(next_pseudo_concrete_state)) {
                 if (debug)
                     log << "  Paths deviate." << endl;
-                return create_backward_split({pseudo_concrete_state}, abstract_state->get_id(), split_unwanted_values);
+                return utils::make_unique_ptr<BackwardLegacyFlaw>(pseudo_concrete_state, abstract_state->get_id(), false);
             }
             abstract_state = next_abstract_state;
             pseudo_concrete_state = move(next_pseudo_concrete_state);
         } else {
             if (debug)
                 log << "  Operator not applicable: " << op.get_name() << endl;
-            return create_backward_split({pseudo_concrete_state}, abstract_state->get_id(), split_unwanted_values);
+            return utils::make_unique_ptr<BackwardLegacyFlaw>(pseudo_concrete_state, abstract_state->get_id(), false);
         }
     }
     assert(initial_abstract_state->get_id() == abstract_state->get_id());
@@ -1216,7 +1264,7 @@ unique_ptr<Split> FlawSearch::get_split_legacy_backward(const Solution &solution
         // before starting the refinement steps.
         if (debug)
             log << "  Initial state test failed." << endl;
-        return create_backward_split_from_init_state({pseudo_concrete_state}, abstract_state->get_id(), split_unwanted_values);
+        return utils::make_unique_ptr<BackwardLegacyFlaw>(pseudo_concrete_state, abstract_state->get_id(), true);
     }
 }
 
