@@ -368,8 +368,8 @@ void CEGAR::refinement_loop() {
         if (n_refinements % 100 == 0) {
             if (log.is_at_least_normal()) {
                 log << "Number of refinements: " << n_refinements << endl;
-                log << "Forward refinements " << forward_refinements << endl;
-                log << "Backward refinements " << backward_refinements << endl;
+                log << "Forward refinements: " << forward_refinements << endl;
+                log << "Backward refinements: " << backward_refinements << endl;
             }
         }
 
@@ -399,8 +399,8 @@ void CEGAR::refinement_loop() {
         log << "Time for splitting states: " << refine_timer << endl;
         log << "Time for updating goal distances: " << update_goal_distances_timer << endl;
         log << "Number of refinements: " << n_refinements << endl;
-        log << "Forward refinements " << forward_refinements << endl;
-        log << "Backward refinements " << backward_refinements << endl;
+        log << "Forward refinements: " << forward_refinements << endl;
+        log << "Backward refinements: " << backward_refinements << endl;
     }
 }
 
