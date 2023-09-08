@@ -75,11 +75,14 @@ using OptimalTransitions = phmap::flat_hash_map<int, std::vector<int>>;
 struct ForwardLegacyFlaw {
     StateID concrete_state_id;
     int abstract_state_id;
+    bool split_goal_state;
 
     ForwardLegacyFlaw(StateID concrete_state_id,
-                      int abstract_state_id)
+                      int abstract_state_id,
+                      bool split_goal_state)
         : concrete_state_id(concrete_state_id),
-          abstract_state_id(abstract_state_id) {};
+          abstract_state_id(abstract_state_id),
+          split_goal_state(split_goal_state){};
 };
 struct BackwardLegacyFlaw {
     PseudoState pseudo_concrete_state_id;
@@ -149,6 +152,8 @@ class FlawSearch {
         const std::vector<StateID> &state_ids, int abstract_state_id);
     std::unique_ptr<Split> create_split(
         const std::vector<PseudoState> &states, int abstract_state_id);
+    std::unique_ptr<Split> create_split_from_goal_state(
+        const std::vector<StateID> &state_ids, int abstract_state_id);
     std::unique_ptr<Split> create_backward_split(
         const std::vector<PseudoState> &states, int abstract_state_id, bool split_unwanted_values);
     std::unique_ptr<Split> create_backward_split_from_init_state(
