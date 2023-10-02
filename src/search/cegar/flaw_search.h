@@ -33,8 +33,12 @@ enum class PickFlawedAbstractState {
     // Legacy code: follow the arbitrary solution in shortest path tree (no flaw search).
     // Consider first encountered flawed abstract state + a random concrete state.
     FIRST_ON_SHORTEST_PATH,
+    // Legacy code: follow the arbitrary solution in shortest path tree (no flaw search)
+    // splitting the unwanted values.
+    // Consider first encountered flawed abstract state + a random concrete state.
+    FIRST_ON_SHORTEST_PATH_UNWANTED_VALUES,
     // Follow the arbitrary solution in shortest path in backward direction
-    // (from the goal) splitting the partial concrete state values.
+    // (from the goal) splitting the unwanted values.
     FIRST_ON_SHORTEST_PATH_BACKWARD,
     // Follow the arbitrary solution in shortest path in backward direction
     // (from the goal) splitting the wanted values.
@@ -149,11 +153,11 @@ class FlawSearch {
     SearchStatus search_for_flaws(const utils::CountdownTimer &cegar_timer);
 
     std::unique_ptr<Split> create_split(
-        const std::vector<StateID> &state_ids, int abstract_state_id);
+        const std::vector<StateID> &state_ids, int abstract_state_id, bool split_unwanted_values);
     std::unique_ptr<Split> create_split(
-        const std::vector<PseudoState> &states, int abstract_state_id);
+        const std::vector<PseudoState> &states, int abstract_state_id, bool split_unwanted_values);
     std::unique_ptr<Split> create_split_from_goal_state(
-        const std::vector<StateID> &state_ids, int abstract_state_id);
+        const std::vector<StateID> &state_ids, int abstract_state_id, bool split_unwanted_values);
     std::unique_ptr<Split> create_backward_split(
         const std::vector<PseudoState> &states, int abstract_state_id, bool split_unwanted_values);
     std::unique_ptr<Split> create_backward_split_from_init_state(

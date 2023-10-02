@@ -106,7 +106,8 @@ vector<int> get_domain_sizes(const TaskProxy &task) {
 static void add_pick_flawed_abstract_state_strategies(options::OptionParser &parser) {
     parser.add_enum_option<cegar::PickFlawedAbstractState>(
         "pick_flawed_abstract_state",
-        {"FIRST", "FIRST_ON_SHORTEST_PATH", "FIRST_ON_SHORTEST_PATH_BACKWARD",
+        {"FIRST", "FIRST_ON_SHORTEST_PATH", "FIRST_ON_SHORTEST_PATH_UNWANTED_VALUES",
+         "FIRST_ON_SHORTEST_PATH_BACKWARD",
          "FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES",
          "FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE",
          "FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED",

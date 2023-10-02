@@ -236,7 +236,8 @@ static void get_deviation_splits(
     const vector<int> &unaffected_variables,
     const AbstractState &target_abs_state,
     const vector<int> &domain_sizes,
-    vector<vector<Split>> &splits) {
+    vector<vector<Split>> &splits,
+    bool split_unwanted_values) {
     /*
       For each fact in the concrete state that is not contained in the
       target abstract state, loop over all values in the domain of the
@@ -275,9 +276,17 @@ static void get_deviation_splits(
                     }
                 }
                 assert(!wanted.empty());
-                add_split(splits, Split(
-                              abs_state.get_id(), var, value, move(wanted),
-                              fact_count[var][value]));
+                if (split_unwanted_values) {
+                    for (int want : wanted) {
+                        add_split(splits, Split(
+                                    abs_state.get_id(), var, want, {value},
+                                    fact_count[var][value]), true);
+                    }
+                } else {
+                    add_split(splits, Split(
+                                abs_state.get_id(), var, value, move(wanted),
+                                fact_count[var][value]));
+                }
             }
         }
     }
@@ -289,7 +298,8 @@ static void get_deviation_splits(
     const vector<int> &unaffected_variables,
     const AbstractState &target_abs_state,
     const vector<int> &domain_sizes,
-    vector<vector<Split>> &splits) {
+    vector<vector<Split>> &splits,
+    bool split_unwanted_values) {
     /*
       For each fact in the concrete state that is not contained in the
       target abstract state, loop over all values in the domain of the
@@ -328,9 +338,17 @@ static void get_deviation_splits(
                     }
                 }
                 assert(!wanted.empty());
-                add_split(splits, Split(
-                              abs_state.get_id(), var, value, move(wanted),
-                              fact_count[var][value]));
+                if (split_unwanted_values) {
+                    for (int want : wanted) {
+                        add_split(splits, Split(
+                                    abs_state.get_id(), var, want, {value},
+                                    fact_count[var][value]), true);
+                    }
+                } else {
+                    add_split(splits, Split(
+                                abs_state.get_id(), var, value, move(wanted),
+                                fact_count[var][value]));
+                }
             }
         }
     }
@@ -394,7 +412,7 @@ static void get_deviation_backward_splits(
                     add_split(splits, Split(
                                 abs_state.get_id(), var, value, move(wanted),
                                 fact_count[var][value]));
-            }
+                }
             }
         }
     }
@@ -402,7 +420,7 @@ static void get_deviation_backward_splits(
 
 // TODO: Add comment about split considering multiple transitions.
 unique_ptr<Split> FlawSearch::create_split(
-    const vector<StateID> &state_ids, int abstract_state_id) {
+    const vector<StateID> &state_ids, int abstract_state_id, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
@@ -413,7 +431,13 @@ unique_ptr<Split> FlawSearch::create_split(
     }
 
     const TransitionSystem &ts = abstraction.get_transition_system();
-    vector<vector<Split>> splits(task_proxy.get_variables().size());
+    vector<vector<Split>> splits;
+    // Splits are grouped by variable only if split by wanted values.
+    if (split_unwanted_values) {
+        splits = vector<vector<Split>>();
+    } else {
+        splits = vector<vector<Split>>(task_proxy.get_variables().size());
+    }
     for (auto &pair : get_f_optimal_transitions(abstract_state_id)) {
         int op_id = pair.first;
         const vector<int> &targets = pair.second;
@@ -441,9 +465,15 @@ unique_ptr<Split> FlawSearch::create_split(
             for (int value = 0; value < domain_sizes[fact.var]; ++value) {
                 if (state_value_count[value] > 0) {
                     assert(value != fact.value);
-                    add_split(splits, Split(
-                                  abstract_state_id, fact.var, value,
-                                  {fact.value}, state_value_count[value]));
+                    if (split_unwanted_values) {
+                        add_split(splits, Split(
+                                    abstract_state_id, fact.var, fact.value,
+                                    {value}, state_value_count[value]), true);
+                    } else {
+                        add_split(splits, Split(
+                                    abstract_state_id, fact.var, value,
+                                    {fact.value}, state_value_count[value]));
+                    }
                 }
             }
         }
@@ -482,7 +512,8 @@ unique_ptr<Split> FlawSearch::create_split(
                 get_deviation_splits(
                     abstract_state, deviation_states,
                     get_unaffected_variables(op, num_vars),
-                    abstraction.get_state(target), domain_sizes, splits);
+                    abstraction.get_state(target), domain_sizes, splits,
+                    split_unwanted_values);
             }
         }
     }
@@ -507,7 +538,7 @@ unique_ptr<Split> FlawSearch::create_split(
 }
 
 unique_ptr<Split> FlawSearch::create_split(
-    const vector<PseudoState> &states, int abstract_state_id) {
+    const vector<PseudoState> &states, int abstract_state_id, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
@@ -517,7 +548,13 @@ unique_ptr<Split> FlawSearch::create_split(
             << states.size() << " pseudo-concrete states." << endl;
     }
 
-    vector<vector<Split>> splits(task_proxy.get_variables().size());
+    vector<vector<Split>> splits;
+    // Splits are grouped by variable only if split by wanted values.
+    if (split_unwanted_values) {
+        splits = vector<vector<Split>>();
+    } else {
+        splits = vector<vector<Split>>(task_proxy.get_variables().size());
+    }
     for (auto &pair : get_f_optimal_backward_transitions(abstract_state_id)) {
         if (log.is_at_least_debug()) {
             log << "Optimal backward transition(s): " << pair.first << ", "
@@ -556,9 +593,15 @@ unique_ptr<Split> FlawSearch::create_split(
                             << "!=" << fact.value << ", state_value_count: "
                             << state_value_count[value] << ")" << endl;
                     }
-                    add_split(splits, Split(
-                                  abstract_state_id, fact.var, value,
-                                  {fact.value}, state_value_count[value]));
+                    if (split_unwanted_values) {
+                        add_split(splits, Split(
+                                    abstract_state_id, fact.var, fact.value,
+                                    {value}, state_value_count[value]), true);
+                    } else {
+                        add_split(splits, Split(
+                                    abstract_state_id, fact.var, value,
+                                    {fact.value}, state_value_count[value]));
+                    }
                 }
             }
         }
@@ -600,7 +643,8 @@ unique_ptr<Split> FlawSearch::create_split(
                 get_deviation_splits(
                     abstract_state, deviation_states,
                     get_unaffected_variables(op, num_vars),
-                    abstraction.get_state(target), domain_sizes, splits);
+                    abstraction.get_state(target), domain_sizes, splits,
+                    split_unwanted_values);
             }
         }
     }
@@ -625,7 +669,7 @@ unique_ptr<Split> FlawSearch::create_split(
 }
 
 unique_ptr<Split> FlawSearch::create_split_from_goal_state(
-    const vector<StateID> &state_ids, int abstract_state_id) {
+    const vector<StateID> &state_ids, int abstract_state_id, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
@@ -654,9 +698,22 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
                         log << "add_split(var " << var << ", val " << goal_value
                             << "!=" << other_values << ")" << endl;
                     }
-                    add_split(splits, Split(
-                                abstract_state_id, var, goal_value,
-                                move(other_values), 1));
+
+                    if (split_unwanted_values) {
+                        for (StateID state_id : state_ids) {
+                            State state = state_registry->lookup_state(state_id);
+                            int state_value = state[var].get_value();
+                            if (state_value != goal_value) {
+                                add_split(splits, Split(
+                                            abstract_state_id, var, goal_value,
+                                            {state_value}, 1), true);
+                            }
+                        }
+                    } else {
+                        add_split(splits, Split(
+                                    abstract_state_id, var, goal_value,
+                                    move(other_values), 1));
+                    }
                 }
             }
         }
@@ -984,7 +1041,7 @@ unique_ptr<Split> FlawSearch::get_single_split(const utils::CountdownTimer &cega
             log << "Path (without last operator): " << operator_names << endl;
         }
 
-        return create_split({state_id}, flawed_state.abs_id);
+        return create_split({state_id}, flawed_state.abs_id, false);
     }
     assert(search_status == SOLVED);
     return nullptr;
@@ -1050,7 +1107,7 @@ FlawSearch::get_min_h_batch_split(const utils::CountdownTimer &cegar_timer) {
         }
 
         unique_ptr<Split> split;
-        split = create_split(flawed_state.concrete_states, flawed_state.abs_id);
+        split = create_split(flawed_state.concrete_states, flawed_state.abs_id, false);
 
         if (!utils::extra_memory_padding_is_reserved()) {
             return nullptr;
@@ -1133,7 +1190,7 @@ unique_ptr<Split> FlawSearch::get_split(const utils::CountdownTimer &cegar_timer
 
 unique_ptr<Split> FlawSearch::get_split_legacy(const Solution &solution,
                                                const bool backward,
-                                               const bool split_owned_values) {
+                                               const bool split_unwanted_values) {
     if (log.is_at_least_debug()) {
         log << "Abstraction: " << endl;
         abstraction.dump();
@@ -1147,11 +1204,11 @@ unique_ptr<Split> FlawSearch::get_split_legacy(const Solution &solution,
         if (backward_flaw->split_init_state) {
             return create_backward_split_from_init_state({backward_flaw->pseudo_concrete_state_id},
                                                          backward_flaw->abstract_state_id,
-                                                         split_owned_values);
+                                                         split_unwanted_values);
         } else {
             return create_backward_split({backward_flaw->pseudo_concrete_state_id},
                                          backward_flaw->abstract_state_id,
-                                         split_owned_values);
+                                         split_unwanted_values);
         }
     } else {
         unique_ptr<ForwardLegacyFlaw> forward_flaw = get_split_legacy_forward(solution);
@@ -1159,16 +1216,20 @@ unique_ptr<Split> FlawSearch::get_split_legacy(const Solution &solution,
             return nullptr;
         }
         if (forward_flaw->split_goal_state) {
-            return create_split_from_goal_state({forward_flaw->concrete_state_id}, forward_flaw->abstract_state_id);
+            return create_split_from_goal_state({forward_flaw->concrete_state_id},
+                                                forward_flaw->abstract_state_id,
+                                                split_unwanted_values);
         } else {
-            return create_split({forward_flaw->concrete_state_id}, forward_flaw->abstract_state_id);
+            return create_split({forward_flaw->concrete_state_id},
+                                forward_flaw->abstract_state_id,
+                                split_unwanted_values);
         }
     }
 }
 
 SplitAndDirection FlawSearch::get_split_legacy_closest_to_goal(
     const Solution &solution,
-    const bool split_owned_values) {
+    const bool split_unwanted_values) {
     if (log.is_at_least_debug()) {
         log << "Abstraction: " << endl;
         abstraction.dump();
@@ -1192,18 +1253,24 @@ SplitAndDirection FlawSearch::get_split_legacy_closest_to_goal(
             return SplitAndDirection(create_backward_split_from_init_state(
                 {backward_flaw->pseudo_concrete_state_id},
                 backward_flaw->abstract_state_id,
-                split_owned_values), true);
+                split_unwanted_values), true);
         } else {
             return SplitAndDirection(create_backward_split(
                 {backward_flaw->pseudo_concrete_state_id},
                 backward_flaw->abstract_state_id,
-                split_owned_values), true);
+                split_unwanted_values), true);
         }
     } else {
         if (forward_flaw->split_goal_state) {
-            return SplitAndDirection(create_split_from_goal_state({forward_flaw->concrete_state_id}, forward_flaw->abstract_state_id), false);
+            return SplitAndDirection(create_split_from_goal_state(
+                {forward_flaw->concrete_state_id},
+                forward_flaw->abstract_state_id,
+                split_unwanted_values), false);
         } else {
-            return SplitAndDirection(create_split({forward_flaw->concrete_state_id}, forward_flaw->abstract_state_id), false);
+            return SplitAndDirection(create_split(
+                {forward_flaw->concrete_state_id},
+                forward_flaw->abstract_state_id,
+                split_unwanted_values), false);
         }
     }
 }

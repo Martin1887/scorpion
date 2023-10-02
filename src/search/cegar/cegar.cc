@@ -163,6 +163,7 @@ void CEGAR::refinement_loop() {
     switch (pick_flawed_abstract_state) {
         case PickFlawedAbstractState::FIRST:
         case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH:
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_UNWANTED_VALUES:
         case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
         case PickFlawedAbstractState::RANDOM:
         case PickFlawedAbstractState::MIN_H:
@@ -301,6 +302,9 @@ void CEGAR::refinement_loop() {
         switch (pick_flawed_abstract_state) {
             case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH:
                 split = flaw_search->get_split_legacy(*solution);
+                break;
+            case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_UNWANTED_VALUES:
+                split = flaw_search->get_split_legacy(*solution, false, true);
                 break;
             case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
             case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE:
