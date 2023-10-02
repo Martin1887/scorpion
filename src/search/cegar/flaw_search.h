@@ -154,8 +154,6 @@ class FlawSearch {
 
     std::unique_ptr<Split> create_split(
         const std::vector<StateID> &state_ids, int abstract_state_id, bool split_unwanted_values);
-    std::unique_ptr<Split> create_split(
-        const std::vector<PseudoState> &states, int abstract_state_id, bool split_unwanted_values);
     std::unique_ptr<Split> create_split_from_goal_state(
         const std::vector<StateID> &state_ids, int abstract_state_id, bool split_unwanted_values);
     std::unique_ptr<Split> create_backward_split(
