@@ -2,6 +2,7 @@
 #define CEGAR_CARTESIAN_SET_H
 
 #include "../algorithms/dynamic_bitset.h"
+#include "../task_proxy.h"
 
 #include <ostream>
 #include <vector>
@@ -19,6 +20,7 @@ class CartesianSet {
 
 public:
     explicit CartesianSet(const std::vector<int> &domain_sizes);
+    explicit CartesianSet(const std::vector<int> &domain_sizes, std::vector<FactPair> facts);
 
     int n_vars() const;
     void add(int var, int value);
@@ -32,8 +34,10 @@ public:
     }
 
     int count(int var) const;
+    bool all_values_set(int var) const;
     std::vector<int> get_values(int var) const;
     bool intersects(const CartesianSet &other, int var) const;
+    bool intersects(const CartesianSet &other) const;
     bool is_superset_of(const CartesianSet &other) const;
 
     friend std::ostream &operator<<(

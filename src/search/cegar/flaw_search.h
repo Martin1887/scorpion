@@ -2,7 +2,7 @@
 #define CEGAR_FLAW_SEARCH_H
 
 #include "flaw.h"
-#include "pseudo_state.h"
+#include "abstract_state.h"
 #include "split_selector.h"
 #include "types.h"
 
@@ -89,14 +89,14 @@ struct ForwardLegacyFlaw {
           split_goal_state(split_goal_state){};
 };
 struct BackwardLegacyFlaw {
-    PseudoState pseudo_concrete_state_id;
+    AbstractState flaw_search_state;
     int abstract_state_id;
     bool split_init_state;
 
-    BackwardLegacyFlaw(PseudoState pseudo_id,
+    BackwardLegacyFlaw(AbstractState flaw_search_state,
                        int abstract_id,
                        bool split_init_state)
-        : pseudo_concrete_state_id(pseudo_id),
+        : flaw_search_state(flaw_search_state),
           abstract_state_id(abstract_id),
           split_init_state(split_init_state) {};
 };
@@ -157,9 +157,9 @@ class FlawSearch {
     std::unique_ptr<Split> create_split_from_goal_state(
         const std::vector<StateID> &state_ids, int abstract_state_id, bool split_unwanted_values);
     std::unique_ptr<Split> create_backward_split(
-        const std::vector<PseudoState> &states, int abstract_state_id, bool split_unwanted_values);
+        const std::vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values);
     std::unique_ptr<Split> create_backward_split_from_init_state(
-        const std::vector<PseudoState> &states, int abstract_state_id, bool split_unwanted_values);
+        const std::vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values);
 
     FlawedState get_flawed_state_with_min_h();
     std::unique_ptr<Split> get_single_split(const utils::CountdownTimer &cegar_timer);

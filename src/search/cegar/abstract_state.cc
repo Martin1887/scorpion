@@ -18,6 +18,16 @@ AbstractState::AbstractState(
       node_id(node_id),
       cartesian_set(move(cartesian_set)) {
 }
+AbstractState::AbstractState(
+    const vector<int> &domain_sizes, vector<FactPair> facts)
+    : state_id(-1),
+      node_id(-1),
+      cartesian_set(domain_sizes, facts) {
+}
+
+bool AbstractState::is_fully_abstracted(int var) const {
+    return cartesian_set.all_values_set(var);
+}
 
 int AbstractState::count(int var) const {
     return cartesian_set.count(var);
@@ -64,6 +74,57 @@ pair<CartesianSet, CartesianSet> AbstractState::split_domain(
     return make_pair(v1_cartesian_set, v2_cartesian_set);
 }
 
+bool AbstractState::is_applicable(const OperatorProxy &op) const {
+    for (FactProxy precondition : op.get_preconditions()) {
+        if (!includes(precondition.get_pair()))
+            return false;
+    }
+    return true;
+}
+bool AbstractState::is_backward_applicable(const OperatorProxy &op) const {
+    unordered_set<int> effect_vars{};
+    for (EffectProxy ef : op.get_effects()) {
+        effect_vars.insert(ef.get_fact().get_variable().get_id());
+        if (!includes(ef.get_fact().get_pair())) {
+            return false;
+        }
+    }
+    for (FactProxy cond : op.get_preconditions()) {
+        // Prevail conditions (variable is in the preconditions but not in the
+        // effects) must also be checked because though its value does not
+        // change in the target state it must be included.
+        if (effect_vars.count(cond.get_variable().get_id()) == 0) {
+            if (!includes(cond.get_pair())) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+vector<int> AbstractState::vars_not_backward_applicable(const OperatorProxy &op) const {
+    vector<int> not_applicable{};
+    unordered_set<int> effect_vars{};
+    for (EffectProxy ef : op.get_effects()) {
+        effect_vars.insert(ef.get_fact().get_variable().get_id());
+        if (!includes(ef.get_fact().get_pair())) {
+            not_applicable.push_back(ef.get_fact().get_variable().get_id());
+        }
+    }
+    for (FactProxy cond : op.get_preconditions()) {
+        // Prevail conditions (variable is in the preconditions but not in the
+        // effects) must also be checked because though its value does not
+        // change in the target state it must be included.
+        if (effect_vars.count(cond.get_variable().get_id()) == 0) {
+            if (!includes(cond.get_pair())) {
+                not_applicable.push_back(cond.get_variable().get_id());
+            }
+        }
+    }
+
+    return not_applicable;
+}
+
 CartesianSet AbstractState::regress(const OperatorProxy &op) const {
     CartesianSet regression = cartesian_set;
     for (EffectProxy effect : op.get_effects()) {
@@ -89,9 +150,13 @@ bool AbstractState::includes(const State &concrete_state) const {
     return true;
 }
 
+bool AbstractState::includes(const FactPair &fact) const {
+    return cartesian_set.test(fact.var, fact.value);
+}
+
 bool AbstractState::includes(const vector<FactPair> &facts) const {
     for (const FactPair &fact : facts) {
-        if (!cartesian_set.test(fact.var, fact.value))
+        if (!includes(fact))
             return false;
     }
     return true;
@@ -101,14 +166,8 @@ bool AbstractState::includes(const AbstractState &other) const {
     return cartesian_set.is_superset_of(other.cartesian_set);
 }
 
-bool AbstractState::includes(const PseudoState &other) const {
-    vector<int> other_values = other.get_values();
-    for (size_t var = 0; var < other_values.size(); var++) {
-        if (other_values[var] != -1 && !cartesian_set.test(var, other_values[var]))
-            return false;
-    }
-
-    return true;
+bool AbstractState::intersects(const AbstractState &other) const {
+    return cartesian_set.intersects(other.cartesian_set);
 }
 
 int AbstractState::get_id() const {
@@ -117,6 +176,10 @@ int AbstractState::get_id() const {
 
 NodeID AbstractState::get_node_id() const {
     return node_id;
+}
+
+CartesianSet AbstractState::get_cartesian_set() const {
+    return cartesian_set;
 }
 
 unique_ptr<AbstractState> AbstractState::get_trivial_abstract_state(

@@ -13,6 +13,18 @@ CartesianSet::CartesianSet(const vector<int> &domain_sizes) {
         domain_subsets.push_back(move(domain));
     }
 }
+CartesianSet::CartesianSet(const vector<int> &domain_sizes, vector<FactPair> facts)
+    : CartesianSet(domain_sizes) {
+    vector<bool> reset_vars(domain_sizes.size(), false);
+    for (FactPair fact : facts) {
+        if (!reset_vars[fact.var]) {
+            set_single_value(fact.var, fact.value);
+            reset_vars[fact.var] = true;
+        } else {
+            add(fact.var, fact.value);
+        }
+    }
+}
 
 int CartesianSet::n_vars() const {
     return domain_subsets.size();
@@ -43,6 +55,10 @@ int CartesianSet::count(int var) const {
     return domain_subsets[var].count();
 }
 
+bool CartesianSet::all_values_set(int var) const {
+    return count(var) == (int) domain_subsets[var].size();
+}
+
 vector<int> CartesianSet::get_values(int var) const {
     vector<int> values;
     int domain_size = domain_subsets[var].size();
@@ -56,6 +72,16 @@ vector<int> CartesianSet::get_values(int var) const {
 
 bool CartesianSet::intersects(const CartesianSet &other, int var) const {
     return domain_subsets[var].intersects(other.domain_subsets[var]);
+}
+
+bool CartesianSet::intersects(const CartesianSet &other) const {
+    int num_vars = domain_subsets.size();
+    for (int var = 0; var < num_vars; ++var) {
+        if (!intersects(other, var)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 bool CartesianSet::is_superset_of(const CartesianSet &other) const {
