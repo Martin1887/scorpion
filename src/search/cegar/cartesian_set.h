@@ -28,6 +28,7 @@ public:
     void remove(int var, int value);
     void add_all(int var);
     void remove_all(int var);
+    CartesianSet intersection(const CartesianSet &other) const;
 
     bool test(int var, int value) const {
         return domain_subsets[var][value];

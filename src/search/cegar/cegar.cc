@@ -32,6 +32,7 @@ CEGAR::CEGAR(
     PickSplit tiebreak_split,
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
+    bool intersect_flaw_search_abstract_states,
     utils::RandomNumberGenerator &rng,
     utils::LogProxy &log,
     DotGraphVerbosity dot_graph_verbosity)
@@ -51,7 +52,8 @@ CEGAR::CEGAR(
     flaw_search = utils::make_unique_ptr<FlawSearch>(
         task, *abstraction, *shortest_paths, rng,
         pick_flawed_abstract_state, pick_split, tiebreak_split,
-        max_concrete_states_per_abstract_state, max_state_expansions, log);
+        max_concrete_states_per_abstract_state, max_state_expansions,
+        intersect_flaw_search_abstract_states, log);
 
     if (log.is_at_least_normal()) {
         log << "Start building abstraction." << endl;

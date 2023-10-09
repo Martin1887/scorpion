@@ -118,6 +118,8 @@ class FlawSearch {
     const PickFlawedAbstractState pick_flawed_abstract_state;
     const int max_concrete_states_per_abstract_state;
     const int max_state_expansions;
+    // Intersect flaw search states with the mapped one to find more flaws.
+    const bool intersect_flaw_search_abstract_states;
     mutable utils::LogProxy log;
     mutable utils::LogProxy silent_log;  // For concrete search space.
 
@@ -181,6 +183,7 @@ public:
         PickSplit tiebreak_split,
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
+        bool intersect_flaw_search_abstract_states,
         const utils::LogProxy &log);
 
     std::unique_ptr<Split> get_split(const utils::CountdownTimer &cegar_timer);

@@ -182,6 +182,10 @@ CartesianSet AbstractState::get_cartesian_set() const {
     return cartesian_set;
 }
 
+AbstractState AbstractState::intersection(const AbstractState &other) const {
+    return AbstractState(state_id, node_id, cartesian_set.intersection(other.get_cartesian_set()));
+}
+
 unique_ptr<AbstractState> AbstractState::get_trivial_abstract_state(
     const vector<int> &domain_sizes) {
     return utils::make_unique_ptr<AbstractState>(0, 0, CartesianSet(domain_sizes));

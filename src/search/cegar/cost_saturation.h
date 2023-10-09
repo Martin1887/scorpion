@@ -39,6 +39,7 @@ class CostSaturation {
     const int max_concrete_states_per_abstract_state;
     const int max_state_expansions;
     const int memory_padding_mb;
+    const bool intersect_flaw_search_abstract_states;
     const bool print_h_distribution;
     utils::RandomNumberGenerator &rng;
     utils::LogProxy &log;
@@ -73,6 +74,7 @@ public:
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
         int memory_padding_mb,
+        bool intersect_flaw_search_abstract_states,
         bool print_h_distribution,
         utils::RandomNumberGenerator &rng,
         utils::LogProxy &log,

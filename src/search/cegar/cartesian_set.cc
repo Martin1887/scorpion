@@ -51,6 +51,20 @@ void CartesianSet::remove_all(int var) {
     domain_subsets[var].reset();
 }
 
+CartesianSet CartesianSet::intersection(const CartesianSet &other) const {
+    CartesianSet intersection(other);
+    int num_vars = domain_subsets.size();
+    for (int var = 0; var < num_vars; ++var) {
+        int domain_size = domain_subsets[var].size();
+        for (int value = 0; value < domain_size; ++value) {
+            if (!test(var, value)) {
+                intersection.remove(var, value);
+            }
+        }
+    }
+    return intersection;
+}
+
 int CartesianSet::count(int var) const {
     return domain_subsets[var].count();
 }

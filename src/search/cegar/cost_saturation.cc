@@ -83,6 +83,7 @@ CostSaturation::CostSaturation(
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
     int memory_padding_mb,
+    bool intersect_flaw_search_abstract_states,
     bool print_h_distribution,
     utils::RandomNumberGenerator &rng,
     utils::LogProxy &log,
@@ -98,6 +99,7 @@ CostSaturation::CostSaturation(
       max_concrete_states_per_abstract_state(max_concrete_states_per_abstract_state),
       max_state_expansions(max_state_expansions),
       memory_padding_mb(memory_padding_mb),
+      intersect_flaw_search_abstract_states(intersect_flaw_search_abstract_states),
       print_h_distribution(print_h_distribution),
       rng(rng),
       log(log),
@@ -212,6 +214,7 @@ void CostSaturation::build_abstractions(
             tiebreak_split,
             max_concrete_states_per_abstract_state,
             max_state_expansions,
+            intersect_flaw_search_abstract_states,
             rng,
             log,
             dot_graph_verbosity);

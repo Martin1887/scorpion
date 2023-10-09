@@ -144,6 +144,7 @@ unique_ptr<cegar::Abstraction> CartesianAbstractionGenerator::build_abstraction_
         tiebreak_split,
         max_concrete_states_per_abstract_state,
         max_state_expansions,
+        false,
         *rng,
         log,
         dot_graph_verbosity);

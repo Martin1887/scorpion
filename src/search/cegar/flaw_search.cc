@@ -954,6 +954,7 @@ FlawSearch::FlawSearch(
     PickSplit tiebreak_split,
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
+    bool intersect_flaw_search_abstract_states,
     const utils::LogProxy &log) :
     task_proxy(*task),
     domain_sizes(get_domain_sizes(task_proxy)),
@@ -964,6 +965,7 @@ FlawSearch::FlawSearch(
     pick_flawed_abstract_state(pick_flawed_abstract_state),
     max_concrete_states_per_abstract_state(max_concrete_states_per_abstract_state),
     max_state_expansions(max_state_expansions),
+    intersect_flaw_search_abstract_states(intersect_flaw_search_abstract_states),
     log(log),
     silent_log(utils::get_silent_log()),
     last_refined_flawed_state(FlawedState::no_state),
@@ -1172,6 +1174,9 @@ unique_ptr<BackwardLegacyFlaw> FlawSearch::get_split_legacy_backward(const Solut
     } else {
         abstract_state = &abstraction.get_state(solution.back().target_id);
     }
+    if (intersect_flaw_search_abstract_states) {
+        flaw_search_state = flaw_search_state.intersection(*abstract_state);
+    }
     if (debug) {
         log << "  Initial abstract state: " << *initial_abstract_state << endl;
         log << "  Start (goal) abstract state: " << *abstract_state << endl;
@@ -1194,7 +1199,7 @@ unique_ptr<BackwardLegacyFlaw> FlawSearch::get_split_legacy_backward(const Solut
                     << op.get_name() << endl;
             AbstractState next_flaw_search_state(AbstractState(-1, -1, move(flaw_search_state.regress(op))));
             if (debug)
-                log << "  In concrete space move from " << flaw_search_state << " to "
+                log << "  In flaw-search space move from " << flaw_search_state << " to "
                     << next_flaw_search_state << " with " << op.get_name() << endl;
             if (!next_abstract_state->intersects(next_flaw_search_state)) {
                 if (debug)
@@ -1203,6 +1208,11 @@ unique_ptr<BackwardLegacyFlaw> FlawSearch::get_split_legacy_backward(const Solut
             }
             abstract_state = next_abstract_state;
             flaw_search_state = move(next_flaw_search_state);
+            if (intersect_flaw_search_abstract_states) {
+                flaw_search_state = flaw_search_state.intersection(*abstract_state);
+                if (debug)
+                    log << "  Intersected flaw-search state: " << flaw_search_state << endl;
+            }
         } else {
             if (debug)
                 log << "  Operator not applicable: " << op.get_name() << endl;
