@@ -300,7 +300,7 @@ static void get_deviation_backward_splits(
     vector<vector<Split>> &splits,
     bool split_unwanted_values) {
     /*
-      For each fact in the concrete pseudo-state that is not contained in the
+      For each fact in the flaw-search state that is not contained in the
       source abstract state, loop over all values in the domain of the
       corresponding variable. The values that are in both the current and
       the source abstract state are the "wanted" ones, i.e., the ones that
@@ -316,29 +316,35 @@ static void get_deviation_backward_splits(
     */
     // Note: it could be faster to use an efficient hash map for this.
     vector<vector<int>> fact_count(domain_sizes.size());
+    vector<bool> var_fact_count(domain_sizes.size());
     for (size_t var = 0; var < domain_sizes.size(); ++var) {
         fact_count[var].resize(domain_sizes[var], 0);
     }
     for (const AbstractState &flaw_search_st : flaw_search_states) {
         for (int var : unaffected_variables) {
-            if (!flaw_search_st.is_fully_abstracted(var)) {
+            // When disambiguation is implemented, `contains` will be possible
+            // instead of `intersects`
+            if (!source_abs_state.domain_subsets_intersect(flaw_search_st, var)) {
                 for (int state_value : flaw_search_st.get_cartesian_set().get_values(var)) {
                     ++fact_count[var][state_value];
+                    var_fact_count[var] = true;
                 }
             }
         }
     }
     for (size_t var = 0; var < domain_sizes.size(); ++var) {
+        // the `wanted` vector is the same for all values of the variable
+        vector<int> wanted;
+        if (var_fact_count[var]) {
+            for (int value = 0; value < domain_sizes[var]; ++value) {
+                if (abs_state.contains(var, value) &&
+                    source_abs_state.contains(var, value)) {
+                    wanted.push_back(value);
+                }
+            }
+        }
         for (int value = 0; value < domain_sizes[var]; ++value) {
             if (fact_count[var][value] && !source_abs_state.contains(var, value)) {
-                // Note: we could precompute the "wanted" vector, but not the split.
-                vector<int> wanted;
-                for (int value = 0; value < domain_sizes[var]; ++value) {
-                    if (abs_state.contains(var, value) &&
-                        source_abs_state.contains(var, value)) {
-                        wanted.push_back(value);
-                    }
-                }
                 assert(!wanted.empty());
                 if (split_unwanted_values) {
                     for (int want : wanted) {
