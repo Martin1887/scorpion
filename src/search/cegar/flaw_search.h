@@ -135,6 +135,8 @@ class FlawSearch {
     FlawedState last_refined_flawed_state;
     Cost best_flaw_h;
     FlawedStates flawed_states;
+    bool current_bidirectional_dir_backward = false;
+    bool batch_bidirectional_already_changed_dir = false;
 
     // Statistics
     int num_searches;
@@ -172,6 +174,14 @@ class FlawSearch {
     // Return pseudo-concrete state id and abstract state id where create the split.
     std::unique_ptr<BackwardLegacyFlaw> get_split_legacy_backward(const Solution &solution);
 
+    std::unique_ptr<Split> get_split(const utils::CountdownTimer &cegar_timer);
+    std::unique_ptr<Split> get_split_legacy(const Solution &solution,
+                                            const bool backward = false,
+                                            const bool split_unwanted_values = false);
+    SplitAndDirection get_split_legacy_closest_to_goal(const Solution &solution,
+                                                      const bool split_unwanted_values);
+    void update_current_direction(const bool half_limits_reached);
+
 public:
     FlawSearch(
         const std::shared_ptr<AbstractTask> &task,
@@ -186,12 +196,12 @@ public:
         bool intersect_flaw_search_abstract_states,
         const utils::LogProxy &log);
 
-    std::unique_ptr<Split> get_split(const utils::CountdownTimer &cegar_timer);
-    std::unique_ptr<Split> get_split_legacy(const Solution &solution,
-                                            const bool backward = false,
-                                            const bool split_unwanted_values = false);
-    SplitAndDirection get_split_legacy_closest_to_goal(const Solution &solution,
-                                                      const bool split_unwanted_values);
+    SplitAndDirection get_split_and_direction(const Solution &solution,
+                                              const utils::CountdownTimer &cegar_timer,
+                                              const bool half_limits_reached);
+    bool refine_init_state() const;
+    bool refine_goals() const;
+    
 
     void print_statistics() const;
 };

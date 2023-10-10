@@ -976,6 +976,11 @@ FlawSearch::FlawSearch(
     flaw_search_timer(false),
     compute_splits_timer(false),
     pick_split_timer(false) {
+    // Note that the interleaved case starts as backward but its value is
+    // modified inside the refinement loop.
+    if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD) {
+        current_bidirectional_dir_backward = true;
+    }
 }
 
 unique_ptr<Split> FlawSearch::get_split(const utils::CountdownTimer &cegar_timer) {
@@ -1229,6 +1234,74 @@ unique_ptr<BackwardLegacyFlaw> FlawSearch::get_split_legacy_backward(const Solut
         if (debug)
             log << "  Initial state test failed." << endl;
         return utils::make_unique_ptr<BackwardLegacyFlaw>(move(flaw_search_state), abstract_state->get_id(), true);
+    }
+}
+
+SplitAndDirection FlawSearch::get_split_and_direction(const Solution &solution,
+                                                      const utils::CountdownTimer &cegar_timer,
+                                                      const bool half_limits_reached) {
+    update_current_direction(half_limits_reached);
+    switch (pick_flawed_abstract_state) {
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH:
+            return SplitAndDirection(get_split_legacy(solution), false);
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_UNWANTED_VALUES:
+            return SplitAndDirection(get_split_legacy(solution, false, true), false);
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE:
+            return SplitAndDirection(get_split_legacy(solution, true), true);
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD:
+            return SplitAndDirection(get_split_legacy(solution, true, true), true);
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED:
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD:
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_FORWARD_BACKWARD:
+            if (current_bidirectional_dir_backward) {
+                return SplitAndDirection(get_split_legacy(solution, true, true), true);
+            } else {
+                return SplitAndDirection(get_split_legacy(solution), false);
+            }
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_CLOSEST_TO_GOAL:
+            return get_split_legacy_closest_to_goal(solution, true);
+        default:
+            return SplitAndDirection(get_split(cegar_timer), false);
+    }
+}
+
+bool FlawSearch::refine_init_state() const {
+    return pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE;
+}
+
+bool FlawSearch::refine_goals() const {
+    bool refine_goals = false;
+    switch (pick_flawed_abstract_state) {
+        case PickFlawedAbstractState::FIRST:
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH:
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_UNWANTED_VALUES:
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
+        case PickFlawedAbstractState::RANDOM:
+        case PickFlawedAbstractState::MIN_H:
+        case PickFlawedAbstractState::MAX_H:
+        case PickFlawedAbstractState::BATCH_MIN_H:
+            refine_goals = true;
+        default:
+            break;
+    }
+    return refine_goals;
+}
+
+void FlawSearch::update_current_direction(const bool half_limits_reached) {
+    switch (pick_flawed_abstract_state) {
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED:
+            current_bidirectional_dir_backward = !current_bidirectional_dir_backward;
+            break;
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD:
+        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_FORWARD_BACKWARD:
+            if (!batch_bidirectional_already_changed_dir && half_limits_reached) {
+                current_bidirectional_dir_backward = !current_bidirectional_dir_backward;
+                batch_bidirectional_already_changed_dir = true;
+            }
+            break;
+        default:
+            break;
     }
 }
 
