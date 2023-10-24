@@ -52,6 +52,8 @@ public:
 
     // Return the Cartesian set in which applying "op" can lead to this state.
     CartesianSet regress(const OperatorProxy &op) const;
+    CartesianSet progress(const OperatorProxy &op) const;
+    CartesianSet undeviate(const AbstractState &mapped) const;
 
     /*
       Separate the "wanted" values from the other values in the abstract domain

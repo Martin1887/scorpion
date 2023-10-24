@@ -154,6 +154,8 @@ bool CEGAR::may_keep_refining(bool in_current_direction) const {
 void CEGAR::refinement_loop() {
     int forward_refinements = 0;
     int backward_refinements = 0;
+    int forward_flaws = 0;
+    int backward_flaws = 0;
     /*
       For landmark tasks we have to map all states in which the
       landmark might have been achieved to arbitrary abstract goal
@@ -218,9 +220,9 @@ void CEGAR::refinement_loop() {
         abstraction->get_goals(),
         abstraction->get_initial_state().get_id());
     assert(shortest_paths->test_distances(
-                abstraction->get_transition_system().get_incoming_transitions(),
-                abstraction->get_transition_system().get_outgoing_transitions(),
-                abstraction->get_goals()));
+               abstraction->get_transition_system().get_incoming_transitions(),
+               abstraction->get_transition_system().get_outgoing_transitions(),
+               abstraction->get_goals()));
 
     utils::Timer find_trace_timer(false);
     utils::Timer find_flaw_timer(false);
@@ -267,7 +269,7 @@ void CEGAR::refinement_loop() {
         if (!half_limits_reached) {
             half_limits_reached = !may_keep_refining(true);
         }
-        SplitAndDirection split_dir =
+        SplitProperties split_prop =
             flaw_search->get_split_and_direction(*solution,
                                                  timer,
                                                  half_limits_reached);
@@ -283,32 +285,36 @@ void CEGAR::refinement_loop() {
             break;
         }
 
-        if (!split_dir.split) {
+        if (!split_prop.split) {
             log << "Found concrete solution." << endl;
             break;
         }
 
         refine_timer.resume();
-        int state_id = split_dir.split->abstract_state_id;
+        int state_id = split_prop.split->abstract_state_id;
         const AbstractState &abstract_state = abstraction->get_state(state_id);
         // This may not happen in the backward direction.
         // assert(!abstraction->get_goals().count(state_id));
 
         pair<int, int> new_state_ids = abstraction->refine(
-            abstract_state, split_dir.split->var_id, split_dir.split->values);
+            abstract_state, split_prop.split->var_id, split_prop.split->values);
         refine_timer.stop();
 
         n_refinements++;
-        if (split_dir.backward_direction) {
+        if (split_prop.backward_direction) {
             backward_refinements++;
         } else {
             forward_refinements++;
         }
+        forward_flaws += split_prop.n_forward_flaws;
+        backward_flaws += split_prop.n_backward_flaws;
         if (n_refinements % 100 == 0) {
             if (log.is_at_least_normal()) {
                 log << "Number of refinements: " << n_refinements << endl;
                 log << "Forward refinements: " << forward_refinements << endl;
                 log << "Backward refinements: " << backward_refinements << endl;
+                log << "Total forward flaws found: " << forward_flaws << endl;
+                log << "Total backward flaws found: " << backward_flaws << endl;
             }
         }
 
@@ -320,9 +326,9 @@ void CEGAR::refinement_loop() {
             abstraction->get_goals(),
             abstraction->get_initial_state().get_id());
         assert(shortest_paths->test_distances(
-                    abstraction->get_transition_system().get_incoming_transitions(),
-                    abstraction->get_transition_system().get_outgoing_transitions(),
-                    abstraction->get_goals()));
+                   abstraction->get_transition_system().get_incoming_transitions(),
+                   abstraction->get_transition_system().get_outgoing_transitions(),
+                   abstraction->get_goals()));
         update_goal_distances_timer.stop();
 
         if (log.is_at_least_verbose() &&
@@ -340,6 +346,8 @@ void CEGAR::refinement_loop() {
         log << "Number of refinements: " << n_refinements << endl;
         log << "Forward refinements: " << forward_refinements << endl;
         log << "Backward refinements: " << backward_refinements << endl;
+        log << "Total forward flaws found: " << forward_flaws << endl;
+        log << "Total backward flaws found: " << backward_flaws << endl;
     }
 }
 

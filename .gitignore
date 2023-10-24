@@ -18,3 +18,4 @@ src/preprocess_h2/Makefile
 src/preprocess_h2/cmake_install.cmake
 src/search/Makefile
 src/search/cmake_install.cmake
+.clangd

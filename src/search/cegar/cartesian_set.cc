@@ -70,7 +70,7 @@ int CartesianSet::count(int var) const {
 }
 
 bool CartesianSet::all_values_set(int var) const {
-    return count(var) == (int) domain_subsets[var].size();
+    return count(var) == (int)domain_subsets[var].size();
 }
 
 vector<int> CartesianSet::get_values(int var) const {

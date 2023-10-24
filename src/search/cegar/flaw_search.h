@@ -71,41 +71,39 @@ enum class PickFlawedAbstractState {
     // Collect all flawed abstract states and iteratively refine them (by increasing h value).
     // Only start a new flaw search once all remaining flawed abstract states are refined.
     // For each abstract state consider all concrete states.
-    BATCH_MIN_H
+    BATCH_MIN_H,
+    // Sequence flaws in the forward direction splitting wanted values.
+    SEQUENCE,
+    // Sequence flaws in the forward direction only over the abstraction
+    // (without taking into account init state nor goals) splitting wanted values.
+    SEQUENCE_IN_ABSTRACTION,
+    // Sequence flaws in the backward direction splitting unwanted values.
+    SEQUENCE_BACKWARD,
+    // Sequence flaws in the backward direction only over the abstraction
+    // (without taking into account init state nor goals) splitting unwanted values.
+    SEQUENCE_IN_ABSTRACTION_BACKWARD,
+    // Sequence flaws in both directions splitting wanted values in the forward
+    // direction and unwanted values in the backward direction.
+    SEQUENCE_BIDIRECTIONAL,
+    // Sequence flaws in both directions only over the abstraction
+    // (without taking into account init state nor goals) splitting wanted values
+    // in the forward direction and unwanted values in the backward direction.
+    SEQUENCE_IN_ABSTRACTION_BIDIRECTIONAL
 };
 
 using OptimalTransitions = phmap::flat_hash_map<int, std::vector<int>>;
 
-struct ForwardLegacyFlaw {
-    StateID concrete_state_id;
-    int abstract_state_id;
-    bool split_goal_state;
-
-    ForwardLegacyFlaw(StateID concrete_state_id,
-                      int abstract_state_id,
-                      bool split_goal_state)
-        : concrete_state_id(concrete_state_id),
-          abstract_state_id(abstract_state_id),
-          split_goal_state(split_goal_state){};
-};
-struct BackwardLegacyFlaw {
+struct LegacyFlaw {
     AbstractState flaw_search_state;
     int abstract_state_id;
-    bool split_init_state;
+    bool split_last_state;
 
-    BackwardLegacyFlaw(AbstractState flaw_search_state,
-                       int abstract_id,
-                       bool split_init_state)
+    LegacyFlaw(AbstractState flaw_search_state,
+               int abstract_id,
+               bool split_last_state)
         : flaw_search_state(flaw_search_state),
           abstract_state_id(abstract_id),
-          split_init_state(split_init_state) {};
-};
-struct SplitAndDirection {
-    std::unique_ptr<Split> split;
-    bool backward_direction;
-
-    SplitAndDirection(std::unique_ptr<Split> split, bool backward_direction)
-        : split(std::move(split)), backward_direction(backward_direction) {};
+          split_last_state(split_last_state) {}
 };
 
 class FlawSearch {
@@ -146,6 +144,34 @@ class FlawSearch {
     utils::Timer compute_splits_timer;
     utils::Timer pick_split_timer;
 
+    static void get_deviation_splits(
+        const AbstractState &abs_state,
+        const std::vector<State> &conc_states,
+        const std::vector<int> &unaffected_variables,
+        const AbstractState &target_abs_state,
+        const std::vector<int> &domain_sizes,
+        std::vector<std::vector<Split>> &splits,
+        bool split_unwanted_values);
+
+    static void get_deviation_splits(
+        const AbstractState &abs_state,
+        const std::vector<AbstractState> &flaw_search_states,
+        const std::vector<int> &unaffected_variables,
+        const AbstractState &target_abs_state,
+        const std::vector<int> &domain_sizes,
+        std::vector<std::vector<Split>> &splits,
+        bool split_unwanted_values);
+
+
+    static void get_deviation_backward_splits(
+        const AbstractState &abs_state,
+        const std::vector<AbstractState> &flaw_search_states,
+        const std::vector<int> &unaffected_variables,
+        const AbstractState &source_abs_state,
+        const std::vector<int> &domain_sizes,
+        std::vector<std::vector<Split>> &splits,
+        bool split_unwanted_values);
+
     int get_abstract_state_id(const State &state) const;
     Cost get_h_value(int abstract_state_id) const;
     void add_flaw(int abs_id, const State &state);
@@ -160,26 +186,42 @@ class FlawSearch {
         const std::vector<StateID> &state_ids, int abstract_state_id, bool split_unwanted_values);
     std::unique_ptr<Split> create_split_from_goal_state(
         const std::vector<StateID> &state_ids, int abstract_state_id, bool split_unwanted_values);
-    std::unique_ptr<Split> create_backward_split(
+
+    SplitAndAbsState create_split(
         const std::vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values);
-    std::unique_ptr<Split> create_backward_split_from_init_state(
+    SplitAndAbsState create_split_from_goal_state(
+        const std::vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values);
+    SplitAndAbsState create_backward_split(
+        const std::vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values);
+    SplitAndAbsState create_backward_split_from_init_state(
         const std::vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values);
 
     FlawedState get_flawed_state_with_min_h();
     std::unique_ptr<Split> get_single_split(const utils::CountdownTimer &cegar_timer);
     std::unique_ptr<Split> get_min_h_batch_split(const utils::CountdownTimer &cegar_timer);
 
-    // Return concrete state id and abstract state id where create the split.
-    std::unique_ptr<ForwardLegacyFlaw> get_split_legacy_forward(const Solution &solution);
-    // Return pseudo-concrete state id and abstract state id where create the split.
-    std::unique_ptr<BackwardLegacyFlaw> get_split_legacy_backward(const Solution &solution);
+    std::vector<LegacyFlaw> get_forward_flaws(const Solution &solution,
+                                              const bool in_sequence,
+                                              const bool only_in_abstraction);
+    std::vector<LegacyFlaw> get_backward_flaws(const Solution &solution,
+                                               const bool in_sequence,
+                                               const bool only_in_abstraction);
 
-    std::unique_ptr<Split> get_split(const utils::CountdownTimer &cegar_timer);
-    std::unique_ptr<Split> get_split_legacy(const Solution &solution,
-                                            const bool backward = false,
-                                            const bool split_unwanted_values = false);
-    SplitAndDirection get_split_legacy_closest_to_goal(const Solution &solution,
-                                                      const bool split_unwanted_values);
+    // Return concrete state id and abstract state id where create the split.
+    std::unique_ptr<LegacyFlaw> get_flaw_legacy_forward(const Solution &solution);
+    // Return flaw-search state id and abstract state id where create the split.
+    std::unique_ptr<LegacyFlaw> get_flaw_legacy_backward(const Solution &solution);
+
+    SplitAndAbsState get_split_from_flaw(const LegacyFlaw &flaw,
+                                         const bool backward,
+                                         const bool split_unwanted_values);
+
+    SplitProperties get_split(const utils::CountdownTimer &cegar_timer);
+    SplitProperties get_split_legacy(const Solution &solution,
+                                     const bool backward = false,
+                                     const bool split_unwanted_values = false);
+    SplitProperties get_split_legacy_closest_to_goal(const Solution &solution,
+                                                     const bool split_unwanted_values);
     void update_current_direction(const bool half_limits_reached);
 
 public:
@@ -196,12 +238,21 @@ public:
         bool intersect_flaw_search_abstract_states,
         const utils::LogProxy &log);
 
-    SplitAndDirection get_split_and_direction(const Solution &solution,
-                                              const utils::CountdownTimer &cegar_timer,
-                                              const bool half_limits_reached);
+    SplitProperties get_split_and_direction(const Solution &solution,
+                                            const utils::CountdownTimer &cegar_timer,
+                                            const bool half_limits_reached);
+    SplitProperties get_sequence_splits(const Solution &solution,
+                                        const bool only_in_abstraction,
+                                        const bool forward,
+                                        const bool backward);
     bool refine_init_state() const;
     bool refine_goals() const;
-    
+
+    static void add_split(std::vector<std::vector<Split>> &splits, Split &&new_split,
+                          bool split_unwanted_values = false);
+
+    static std::vector<int> get_unaffected_variables(
+        const OperatorProxy &op, int num_variables);
 
     void print_statistics() const;
 };

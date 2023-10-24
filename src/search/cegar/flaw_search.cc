@@ -187,8 +187,8 @@ SearchStatus FlawSearch::step() {
     return IN_PROGRESS;
 }
 
-static void add_split(vector<vector<Split>> &splits, Split &&new_split,
-                      bool split_unwanted_values=false) {
+void FlawSearch::add_split(vector<vector<Split>> &splits, Split &&new_split,
+                           bool split_unwanted_values) {
     // When splitting by unwanted values splits cannot be grouped by variable.
     if (split_unwanted_values) {
         splits.push_back({move(new_split)});
@@ -208,7 +208,7 @@ static void add_split(vector<vector<Split>> &splits, Split &&new_split,
     }
 }
 
-static vector<int> get_unaffected_variables(
+vector<int> FlawSearch::get_unaffected_variables(
     const OperatorProxy &op, int num_variables) {
     vector<bool> affected(num_variables);
     for (EffectProxy effect : op.get_effects()) {
@@ -227,139 +227,6 @@ static vector<int> get_unaffected_variables(
         }
     }
     return unaffected_vars;
-}
-
-static void get_deviation_splits(
-    const AbstractState &abs_state,
-    const vector<State> &conc_states,
-    const vector<int> &unaffected_variables,
-    const AbstractState &target_abs_state,
-    const vector<int> &domain_sizes,
-    vector<vector<Split>> &splits,
-    bool split_unwanted_values) {
-    /*
-      For each fact in the concrete state that is not contained in the
-      target abstract state, loop over all values in the domain of the
-      corresponding variable. The values that are in both the current and
-      the target abstract state are the "wanted" ones, i.e., the ones that
-      we want to split off. This test can be specialized for applicability and
-      deviation flaws. Here, we consider deviation flaws.
-
-      Let the desired abstract transition be (a, o, t) and the deviation be
-      (a, o, b). We distinguish three cases for each variable v:
-
-      pre(o)[v] defined: no split possible since o is applicable in s.
-      pre(o)[v] undefined, eff(o)[v] defined: no split possible since regression adds whole domain.
-      pre(o)[v] and eff(o)[v] undefined: if s[v] \notin t[v], wanted = intersect(a[v], b[v]).
-    */
-    // Note: it could be faster to use an efficient hash map for this.
-    vector<vector<int>> fact_count(domain_sizes.size());
-    for (size_t var = 0; var < domain_sizes.size(); ++var) {
-        fact_count[var].resize(domain_sizes[var], 0);
-    }
-    for (const State &conc_state : conc_states) {
-        for (int var : unaffected_variables) {
-            int state_value = conc_state[var].get_value();
-            ++fact_count[var][state_value];
-        }
-    }
-    for (size_t var = 0; var < domain_sizes.size(); ++var) {
-        for (int value = 0; value < domain_sizes[var]; ++value) {
-            if (fact_count[var][value] && !target_abs_state.contains(var, value)) {
-                // Note: we could precompute the "wanted" vector, but not the split.
-                vector<int> wanted;
-                for (int value = 0; value < domain_sizes[var]; ++value) {
-                    if (abs_state.contains(var, value) &&
-                        target_abs_state.contains(var, value)) {
-                        wanted.push_back(value);
-                    }
-                }
-                assert(!wanted.empty());
-                if (split_unwanted_values) {
-                    for (int want : wanted) {
-                        add_split(splits, Split(
-                                    abs_state.get_id(), var, want, {value},
-                                    fact_count[var][value]), true);
-                    }
-                } else {
-                    add_split(splits, Split(
-                                abs_state.get_id(), var, value, move(wanted),
-                                fact_count[var][value]));
-                }
-            }
-        }
-    }
-}
-
-static void get_deviation_backward_splits(
-    const AbstractState &abs_state,
-    const vector<AbstractState> &flaw_search_states,
-    const vector<int> &unaffected_variables,
-    const AbstractState &source_abs_state,
-    const vector<int> &domain_sizes,
-    vector<vector<Split>> &splits,
-    bool split_unwanted_values) {
-    /*
-      For each fact in the flaw-search state that is not contained in the
-      source abstract state, loop over all values in the domain of the
-      corresponding variable. The values that are in both the current and
-      the source abstract state are the "wanted" ones, i.e., the ones that
-      we want to split off. This test can be specialized for applicability and
-      deviation flaws. Here, we consider deviation flaws.
-
-      Let the desired abstract transition be (a, o, t) and the deviation be
-      (a, o, b). We distinguish three cases for each variable v:
-
-      eff(o)[v] defined: no split possible since o is applicable in s.
-      eff(o)[v] undefined, pre(o)[v] defined: no split possible since regression adds whole domain.
-      eff(o)[v] and pre(o)[v] undefined: if s[v] \notin t[v], wanted = intersect(a[v], b[v]).
-    */
-    // Note: it could be faster to use an efficient hash map for this.
-    vector<vector<int>> fact_count(domain_sizes.size());
-    vector<bool> var_fact_count(domain_sizes.size());
-    for (size_t var = 0; var < domain_sizes.size(); ++var) {
-        fact_count[var].resize(domain_sizes[var], 0);
-    }
-    for (const AbstractState &flaw_search_st : flaw_search_states) {
-        for (int var : unaffected_variables) {
-            // When disambiguation is implemented, `contains` will be possible
-            // instead of `intersects`
-            if (!source_abs_state.domain_subsets_intersect(flaw_search_st, var)) {
-                for (int state_value : flaw_search_st.get_cartesian_set().get_values(var)) {
-                    ++fact_count[var][state_value];
-                    var_fact_count[var] = true;
-                }
-            }
-        }
-    }
-    for (size_t var = 0; var < domain_sizes.size(); ++var) {
-        // the `wanted` vector is the same for all values of the variable
-        vector<int> wanted;
-        if (var_fact_count[var]) {
-            for (int value = 0; value < domain_sizes[var]; ++value) {
-                if (abs_state.contains(var, value) &&
-                    source_abs_state.contains(var, value)) {
-                    wanted.push_back(value);
-                }
-            }
-        }
-        for (int value = 0; value < domain_sizes[var]; ++value) {
-            if (fact_count[var][value] && !source_abs_state.contains(var, value)) {
-                assert(!wanted.empty());
-                if (split_unwanted_values) {
-                    for (int want : wanted) {
-                        add_split(splits, Split(
-                                    abs_state.get_id(), var, want, {value},
-                                    fact_count[var][value]), true);
-                    }
-                } else {
-                    add_split(splits, Split(
-                                abs_state.get_id(), var, value, move(wanted),
-                                fact_count[var][value]));
-                }
-            }
-        }
-    }
 }
 
 // TODO: Add comment about split considering multiple transitions.
@@ -411,12 +278,12 @@ unique_ptr<Split> FlawSearch::create_split(
                     assert(value != fact.value);
                     if (split_unwanted_values) {
                         add_split(splits, Split(
-                                    abstract_state_id, fact.var, fact.value,
-                                    {value}, state_value_count[value]), true);
+                                      abstract_state_id, fact.var, fact.value,
+                                      {value}, state_value_count[value]), true);
                     } else {
                         add_split(splits, Split(
-                                    abstract_state_id, fact.var, value,
-                                    {fact.value}, state_value_count[value]));
+                                      abstract_state_id, fact.var, value,
+                                      {fact.value}, state_value_count[value]));
                     }
                 }
             }
@@ -507,254 +374,30 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
                         }
                     }
 
-                    if (log.is_at_least_debug()) {
-                        log << "add_split(var " << var << ", val " << goal_value
-                            << "!=" << other_values << ")" << endl;
-                    }
-
                     if (split_unwanted_values) {
                         for (StateID state_id : state_ids) {
                             State state = state_registry->lookup_state(state_id);
                             int state_value = state[var].get_value();
-                            if (state_value != goal_value) {
+                            if (state_value != goal_value && abstract_state.contains(var, state_value)) {
+                                if (log.is_at_least_debug()) {
+                                    log << "add_split(var " << var << ", val " << state_value
+                                        << "!=" << goal_value << ")" << endl;
+                                }
                                 add_split(splits, Split(
-                                            abstract_state_id, var, goal_value,
-                                            {state_value}, 1), true);
+                                              abstract_state_id, var, goal_value,
+                                              {state_value}, 1), true);
                             }
                         }
                     } else {
-                        add_split(splits, Split(
-                                    abstract_state_id, var, goal_value,
-                                    move(other_values), 1));
-                    }
-                }
-            }
-        }
-    }
-
-    int num_splits = 0;
-    for (auto &var_splits : splits) {
-        num_splits += var_splits.size();
-    }
-    if (log.is_at_least_debug()) {
-        log << "Unique splits: " << num_splits << endl;
-    }
-    compute_splits_timer.stop();
-
-    if (num_splits == 0) {
-        return nullptr;
-    }
-
-    pick_split_timer.resume();
-    Split split = split_selector.pick_split(abstract_state, move(splits), rng);
-    pick_split_timer.stop();
-    return utils::make_unique_ptr<Split>(move(split));
-}
-
-unique_ptr<Split> FlawSearch::create_backward_split(
-    const vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values) {
-    compute_splits_timer.resume();
-    const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
-
-    if (log.is_at_least_debug()) {
-        log << endl;
-        log << "Create split for abstract state " << abstract_state_id << " and "
-            << states.size() << " pseudo-concrete states." << endl;
-    }
-
-    vector<vector<Split>> splits;
-    // Splits are grouped by variable only if split by wanted values.
-    if (split_unwanted_values) {
-        splits = vector<vector<Split>>();
-    } else {
-        splits = vector<vector<Split>>(task_proxy.get_variables().size());
-    }
-    for (auto &pair : get_f_optimal_backward_transitions(abstract_state_id)) {
-        if (log.is_at_least_debug()) {
-            log << "Optimal backward transition(s): " << pair.first << ", "
-                << pair.second << endl;
-        }
-        int op_id = pair.first;
-        const vector<int> &sources = pair.second;
-        OperatorProxy op = task_proxy.get_operators()[op_id];
-        vector<int> eff_values(domain_sizes.size(), -1);
-        for (EffectProxy ef : op.get_effects()) {
-            eff_values[ef.get_fact().get_variable().get_id()] =
-                ef.get_fact().get_value();
-        }
-        // prevail conditions
-        for (FactProxy cond : op.get_preconditions()) {
-            if (eff_values[cond.get_variable().get_id()] == -1) {
-                eff_values[cond.get_variable().get_id()] = cond.get_value();
-            }
-        }
-
-        if (log.is_at_least_debug()) {
-            log << "Operator: " << op.get_name() << endl;
-        }
-
-        vector<bool> applicable(states.size(), true);
-        vector<vector<int>> state_value_count{};
-        for (size_t var = 0; var < domain_sizes.size(); var++) {
-            state_value_count.push_back(vector<int>(domain_sizes[var], 0));
-        }
-
-        for (size_t i = 0; i < states.size(); ++i) {
-            const AbstractState &state = states[i];
-            for (int not_applicable : state.vars_not_backward_applicable(op)) {
-                if (log.is_at_least_debug()) {
-                    log << "Not applicable!" << endl;
-                    log << "State: " << state << ", var: " << not_applicable << endl;
-                }
-                // Applicability flaw
-                applicable[i] = false;
-                for (int value : state.get_cartesian_set().get_values(not_applicable)) {
-                    ++state_value_count[not_applicable][value];
-                }
-            }
-        }
-        for (size_t var = 0; var < domain_sizes.size(); var++) {
-            int eff_value = eff_values[var];
-            for (int value = 0; value < domain_sizes[var]; ++value) {
-                if (state_value_count[var][value] > 0) {
-                    assert(value != eff_value);
-                    if (log.is_at_least_debug()) {
-                        log << "add_split(var " << var << ", val " << value
-                            << "!=" << eff_value << ", state_value_count: "
-                            << state_value_count[var][value] << ")" << endl;
-                    }
-                    if (split_unwanted_values) {
-                        add_split(splits, Split(
-                                    abstract_state_id, var, eff_value,
-                                    {value}, state_value_count[var][value]), true);
-                    } else {
-                        add_split(splits, Split(
-                                    abstract_state_id, var, value,
-                                    {eff_value}, state_value_count[var][value]));
-                    }
-                }
-            }
-        }
-
-        phmap::flat_hash_map<int, vector<AbstractState>> deviation_states_by_source;
-        for (size_t i = 0; i < states.size(); ++i) {
-            if (!applicable[i]) {
-                if (log.is_at_least_debug()) {
-                    log << "Not applicable" << endl;
-                }
-                continue;
-            }
-            const AbstractState &state = states[i];
-            assert(state.is_backward_applicable(op));
-            AbstractState succ_state = AbstractState(-1, -1, state.regress(op));
-            bool source_hit = false;
-            for (int source : sources) {
-                if (!utils::extra_memory_padding_is_reserved()) {
-                    return nullptr;
-                }
-
-                // At most one of the f-optimal targets can include the successor state.
-                if (!source_hit && abstraction.get_state(source).intersects(succ_state)) {
-                    // No flaw
-                    source_hit = true;
-                    if (log.is_at_least_debug()) {
-                        log << "source_hit, state: " << state << ", source: "
-                            << source << endl;
-                        log << "source: " << abstraction.get_state(source) << endl;
-                        log << "succ_state: " << succ_state << endl;
-                        log << "state: " << state << endl;
-                    }
-                } else {
-                    // Deviation flaw
-                    if (log.is_at_least_debug()) {
-                        log << "Deviation states by source, state: " << state
-                            << ", source: " << source << endl;
-                    }
-                    deviation_states_by_source[source].push_back(state);
-                }
-            }
-        }
-
-        for (auto &pair : deviation_states_by_source) {
-            int source = pair.first;
-            const vector<AbstractState> &deviation_states = pair.second;
-            if (!deviation_states.empty()) {
-                int num_vars = domain_sizes.size();
-                get_deviation_backward_splits(
-                    abstract_state, deviation_states,
-                    get_unaffected_variables(op, num_vars),
-                    abstraction.get_state(source), domain_sizes, splits, split_unwanted_values);
-            }
-        }
-    }
-
-    int num_splits = 0;
-    for (auto &var_splits : splits) {
-        num_splits += var_splits.size();
-    }
-    if (log.is_at_least_debug()) {
-        log << "Unique splits: " << num_splits << endl;
-    }
-    compute_splits_timer.stop();
-
-    if (num_splits == 0) {
-        return nullptr;
-    }
-
-    pick_split_timer.resume();
-    Split split = split_selector.pick_split(abstract_state, move(splits), rng);
-    pick_split_timer.stop();
-    return utils::make_unique_ptr<Split>(move(split));
-}
-
-unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
-    const vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values) {
-    compute_splits_timer.resume();
-    const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
-
-    if (log.is_at_least_debug()) {
-        log << endl;
-        log << "Create split for abstract state " << abstract_state_id << " and "
-            << states.size() << " pseudo-concrete states." << endl;
-    }
-
-    const State init_state = task_proxy.get_initial_state();
-    vector<vector<Split>> splits;
-    // Splits are grouped by variable only if split by wanted values.
-    if (split_unwanted_values) {
-        splits = vector<vector<Split>>();
-    } else {
-        splits = vector<vector<Split>>(task_proxy.get_variables().size());
-    }
-    int num_vars = (int)domain_sizes.size();
-    for (int var = 0; var < num_vars; var++) {
-        if (abstract_state.count(var) > 1) {
-            int init_value = init_state[var].get_value();
-
-            if (split_unwanted_values) {
-                for (AbstractState state : states) {
-                    if (!state.contains(var, init_value)) {
-                        for (int state_value : state.get_cartesian_set().get_values(var)) {
-                            add_split(splits, Split(
-                                        abstract_state_id, var, init_value,
-                                        {state_value}, 1), true);
+                        if (log.is_at_least_debug()) {
+                            log << "add_split(var " << var << ", val " << goal_value
+                                << "!=" << other_values << ")" << endl;
                         }
+                        add_split(splits, Split(
+                                      abstract_state_id, var, goal_value,
+                                      move(other_values), 1));
                     }
                 }
-            } else {
-                vector<int> other_values{};
-                for (int value = 0; value < domain_sizes[var]; value++) {
-                    if (value != init_value && abstract_state.contains(var, value)) {
-                        other_values.push_back(value);
-                    }
-                }
-                if (log.is_at_least_debug()) {
-                    log << "add_split(var " << var << ", val " << init_value
-                        << "!=" << other_values << ")" << endl;
-                }
-                add_split(splits, Split(
-                            abstract_state_id, var, init_value,
-                            move(other_values), 1));
             }
         }
     }
@@ -983,8 +626,9 @@ FlawSearch::FlawSearch(
     }
 }
 
-unique_ptr<Split> FlawSearch::get_split(const utils::CountdownTimer &cegar_timer) {
+SplitProperties FlawSearch::get_split(const utils::CountdownTimer &cegar_timer) {
     unique_ptr<Split> split;
+    int found_flaws = 0;
 
     switch (pick_flawed_abstract_state) {
     case PickFlawedAbstractState::FIRST:
@@ -992,9 +636,16 @@ unique_ptr<Split> FlawSearch::get_split(const utils::CountdownTimer &cegar_timer
     case PickFlawedAbstractState::MIN_H:
     case PickFlawedAbstractState::MAX_H:
         split = get_single_split(cegar_timer);
+        if (split) {
+            found_flaws = 1;
+        }
         break;
     case PickFlawedAbstractState::BATCH_MIN_H:
+        // TODO: get the number of found flaws with batch split
         split = get_min_h_batch_split(cegar_timer);
+        if (split) {
+            found_flaws = 1;
+        }
         break;
     default:
         log << "Invalid pick flaw strategy: "
@@ -1008,261 +659,47 @@ unique_ptr<Split> FlawSearch::get_split(const utils::CountdownTimer &cegar_timer
                  || pick_flawed_abstract_state == PickFlawedAbstractState::MIN_H)
                || best_flaw_h == get_h_value(split->abstract_state_id));
     }
-    return split;
+    return SplitProperties(move(split), false, found_flaws, 0);
 }
 
-unique_ptr<Split> FlawSearch::get_split_legacy(const Solution &solution,
-                                               const bool backward,
-                                               const bool split_unwanted_values) {
-    if (log.is_at_least_debug()) {
-        log << "Abstraction: " << endl;
-        abstraction.dump();
-    }
-    unique_ptr<pair<StateID, int>> split_pair;
-    if (backward) {
-        unique_ptr<BackwardLegacyFlaw> backward_flaw = get_split_legacy_backward(solution);
-        if (!backward_flaw) {
-            return nullptr;
-        }
-        if (backward_flaw->split_init_state) {
-            return create_backward_split_from_init_state({backward_flaw->flaw_search_state},
-                                                         backward_flaw->abstract_state_id,
-                                                         split_unwanted_values);
-        } else {
-            return create_backward_split({backward_flaw->flaw_search_state},
-                                         backward_flaw->abstract_state_id,
-                                         split_unwanted_values);
-        }
-    } else {
-        unique_ptr<ForwardLegacyFlaw> forward_flaw = get_split_legacy_forward(solution);
-        if (!forward_flaw) {
-            return nullptr;
-        }
-        if (forward_flaw->split_goal_state) {
-            return create_split_from_goal_state({forward_flaw->concrete_state_id},
-                                                forward_flaw->abstract_state_id,
-                                                split_unwanted_values);
-        } else {
-            return create_split({forward_flaw->concrete_state_id},
-                                forward_flaw->abstract_state_id,
-                                split_unwanted_values);
-        }
-    }
-}
-
-SplitAndDirection FlawSearch::get_split_legacy_closest_to_goal(
-    const Solution &solution,
-    const bool split_unwanted_values) {
-    if (log.is_at_least_debug()) {
-        log << "Abstraction: " << endl;
-        abstraction.dump();
-    }
-
-    unique_ptr<ForwardLegacyFlaw> forward_flaw = get_split_legacy_forward(solution);
-    unique_ptr<BackwardLegacyFlaw> backward_flaw = get_split_legacy_backward(solution);
-    bool backward_chosen = true;
-    
-    if (!backward_flaw && !forward_flaw) {
-        return SplitAndDirection(nullptr, false);
-    } else if (!backward_flaw) {
-        backward_chosen = false;
-    } else if (shortest_paths.get_64bit_goal_distance(backward_flaw->abstract_state_id) >
-        shortest_paths.get_64bit_goal_distance(forward_flaw->abstract_state_id)) {
-        backward_chosen = false;
-    }
-
-    if (backward_chosen) {
-        if (backward_flaw->split_init_state) {
-            return SplitAndDirection(create_backward_split_from_init_state(
-                {backward_flaw->flaw_search_state},
-                backward_flaw->abstract_state_id,
-                split_unwanted_values), true);
-        } else {
-            return SplitAndDirection(create_backward_split(
-                {backward_flaw->flaw_search_state},
-                backward_flaw->abstract_state_id,
-                split_unwanted_values), true);
-        }
-    } else {
-        if (forward_flaw->split_goal_state) {
-            return SplitAndDirection(create_split_from_goal_state(
-                {forward_flaw->concrete_state_id},
-                forward_flaw->abstract_state_id,
-                split_unwanted_values), false);
-        } else {
-            return SplitAndDirection(create_split(
-                {forward_flaw->concrete_state_id},
-                forward_flaw->abstract_state_id,
-                split_unwanted_values), false);
-        }
-    }
-}
-
-unique_ptr<ForwardLegacyFlaw> FlawSearch::get_split_legacy_forward(const Solution &solution) {
-    state_registry = utils::make_unique_ptr<StateRegistry>(task_proxy);
-    bool debug = log.is_at_least_debug();
-    if (debug)
-        log << "Check solution:" << endl;
-
-    const AbstractState *abstract_state = &abstraction.get_initial_state();
-    State concrete_state = state_registry->get_initial_state();
-    assert(abstract_state->includes(concrete_state));
-
-    if (debug) {
-        log << "  Initial abstract state: " << *abstract_state << endl;
-        log << "  Abstract plan:" << endl;
-        for (const Transition &step : solution) {
-            OperatorProxy op = task_proxy.get_operators()[step.op_id];
-            log << "    " << op.get_name() << endl;
-        }
-    }
-
-    for (const Transition &step : solution) {
-        OperatorProxy op = task_proxy.get_operators()[step.op_id];
-        const AbstractState *next_abstract_state = &abstraction.get_state(step.target_id);
-        if (task_properties::is_applicable(op, concrete_state)) {
-            if (debug)
-                log << "  Move to " << *next_abstract_state << " with "
-                    << op.get_name() << endl;
-            State next_concrete_state = state_registry->get_successor_state(concrete_state, op);
-            if (!next_abstract_state->includes(next_concrete_state)) {
-                if (debug)
-                    log << "  Paths deviate." << endl;
-                return utils::make_unique_ptr<ForwardLegacyFlaw>(concrete_state.get_id(), abstract_state->get_id(), false);
-            }
-            abstract_state = next_abstract_state;
-            concrete_state = move(next_concrete_state);
-        } else {
-            if (debug)
-                log << "  Operator not applicable: " << op.get_name() << endl;
-            return utils::make_unique_ptr<ForwardLegacyFlaw>(concrete_state.get_id(), abstract_state->get_id(), false);
-        }
-    }
-    assert(abstraction.get_goals().count(abstract_state->get_id()));
-    if (task_properties::is_goal_state(task_proxy, concrete_state)) {
-        // We found a concrete solution.
-        return nullptr;
-    } else {
-        // This may happen if goals are not separated from the initial state
-        // before getting splits (bidirectional strategies so far),
-        // and it needs a special function to do it because goal state
-        // has no optimal transitions.
-        if (debug)
-            log << "  Goal test failed." << endl;
-        return utils::make_unique_ptr<ForwardLegacyFlaw>(concrete_state.get_id(), abstract_state->get_id(), true);
-    }
-}
-
-unique_ptr<BackwardLegacyFlaw> FlawSearch::get_split_legacy_backward(const Solution &solution) {
-    bool debug = log.is_at_least_debug();
-    if (debug) {
-        log << "Check solution:" << endl;
-        for (size_t i = 0; i < solution.size(); i++) {
-            log << solution.at(i) << endl;
-        }
-        log << "  Abstract plan:" << endl;
-        for (const Transition &step : solution) {
-            OperatorProxy op = task_proxy.get_operators()[step.op_id];
-            log << "    " << op.get_name() << endl;
-        }
-    }
-
-    // The concrete transition system trace starts in the goals,
-    // that usually is an abstract state
-    GoalsProxy goals = task_proxy.get_goals();
-    vector<FactPair> goals_facts = task_properties::get_fact_pairs(task_proxy.get_goals());
-    AbstractState flaw_search_state(get_domain_sizes(task_proxy), move(goals_facts));
-    const AbstractState *initial_abstract_state = &abstraction.get_initial_state();
-    const AbstractState *abstract_state;
-    if (solution.empty()) {
-        abstract_state = initial_abstract_state;
-    } else {
-        abstract_state = &abstraction.get_state(solution.back().target_id);
-    }
-    if (intersect_flaw_search_abstract_states) {
-        flaw_search_state = flaw_search_state.intersection(*abstract_state);
-    }
-    if (debug) {
-        log << "  Initial abstract state: " << *initial_abstract_state << endl;
-        log << "  Start (goal) abstract state: " << *abstract_state << endl;
-        log << "  Start (goal) flaw search state: " << flaw_search_state << endl;
-    }
-
-    // iterate over solution in reverse direction
-    for (int i = solution.size() - 1; i >= 0; i--) {
-        Transition step = solution.at(i);
-        OperatorProxy op = task_proxy.get_operators()[step.op_id];
-        if (flaw_search_state.is_backward_applicable(op)) {
-            const AbstractState *next_abstract_state;
-            if (i > 0) {
-                next_abstract_state = &abstraction.get_state(solution.at(i - 1).target_id);
-            } else {
-                next_abstract_state = initial_abstract_state;
-            }
-            if (debug)
-                log << "  Move from " << *abstract_state << " to " << *next_abstract_state << " with "
-                    << op.get_name() << endl;
-            AbstractState next_flaw_search_state(AbstractState(-1, -1, move(flaw_search_state.regress(op))));
-            if (debug)
-                log << "  In flaw-search space move from " << flaw_search_state << " to "
-                    << next_flaw_search_state << " with " << op.get_name() << endl;
-            if (!next_abstract_state->intersects(next_flaw_search_state)) {
-                if (debug)
-                    log << "  Paths deviate." << endl;
-                return utils::make_unique_ptr<BackwardLegacyFlaw>(move(flaw_search_state), abstract_state->get_id(), false);
-            }
-            abstract_state = next_abstract_state;
-            flaw_search_state = move(next_flaw_search_state);
-            if (intersect_flaw_search_abstract_states) {
-                flaw_search_state = flaw_search_state.intersection(*abstract_state);
-                if (debug)
-                    log << "  Intersected flaw-search state: " << flaw_search_state << endl;
-            }
-        } else {
-            if (debug)
-                log << "  Operator not applicable: " << op.get_name() << endl;
-            return utils::make_unique_ptr<BackwardLegacyFlaw>(move(flaw_search_state), abstract_state->get_id(), false);
-        }
-    }
-    assert(initial_abstract_state->get_id() == abstract_state->get_id());
-    if (flaw_search_state.includes(task_proxy.get_initial_state())) {
-        // We found a concrete solution.
-        return nullptr;
-    } else {
-        // This only happens if the initial abstarct state is not refined
-        // before starting the refinement steps.
-        if (debug)
-            log << "  Initial state test failed." << endl;
-        return utils::make_unique_ptr<BackwardLegacyFlaw>(move(flaw_search_state), abstract_state->get_id(), true);
-    }
-}
-
-SplitAndDirection FlawSearch::get_split_and_direction(const Solution &solution,
-                                                      const utils::CountdownTimer &cegar_timer,
-                                                      const bool half_limits_reached) {
+SplitProperties FlawSearch::get_split_and_direction(const Solution &solution,
+                                                    const utils::CountdownTimer &cegar_timer,
+                                                    const bool half_limits_reached) {
     update_current_direction(half_limits_reached);
     switch (pick_flawed_abstract_state) {
-        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH:
-            return SplitAndDirection(get_split_legacy(solution), false);
-        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_UNWANTED_VALUES:
-            return SplitAndDirection(get_split_legacy(solution, false, true), false);
-        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
-        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE:
-            return SplitAndDirection(get_split_legacy(solution, true), true);
-        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD:
-            return SplitAndDirection(get_split_legacy(solution, true, true), true);
-        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED:
-        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD:
-        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_FORWARD_BACKWARD:
-            if (current_bidirectional_dir_backward) {
-                return SplitAndDirection(get_split_legacy(solution, true, true), true);
-            } else {
-                return SplitAndDirection(get_split_legacy(solution), false);
-            }
-        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_CLOSEST_TO_GOAL:
-            return get_split_legacy_closest_to_goal(solution, true);
-        default:
-            return SplitAndDirection(get_split(cegar_timer), false);
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH:
+        return get_split_legacy(solution);
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_UNWANTED_VALUES:
+        return get_split_legacy(solution, false, true);
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE:
+        return get_split_legacy(solution, true);
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD:
+        return get_split_legacy(solution, true, true);
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_FORWARD_BACKWARD:
+        if (current_bidirectional_dir_backward) {
+            return get_split_legacy(solution, true, true);
+        } else {
+            return get_split_legacy(solution);
+        }
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_CLOSEST_TO_GOAL:
+        return get_split_legacy_closest_to_goal(solution, true);
+    case PickFlawedAbstractState::SEQUENCE:
+        return get_sequence_splits(solution, false, true, false);
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION:
+        return get_sequence_splits(solution, true, true, false);
+    case PickFlawedAbstractState::SEQUENCE_BACKWARD:
+        return get_sequence_splits(solution, false, false, true);
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BACKWARD:
+        return get_sequence_splits(solution, true, false, true);
+    case PickFlawedAbstractState::SEQUENCE_BIDIRECTIONAL:
+        return get_sequence_splits(solution, false, true, true);
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BIDIRECTIONAL:
+        return get_sequence_splits(solution, true, true, true);
+    default:
+        return get_split(cegar_timer);
     }
 }
 
@@ -1273,35 +710,36 @@ bool FlawSearch::refine_init_state() const {
 bool FlawSearch::refine_goals() const {
     bool refine_goals = false;
     switch (pick_flawed_abstract_state) {
-        case PickFlawedAbstractState::FIRST:
-        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH:
-        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_UNWANTED_VALUES:
-        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
-        case PickFlawedAbstractState::RANDOM:
-        case PickFlawedAbstractState::MIN_H:
-        case PickFlawedAbstractState::MAX_H:
-        case PickFlawedAbstractState::BATCH_MIN_H:
-            refine_goals = true;
-        default:
-            break;
+    case PickFlawedAbstractState::FIRST:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_UNWANTED_VALUES:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
+    case PickFlawedAbstractState::RANDOM:
+    case PickFlawedAbstractState::MIN_H:
+    case PickFlawedAbstractState::MAX_H:
+    case PickFlawedAbstractState::BATCH_MIN_H:
+        refine_goals = true;
+        break;
+    default:
+        break;
     }
     return refine_goals;
 }
 
 void FlawSearch::update_current_direction(const bool half_limits_reached) {
     switch (pick_flawed_abstract_state) {
-        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED:
+        current_bidirectional_dir_backward = !current_bidirectional_dir_backward;
+        break;
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_FORWARD_BACKWARD:
+        if (!batch_bidirectional_already_changed_dir && half_limits_reached) {
             current_bidirectional_dir_backward = !current_bidirectional_dir_backward;
-            break;
-        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD:
-        case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_FORWARD_BACKWARD:
-            if (!batch_bidirectional_already_changed_dir && half_limits_reached) {
-                current_bidirectional_dir_backward = !current_bidirectional_dir_backward;
-                batch_bidirectional_already_changed_dir = true;
-            }
-            break;
-        default:
-            break;
+            batch_bidirectional_already_changed_dir = true;
+        }
+        break;
+    default:
+        break;
     }
 }
 

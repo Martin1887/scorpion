@@ -1,6 +1,8 @@
 #ifndef CEGAR_SPLIT_SELECTOR_H
 #define CEGAR_SPLIT_SELECTOR_H
 
+#include "abstract_state.h"
+
 #include "../task_proxy.h"
 
 #include "../utils/logging.h"
@@ -76,6 +78,34 @@ struct Split {
     }
 };
 
+struct SplitProperties {
+    std::unique_ptr<Split> split;
+    bool backward_direction;
+    int n_forward_flaws;
+    int n_backward_flaws;
+
+    SplitProperties(std::unique_ptr<Split> split,
+                    bool backward_direction,
+                    int n_forward_flaws = 0,
+                    int n_backward_flaws = 0)
+        : split(std::move(split)),
+          backward_direction(backward_direction),
+          n_forward_flaws(n_forward_flaws),
+          n_backward_flaws(n_backward_flaws) {}
+};
+
+struct SplitAndAbsState {
+    std::unique_ptr<Split> split;
+    const AbstractState &abs;
+
+    friend std::ostream &operator<<(std::ostream &os, const SplitAndAbsState &s) {
+        if (s.split) {
+            return os << "[" << *s.split << " in " << s.abs.get_id() << "]";
+        } else {
+            return os << "nullptr split";
+        }
+    }
+};
 
 /*
   Select split in case there are multiple possible splits.
@@ -102,6 +132,13 @@ class SplitSelector {
         const AbstractState &abstract_state,
         std::vector<Split> &&splits,
         utils::RandomNumberGenerator &rng) const;
+    SplitAndAbsState select_from_best_splits(
+        std::vector<SplitAndAbsState> &&splits,
+        utils::RandomNumberGenerator &rng) const;
+    SplitProperties select_from_sequence_splits(
+        std::vector<SplitAndAbsState> &&forward_splits,
+        std::vector<SplitAndAbsState> &&backward_splits,
+        utils::RandomNumberGenerator &rng) const;
     std::vector<Split> reduce_to_best_splits(
         const AbstractState &abstract_state,
         std::vector<std::vector<Split>> &&splits) const;
@@ -117,6 +154,11 @@ public:
     Split pick_split(
         const AbstractState &abstract_state,
         std::vector<std::vector<Split>> &&splits,
+        utils::RandomNumberGenerator &rng) const;
+
+    SplitProperties pick_sequence_split(
+        std::vector<SplitAndAbsState> &&forward_splits,
+        std::vector<SplitAndAbsState> &&backward_splits,
         utils::RandomNumberGenerator &rng) const;
 };
 }

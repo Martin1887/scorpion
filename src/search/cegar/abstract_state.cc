@@ -126,7 +126,7 @@ vector<int> AbstractState::vars_not_backward_applicable(const OperatorProxy &op)
 }
 
 CartesianSet AbstractState::regress(const OperatorProxy &op) const {
-    CartesianSet regression = cartesian_set;
+    CartesianSet regression(cartesian_set);
     for (EffectProxy effect : op.get_effects()) {
         int var_id = effect.get_fact().get_variable().get_id();
         regression.add_all(var_id);
@@ -136,6 +136,35 @@ CartesianSet AbstractState::regress(const OperatorProxy &op) const {
         regression.set_single_value(var_id, precondition.get_value());
     }
     return regression;
+}
+
+CartesianSet AbstractState::progress(const OperatorProxy &op) const {
+    CartesianSet progression(cartesian_set);
+    // Preconditions are also set because the operator could be not applicable.
+    for (FactProxy precondition : op.get_preconditions()) {
+        int var_id = precondition.get_variable().get_id();
+        progression.set_single_value(var_id, precondition.get_value());
+    }
+    for (EffectProxy effect : op.get_effects()) {
+        int var_id = effect.get_fact().get_variable().get_id();
+        progression.set_single_value(var_id, effect.get_fact().get_value());
+    }
+    return progression;
+}
+
+CartesianSet AbstractState::undeviate(const AbstractState &mapped) const {
+    CartesianSet undeviated(cartesian_set);
+
+    for (int var = 0; var < cartesian_set.n_vars(); var++) {
+        if (!domain_subsets_intersect(mapped, var)) {
+            undeviated.remove_all(var);
+            for (int value : mapped.get_cartesian_set().get_values(var)) {
+                undeviated.add(var, value);
+            }
+        }
+    }
+
+    return undeviated;
 }
 
 bool AbstractState::domain_subsets_intersect(const AbstractState &other, int var) const {
