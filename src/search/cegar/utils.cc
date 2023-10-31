@@ -126,6 +126,13 @@ static void add_pick_split_strategies(options::OptionParser &parser) {
     vector<string> strategies =
     {"RANDOM", "MIN_UNWANTED", "MAX_UNWANTED", "MIN_REFINED", "MAX_REFINED",
      "MIN_HADD", "MAX_HADD", "MIN_CG", "MAX_CG", "MAX_COVER"};
+    vector<string> sequence_strategies(strategies);
+    sequence_strategies.push_back(
+        "FIRST_FLAW");
+    sequence_strategies.push_back("LAST_FLAW");
+    sequence_strategies.push_back("CLOSEST_TO_GOAL_FLAW");
+    sequence_strategies.push_back("HIGHEST_COST_OPERATOR");
+
     parser.add_enum_option<PickSplit>(
         "pick_split",
         strategies,
@@ -136,6 +143,11 @@ static void add_pick_split_strategies(options::OptionParser &parser) {
         strategies,
         "split-selection strategy for breaking ties",
         "MAX_REFINED");
+    parser.add_enum_option<PickSplit>(
+        "sequence_split",
+        sequence_strategies,
+        "split-selection strategy for choosing among flaws in different states",
+        "HIGHEST_COST_OPERATOR");
 }
 
 static void add_memory_padding_option(options::OptionParser &parser) {

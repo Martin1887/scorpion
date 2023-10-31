@@ -32,6 +32,7 @@ class CartesianAbstractionGenerator : public AbstractionGenerator {
     const cegar::PickFlawedAbstractState pick_flawed_abstract_state;
     const cegar::PickSplit pick_split;
     const cegar::PickSplit tiebreak_split;
+    const cegar::PickSplit sequence_split;
     const int max_concrete_states_per_abstract_state;
     const int max_state_expansions;
     const int extra_memory_padding_mb;

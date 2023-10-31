@@ -25,6 +25,7 @@ void FlawSearch::get_deviation_splits(
     const vector<int> &unaffected_variables,
     const AbstractState &target_abs_state,
     const vector<int> &domain_sizes,
+    const int op_cost,
     vector<vector<Split>> &splits,
     bool split_unwanted_values) {
     /*
@@ -78,13 +79,13 @@ void FlawSearch::get_deviation_splits(
                         for (int want : wanted) {
                             FlawSearch::add_split(splits, Split(
                                                       abs_state.get_id(), var, want, {value},
-                                                      fact_count[var][value]), true);
+                                                      fact_count[var][value], op_cost), true);
                         }
                     } else {
                         vector<int> wanted_copy(wanted);
                         FlawSearch::add_split(splits, Split(
                                                   abs_state.get_id(), var, value, move(wanted_copy),
-                                                  fact_count[var][value]));
+                                                  fact_count[var][value], op_cost));
                     }
                 }
             }
@@ -140,11 +141,13 @@ SplitAndAbsState FlawSearch::create_split(
                     if (split_unwanted_values) {
                         add_split(splits, Split(
                                       abstract_state_id, fact.var, fact.value,
-                                      {value}, state_value_count[value]), true);
+                                      {value}, state_value_count[value],
+                                      op.get_cost()), true);
                     } else {
                         add_split(splits, Split(
                                       abstract_state_id, fact.var, value,
-                                      {fact.value}, state_value_count[value]));
+                                      {fact.value}, state_value_count[value],
+                                      op.get_cost()));
                     }
                 }
             }
@@ -183,8 +186,8 @@ SplitAndAbsState FlawSearch::create_split(
                 get_deviation_splits(
                     abstract_state, deviation_states,
                     get_unaffected_variables(op, num_vars),
-                    abstraction.get_state(target), domain_sizes, splits,
-                    split_unwanted_values);
+                    abstraction.get_state(target), domain_sizes, op.get_cost(),
+                    splits, split_unwanted_values);
             }
         }
     }

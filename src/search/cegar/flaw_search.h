@@ -159,6 +159,7 @@ class FlawSearch {
         const std::vector<int> &unaffected_variables,
         const AbstractState &target_abs_state,
         const std::vector<int> &domain_sizes,
+        const int op_cost,
         std::vector<std::vector<Split>> &splits,
         bool split_unwanted_values);
 
@@ -169,6 +170,7 @@ class FlawSearch {
         const std::vector<int> &unaffected_variables,
         const AbstractState &source_abs_state,
         const std::vector<int> &domain_sizes,
+        const int op_cost,
         std::vector<std::vector<Split>> &splits,
         bool split_unwanted_values);
 
@@ -233,6 +235,7 @@ public:
         PickFlawedAbstractState pick_flawed_abstract_state,
         PickSplit pick_split,
         PickSplit tiebreak_split,
+        PickSplit sequence_split,
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
         bool intersect_flaw_search_abstract_states,

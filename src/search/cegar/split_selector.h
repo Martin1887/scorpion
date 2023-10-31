@@ -8,6 +8,7 @@
 #include "../utils/logging.h"
 
 #include <memory>
+#include <optional.hh>
 #include <vector>
 
 namespace additive_heuristic {
@@ -38,7 +39,13 @@ enum class PickSplit {
     MIN_CG,
     MAX_CG,
     // Compute split that covers the maximum number of flaws for several concrete states.
-    MAX_COVER
+    MAX_COVER,
+    // New strategies specially designed for sequence flaws.
+    FIRST_FLAW,
+    LAST_FLAW,
+    // The first one in regression, the latest one in progression.
+    CLOSEST_TO_GOAL_FLAW,
+    HIGHEST_COST_OPERATOR,
 };
 
 
@@ -48,13 +55,15 @@ struct Split {
     int var_id;
     int value;
     std::vector<int> values;
+    int op_cost;
 
-    Split(int abstract_state_id, int var_id, int value, std::vector<int> &&values, int count)
+    Split(int abstract_state_id, int var_id, int value, std::vector<int> &&values, int count, int op_cost = -1)
         : count(count),
           abstract_state_id(abstract_state_id),
           var_id(var_id),
           value(value),
-          values(move(values)) {
+          values(move(values)),
+          op_cost(op_cost) {
         assert(count >= 1);
     }
 
@@ -63,10 +72,10 @@ struct Split {
     bool operator==(const Split &other) const {
         assert(var_id == other.var_id);
         if (value == other.value) {
-            return values == other.values;
+            return values == other.values && op_cost == other.op_cost;
         } else if (values.size() == 1 && other.values.size() == 1) {
             // If we need to separate exactly two values, their order doesn't matter.
-            return value == other.values[0] && other.value == values[0];
+            return value == other.values[0] && other.value == values[0] && op_cost == other.op_cost;
         } else {
             return false;
         }
@@ -74,7 +83,9 @@ struct Split {
 
     friend std::ostream &operator<<(std::ostream &os, const Split &s) {
         return os << "<" << s.var_id << "=" << s.value << "|" << s.values
-                  << ":" << s.count << ">";
+                  << ":" << s.count <<
+               (s.op_cost > -1 ? ("(" + std::to_string(s.op_cost) + ")") : "")
+                  << ">";
     }
 };
 
@@ -118,6 +129,7 @@ class SplitSelector {
 
     const PickSplit first_pick;
     const PickSplit tiebreak_pick;
+    const PickSplit sequence_pick;
 
     int get_num_unwanted_values(const AbstractState &state, const Split &split) const;
     double get_refinedness(const AbstractState &state, int var_id) const;
@@ -134,6 +146,7 @@ class SplitSelector {
         utils::RandomNumberGenerator &rng) const;
     SplitAndAbsState select_from_best_splits(
         std::vector<SplitAndAbsState> &&splits,
+        bool backward_direction,
         utils::RandomNumberGenerator &rng) const;
     SplitProperties select_from_sequence_splits(
         std::vector<SplitAndAbsState> &&forward_splits,
@@ -148,6 +161,7 @@ public:
         const std::shared_ptr<AbstractTask> &task,
         PickSplit pick,
         PickSplit tiebreak_pick,
+        PickSplit sequence_pick,
         bool debug);
     ~SplitSelector();
 

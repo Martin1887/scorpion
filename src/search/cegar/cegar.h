@@ -76,6 +76,7 @@ public:
         PickFlawedAbstractState pick_flawed_abstract_state,
         PickSplit pick_split,
         PickSplit tiebreak_split,
+        PickSplit sequence_split,
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
         bool intersect_flaw_search_abstract_states,

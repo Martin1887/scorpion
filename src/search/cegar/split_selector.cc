@@ -55,14 +55,17 @@ SplitSelector::SplitSelector(
     const shared_ptr<AbstractTask> &task,
     PickSplit pick,
     PickSplit tiebreak_pick,
+    PickSplit sequence_pick,
     bool debug)
     : task(task),
       task_proxy(*task),
       debug(debug),
       first_pick(pick),
-      tiebreak_pick(tiebreak_pick) {
+      tiebreak_pick(tiebreak_pick),
+      sequence_pick(sequence_pick) {
     if (first_pick == PickSplit::MIN_HADD || first_pick == PickSplit::MAX_HADD ||
-        tiebreak_pick == PickSplit::MIN_HADD || tiebreak_pick == PickSplit::MAX_HADD) {
+        tiebreak_pick == PickSplit::MIN_HADD || tiebreak_pick == PickSplit::MAX_HADD ||
+        sequence_pick == PickSplit::MIN_HADD || sequence_pick == PickSplit::MAX_HADD) {
         additive_heuristic = create_additive_heuristic(task);
         additive_heuristic->compute_heuristic_for_cegar(
             task_proxy.get_initial_state());
@@ -147,6 +150,14 @@ double SplitSelector::rate_split(
         break;
     case PickSplit::MAX_CG:
         rating = var_id;
+        break;
+    case PickSplit::HIGHEST_COST_OPERATOR:
+        // prefer splitting goal/initial state to 0-cost operators
+        if (split.op_cost == -1) {
+            rating = 0.5;
+        } else {
+            rating = split.op_cost;
+        }
         break;
     default:
         cerr << "Invalid pick strategy for rate_split(): "
@@ -273,24 +284,39 @@ Split SplitSelector::select_from_best_splits(
 
 SplitAndAbsState SplitSelector::select_from_best_splits(
     vector<SplitAndAbsState> &&splits,
+    bool backward_direction,
     utils::RandomNumberGenerator &rng) const {
     assert(!splits.empty());
     if (splits.size() == 1) {
         return move(splits[0]);
-    } else if (tiebreak_pick == PickSplit::RANDOM) {
-        return move(*rng.choose(splits));
-    }
-    double max_rating = numeric_limits<double>::lowest();
-    SplitAndAbsState *selected_split = nullptr;
-    for (SplitAndAbsState &spabs : splits) {
-        double rating = rate_split(spabs.abs, *spabs.split, tiebreak_pick);
-        if (rating > max_rating) {
-            selected_split = &spabs;
-            max_rating = rating;
+    } else {
+        SplitAndAbsState *selected_split = nullptr;
+        switch (sequence_pick) {
+        case PickSplit::RANDOM:
+            return move(*rng.choose(splits));
+        case PickSplit::FIRST_FLAW:
+            return move(splits[0]);
+        case PickSplit::LAST_FLAW:
+            return move(splits.back());
+        case PickSplit::CLOSEST_TO_GOAL_FLAW:
+            if (backward_direction) {
+                return move(splits[0]);
+            } else {
+                return move(splits.back());
+            }
+        default:
+            double max_rating = numeric_limits<double>::lowest();
+            for (SplitAndAbsState &spabs : splits) {
+                double rating = rate_split(spabs.abs, *spabs.split, sequence_pick);
+                if (rating > max_rating) {
+                    selected_split = &spabs;
+                    max_rating = rating;
+                }
+            }
+            assert(selected_split);
+            return move(*selected_split);
         }
     }
-    assert(selected_split);
-    return move(*selected_split);
 }
 
 SplitProperties SplitSelector::select_from_sequence_splits(
@@ -304,28 +330,36 @@ SplitProperties SplitSelector::select_from_sequence_splits(
     }
     const AbstractState invalid_abs(-1, -1, CartesianSet(vector<int>{}));
     SplitAndAbsState best_fw = forward_splits.empty() ? SplitAndAbsState{nullptr, invalid_abs}
-    : select_from_best_splits(move(forward_splits), rng);
+    : select_from_best_splits(move(forward_splits), false, rng);
     SplitAndAbsState best_bw = backward_splits.empty() ? SplitAndAbsState{nullptr, invalid_abs}
-    : select_from_best_splits(move(backward_splits), rng);
+    : select_from_best_splits(move(backward_splits), true, rng);
 
     if (!best_fw.split) {
         return SplitProperties(move(best_bw.split), true, n_forward, n_backward);
     } else if (!best_bw.split) {
         return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
     } else {
-        if (tiebreak_pick == PickSplit::RANDOM) {
+        switch (sequence_pick) {
+        case PickSplit::RANDOM:
             if (rng.random(2) == 0) {
                 return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
             } else {
                 return SplitProperties(move(best_bw.split), true, n_forward, n_backward);
             }
-        }
-
-        if (rate_split(best_fw.abs, *best_fw.split, tiebreak_pick) >
-            rate_split(best_bw.abs, *best_bw.split, tiebreak_pick)) {
+        // Prefer forward splits to backward splits in goal-related strategies
+        case PickSplit::FIRST_FLAW:
             return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
-        } else {
-            return SplitProperties(move(best_bw.split), true, n_forward, n_backward);
+        case PickSplit::LAST_FLAW:
+            return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
+        case PickSplit::CLOSEST_TO_GOAL_FLAW:
+            return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
+        default:
+            if (rate_split(best_fw.abs, *best_fw.split, sequence_pick) >
+                rate_split(best_bw.abs, *best_bw.split, sequence_pick)) {
+                return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
+            } else {
+                return SplitProperties(move(best_bw.split), true, n_forward, n_backward);
+            }
         }
     }
 }

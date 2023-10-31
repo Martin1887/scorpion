@@ -112,6 +112,7 @@ CartesianAbstractionGenerator::CartesianAbstractionGenerator(
           opts.get<cegar::PickFlawedAbstractState>("pick_flawed_abstract_state")),
       pick_split(opts.get<cegar::PickSplit>("pick_split")),
       tiebreak_split(opts.get<cegar::PickSplit>("tiebreak_split")),
+      sequence_split(opts.get<cegar::PickSplit>("sequence_split")),
       max_concrete_states_per_abstract_state(
           opts.get<int>("max_concrete_states_per_abstract_state")),
       max_state_expansions(opts.get<int>("max_state_expansions")),
@@ -142,6 +143,7 @@ unique_ptr<cegar::Abstraction> CartesianAbstractionGenerator::build_abstraction_
         pick_flawed_abstract_state,
         pick_split,
         tiebreak_split,
+        sequence_split,
         max_concrete_states_per_abstract_state,
         max_state_expansions,
         false,

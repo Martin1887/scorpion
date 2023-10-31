@@ -36,6 +36,7 @@ class CostSaturation {
     const PickFlawedAbstractState pick_flawed_abstract_state;
     const PickSplit pick_split;
     const PickSplit tiebreak_split;
+    const PickSplit sequence_split;
     const int max_concrete_states_per_abstract_state;
     const int max_state_expansions;
     const int memory_padding_mb;
@@ -71,6 +72,7 @@ public:
         PickFlawedAbstractState pick_flawed_abstract_state,
         PickSplit pick_split,
         PickSplit tiebreak_split,
+        PickSplit sequence_split,
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
         int memory_padding_mb,
