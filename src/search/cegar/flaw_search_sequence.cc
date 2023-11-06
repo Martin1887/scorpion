@@ -502,19 +502,120 @@ SplitProperties FlawSearch::get_sequence_splits(const Solution &solution,
                                                 const bool forward,
                                                 const bool backward) {
     assert(forward || backward);
-    vector<SplitAndAbsState> forward_splits{};
-    vector<SplitAndAbsState> backward_splits{};
+    vector<LegacyFlaw> forward_flaws{};
+    vector<LegacyFlaw> backward_flaws{};
     if (forward) {
-        for (LegacyFlaw flaw : get_forward_flaws(solution, true, only_in_abstraction)) {
-            forward_splits.push_back(get_split_from_flaw(flaw, false, false));
-        }
+        forward_flaws = get_forward_flaws(solution, true, only_in_abstraction);
     }
     if (backward) {
-        for (LegacyFlaw flaw : get_backward_flaws(solution, true, only_in_abstraction)) {
-            backward_splits.push_back(get_split_from_flaw(flaw, true, true));
-        }
+        backward_flaws = get_backward_flaws(solution, true, only_in_abstraction);
     }
 
-    return split_selector.pick_sequence_split(move(forward_splits), move(backward_splits), rng);
+    return pick_sequence_split(move(forward_flaws), move(backward_flaws), rng);
+}
+
+SplitProperties FlawSearch::pick_sequence_split(
+    vector<LegacyFlaw> &&forward_flaws,
+    vector<LegacyFlaw> &&backward_flaws,
+    utils::RandomNumberGenerator &rng) {
+    bool debug = log.is_at_least_debug();
+    if (debug) {
+        utils::g_log << "Forward splits: " << forward_flaws << endl;
+        utils::g_log << "Backward splits: " << backward_flaws << endl;
+    }
+    SplitProperties best =
+        select_from_sequence_flaws(move(forward_flaws), move(backward_flaws), rng);
+    if (debug) {
+        if (best.split) {
+            utils::g_log << "Selected split: " << *best.split << endl;
+        } else {
+            utils::g_log << "No splits" << endl;
+        }
+        utils::g_log << "Selected direction: " << (best.backward_direction ? "backward" : "forward") << endl;
+    }
+    return best;
+}
+
+SplitProperties FlawSearch::select_from_sequence_flaws(
+    vector<LegacyFlaw> &&forward_flaws,
+    vector<LegacyFlaw> &&backward_flaws,
+    utils::RandomNumberGenerator &rng) {
+    int n_forward = forward_flaws.size();
+    int n_backward = backward_flaws.size();
+    if (forward_flaws.empty() && backward_flaws.empty()) {
+        return SplitProperties(nullptr, false, 0, 0);
+    }
+    const AbstractState invalid_abs(-1, -1, CartesianSet(vector<int>{}));
+    SplitAndAbsState best_fw = forward_flaws.empty() ? SplitAndAbsState{nullptr, invalid_abs}
+    : select_flaw_and_pick_split(move(forward_flaws), false, rng);
+    SplitAndAbsState best_bw = backward_flaws.empty() ? SplitAndAbsState{nullptr, invalid_abs}
+    : select_flaw_and_pick_split(move(backward_flaws), true, rng);
+
+    if (!best_fw.split) {
+        return SplitProperties(move(best_bw.split), true, n_forward, n_backward);
+    } else if (!best_bw.split) {
+        return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
+    } else {
+        switch (split_selector.sequence_pick) {
+        case PickSplit::RANDOM:
+            if (rng.random(2) == 0) {
+                return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
+            } else {
+                return SplitProperties(move(best_bw.split), true, n_forward, n_backward);
+            }
+        // Prefer forward splits to backward splits in goal-related strategies
+        case PickSplit::FIRST_FLAW:
+            return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
+        case PickSplit::LAST_FLAW:
+            return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
+        case PickSplit::CLOSEST_TO_GOAL_FLAW:
+            return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
+        default:
+            if (split_selector.rate_split(best_fw.abs, *best_fw.split, split_selector.sequence_pick) >
+                split_selector.rate_split(best_bw.abs, *best_bw.split, split_selector.sequence_pick)) {
+                return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
+            } else {
+                return SplitProperties(move(best_bw.split), true, n_forward, n_backward);
+            }
+        }
+    }
+}
+
+SplitAndAbsState FlawSearch::select_flaw_and_pick_split(
+    vector<LegacyFlaw> &&flaws,
+    bool backward_direction,
+    utils::RandomNumberGenerator &rng) {
+    assert(!flaws.empty());
+    if (flaws.size() == 1) {
+        return get_split_from_flaw(move(flaws[0]), backward_direction, backward_direction);
+    } else {
+        SplitAndAbsState *selected_split = nullptr;
+        switch (split_selector.sequence_pick) {
+        case PickSplit::RANDOM:
+            return get_split_from_flaw(move(*rng.choose(flaws)), backward_direction, backward_direction);
+        case PickSplit::FIRST_FLAW:
+            return get_split_from_flaw(move(flaws[0]), backward_direction, backward_direction);
+        case PickSplit::LAST_FLAW:
+            return get_split_from_flaw(move(flaws.back()), backward_direction, backward_direction);
+        case PickSplit::CLOSEST_TO_GOAL_FLAW:
+            if (backward_direction) {
+                return get_split_from_flaw(move(flaws[0]), backward_direction, backward_direction);
+            } else {
+                return get_split_from_flaw(move(flaws.back()), backward_direction, backward_direction);
+            }
+        default:
+            double max_rating = numeric_limits<double>::lowest();
+            for (LegacyFlaw &fl : flaws) {
+                SplitAndAbsState spabs = get_split_from_flaw(move(fl), backward_direction, backward_direction);
+                double rating = split_selector.rate_split(spabs.abs, *spabs.split, split_selector.sequence_pick);
+                if (rating > max_rating) {
+                    selected_split = &spabs;
+                    max_rating = rating;
+                }
+            }
+            assert(selected_split);
+            return move(*selected_split);
+        }
+    }
 }
 }

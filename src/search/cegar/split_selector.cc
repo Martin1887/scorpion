@@ -2,6 +2,7 @@
 
 #include "abstract_state.h"
 #include "flaw.h"
+#include "flaw_search.h"
 #include "utils.h"
 
 #include "../heuristics/additive_heuristic.h"
@@ -282,88 +283,6 @@ Split SplitSelector::select_from_best_splits(
     return move(*selected_split);
 }
 
-SplitAndAbsState SplitSelector::select_from_best_splits(
-    vector<SplitAndAbsState> &&splits,
-    bool backward_direction,
-    utils::RandomNumberGenerator &rng) const {
-    assert(!splits.empty());
-    if (splits.size() == 1) {
-        return move(splits[0]);
-    } else {
-        SplitAndAbsState *selected_split = nullptr;
-        switch (sequence_pick) {
-        case PickSplit::RANDOM:
-            return move(*rng.choose(splits));
-        case PickSplit::FIRST_FLAW:
-            return move(splits[0]);
-        case PickSplit::LAST_FLAW:
-            return move(splits.back());
-        case PickSplit::CLOSEST_TO_GOAL_FLAW:
-            if (backward_direction) {
-                return move(splits[0]);
-            } else {
-                return move(splits.back());
-            }
-        default:
-            double max_rating = numeric_limits<double>::lowest();
-            for (SplitAndAbsState &spabs : splits) {
-                double rating = rate_split(spabs.abs, *spabs.split, sequence_pick);
-                if (rating > max_rating) {
-                    selected_split = &spabs;
-                    max_rating = rating;
-                }
-            }
-            assert(selected_split);
-            return move(*selected_split);
-        }
-    }
-}
-
-SplitProperties SplitSelector::select_from_sequence_splits(
-    vector<SplitAndAbsState> &&forward_splits,
-    vector<SplitAndAbsState> &&backward_splits,
-    utils::RandomNumberGenerator &rng) const {
-    int n_forward = forward_splits.size();
-    int n_backward = backward_splits.size();
-    if (forward_splits.empty() && backward_splits.empty()) {
-        return SplitProperties(nullptr, false, 0, 0);
-    }
-    const AbstractState invalid_abs(-1, -1, CartesianSet(vector<int>{}));
-    SplitAndAbsState best_fw = forward_splits.empty() ? SplitAndAbsState{nullptr, invalid_abs}
-    : select_from_best_splits(move(forward_splits), false, rng);
-    SplitAndAbsState best_bw = backward_splits.empty() ? SplitAndAbsState{nullptr, invalid_abs}
-    : select_from_best_splits(move(backward_splits), true, rng);
-
-    if (!best_fw.split) {
-        return SplitProperties(move(best_bw.split), true, n_forward, n_backward);
-    } else if (!best_bw.split) {
-        return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
-    } else {
-        switch (sequence_pick) {
-        case PickSplit::RANDOM:
-            if (rng.random(2) == 0) {
-                return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
-            } else {
-                return SplitProperties(move(best_bw.split), true, n_forward, n_backward);
-            }
-        // Prefer forward splits to backward splits in goal-related strategies
-        case PickSplit::FIRST_FLAW:
-            return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
-        case PickSplit::LAST_FLAW:
-            return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
-        case PickSplit::CLOSEST_TO_GOAL_FLAW:
-            return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
-        default:
-            if (rate_split(best_fw.abs, *best_fw.split, sequence_pick) >
-                rate_split(best_bw.abs, *best_bw.split, sequence_pick)) {
-                return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
-            } else {
-                return SplitProperties(move(best_bw.split), true, n_forward, n_backward);
-            }
-        }
-    }
-}
-
 Split SplitSelector::pick_split(
     const AbstractState &abstract_state,
     vector<vector<Split>> &&splits,
@@ -390,26 +309,5 @@ Split SplitSelector::pick_split(
         utils::g_log << "Selected split: " << selected_split << endl;
     }
     return selected_split;
-}
-
-SplitProperties SplitSelector::pick_sequence_split(
-    vector<SplitAndAbsState> &&forward_splits,
-    vector<SplitAndAbsState> &&backward_splits,
-    utils::RandomNumberGenerator &rng) const {
-    if (debug) {
-        utils::g_log << "Forward splits: " << forward_splits << endl;
-        utils::g_log << "Backward splits: " << backward_splits << endl;
-    }
-    SplitProperties best =
-        select_from_sequence_splits(move(forward_splits), move(backward_splits), rng);
-    if (debug) {
-        if (best.split) {
-            utils::g_log << "Selected split: " << *best.split << endl;
-        } else {
-            utils::g_log << "No splits" << endl;
-        }
-        utils::g_log << "Selected direction: " << (best.backward_direction ? "backward" : "forward") << endl;
-    }
-    return best;
 }
 }

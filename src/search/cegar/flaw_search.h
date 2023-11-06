@@ -104,6 +104,12 @@ struct LegacyFlaw {
         : flaw_search_state(flaw_search_state),
           abstract_state_id(abstract_id),
           split_last_state(split_last_state) {}
+
+    friend std::ostream &operator<<(std::ostream &os, const LegacyFlaw &flaw) {
+        return os << "Flaw(" << flaw.flaw_search_state << ", "
+                  << flaw.abstract_state_id << ")[split_last_state="
+                  << flaw.split_last_state << "]";
+    }
 };
 
 class FlawSearch {
@@ -213,6 +219,19 @@ class FlawSearch {
     std::unique_ptr<LegacyFlaw> get_flaw_legacy_forward(const Solution &solution);
     // Return flaw-search state id and abstract state id where create the split.
     std::unique_ptr<LegacyFlaw> get_flaw_legacy_backward(const Solution &solution);
+
+    SplitAndAbsState select_flaw_and_pick_split(
+        std::vector<LegacyFlaw> &&flaws,
+        bool backward_direction,
+        utils::RandomNumberGenerator &rng);
+    SplitProperties select_from_sequence_flaws(
+        std::vector<LegacyFlaw> &&forward_flaws,
+        std::vector<LegacyFlaw> &&backward_flaws,
+        utils::RandomNumberGenerator &rng);
+    SplitProperties pick_sequence_split(
+        std::vector<LegacyFlaw> &&forward_flaws,
+        std::vector<LegacyFlaw> &&backward_flaws,
+        utils::RandomNumberGenerator &rng);
 
     SplitAndAbsState get_split_from_flaw(const LegacyFlaw &flaw,
                                          const bool backward,
