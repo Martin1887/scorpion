@@ -589,7 +589,7 @@ SplitAndAbsState FlawSearch::select_flaw_and_pick_split(
     if (flaws.size() == 1) {
         return get_split_from_flaw(move(flaws[0]), backward_direction, backward_direction);
     } else {
-        SplitAndAbsState *selected_split = nullptr;
+        unique_ptr<SplitAndAbsState> selected_split = nullptr;
         switch (split_selector.sequence_pick) {
         case PickSplit::RANDOM:
             return get_split_from_flaw(move(*rng.choose(flaws)), backward_direction, backward_direction);
@@ -609,7 +609,7 @@ SplitAndAbsState FlawSearch::select_flaw_and_pick_split(
                 SplitAndAbsState spabs = get_split_from_flaw(move(fl), backward_direction, backward_direction);
                 double rating = split_selector.rate_split(spabs.abs, *spabs.split, split_selector.sequence_pick);
                 if (rating > max_rating) {
-                    selected_split = &spabs;
+                    selected_split = utils::make_unique_ptr<SplitAndAbsState>(move(spabs));
                     max_rating = rating;
                 }
             }
