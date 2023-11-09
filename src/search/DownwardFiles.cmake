@@ -720,6 +720,7 @@ fast_downward_plugin(
         cegar/refinement_hierarchy
         cegar/shortest_paths
         cegar/split_selector
+        cegar/splits_cache
         cegar/subtask_generators
         cegar/transition
         cegar/transition_system

@@ -1,8 +1,9 @@
 #ifndef CEGAR_FLAW_SEARCH_H
 #define CEGAR_FLAW_SEARCH_H
 
-#include "flaw.h"
 #include "abstract_state.h"
+#include "cartesian_set.h"
+#include "flaw.h"
 #include "split_selector.h"
 #include "types.h"
 
@@ -21,6 +22,8 @@ class CountdownTimer;
 class LogProxy;
 class RandomNumberGenerator;
 }
+
+using utils::HashMap;
 
 namespace cegar {
 class Abstraction;
@@ -110,9 +113,21 @@ struct LegacyFlaw {
                   << flaw.abstract_state_id << ")[split_last_state="
                   << flaw.split_last_state << "]";
     }
+    bool operator==(const LegacyFlaw &other) const {
+        return flaw_search_state.get_cartesian_set() == other.flaw_search_state.get_cartesian_set() &&
+               abstract_state_id == other.abstract_state_id &&
+               split_last_state == other.split_last_state;
+    }
+};
+
+class SplitsCache {
+public:
+    SplitsCache();
 };
 
 class FlawSearch {
+    friend class SplitsCache;
+
     TaskProxy task_proxy;
     const std::vector<int> domain_sizes;
     const Abstraction &abstraction;
@@ -141,6 +156,14 @@ class FlawSearch {
     FlawedStates flawed_states;
     bool current_bidirectional_dir_backward = false;
     bool batch_bidirectional_already_changed_dir = false;
+    // {AbstractState ID -> {bw_direction -> {split_unwanted_values -> {LegacyFlaw -> {SplitAndAbsState}}}}}
+    HashMap<int,
+            HashMap<bool,
+                    HashMap<bool,
+                            HashMap<LegacyFlaw, SplitAndAbsState>>>> splits_cache;
+    // If optimal transitions are different the cached split must be recomputed.
+    // {AbstractState ID -> {bw_direction -> OptimalTransitions}}
+    HashMap<int, HashMap<bool, OptimalTransitions>> opt_tr_cache;
 
     // Statistics
     int num_searches;
@@ -183,8 +206,8 @@ class FlawSearch {
     int get_abstract_state_id(const State &state) const;
     Cost get_h_value(int abstract_state_id) const;
     void add_flaw(int abs_id, const State &state);
-    OptimalTransitions get_f_optimal_transitions(int abstract_state_id) const;
-    OptimalTransitions get_f_optimal_backward_transitions(int abstract_state_id) const;
+    OptimalTransitions get_f_optimal_transitions(int abstract_state_id, bool reverse = false) const;
+    OptimalTransitions get_f_optimal_backward_transitions(int abstract_state_id, bool reverse = false) const;
 
     void initialize();
     SearchStatus step();
@@ -233,6 +256,10 @@ class FlawSearch {
         std::vector<LegacyFlaw> &&backward_flaws,
         utils::RandomNumberGenerator &rng);
 
+    SplitAndAbsState splits_cache_get(LegacyFlaw f, bool backward_direction, bool split_unwanted_values);
+
+    void splits_cache_invalidate(int abstract_state_id);
+
     SplitAndAbsState get_split_from_flaw(const LegacyFlaw &flaw,
                                          const bool backward,
                                          const bool split_unwanted_values);
@@ -280,4 +307,11 @@ public:
 };
 }
 
+namespace utils {
+inline void feed(HashState &hash_state, cegar::LegacyFlaw val) {
+    feed(hash_state, val.abstract_state_id);
+    feed(hash_state, val.split_last_state);
+    feed(hash_state, val.flaw_search_state.get_cartesian_set());
+}
+}
 #endif

@@ -431,11 +431,6 @@ bool ShortestPaths::is_optimal_transition(int start_id, int op_id, int target_id
 }
 
 bool ShortestPaths::is_backward_optimal_transition(int start_id, int op_id, int target_id) const {
-        if (log.is_at_least_debug()) {
-            log << "init_distances[start_id]: " << init_distances[start_id]
-                << " - operator_costs[op_id]: " << operator_costs[op_id]
-                << " == init_distances[target_id]?: " << init_distances[target_id] << endl;
-        }
     return init_distances[start_id] - operator_costs[op_id] == init_distances[target_id];
 }
 

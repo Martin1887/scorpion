@@ -30,6 +30,10 @@ int CartesianSet::n_vars() const {
     return domain_subsets.size();
 }
 
+int CartesianSet::n_values(int var) const {
+    return domain_subsets[var].size();
+}
+
 void CartesianSet::add(int var, int value) {
     domain_subsets[var].set(value);
 }
@@ -131,5 +135,18 @@ ostream &operator<<(ostream &os, const CartesianSet &cartesian_set) {
         }
     }
     return os << ">";
+}
+
+bool CartesianSet::operator==(const CartesianSet &other) const {
+    if (n_vars() != other.n_vars()) {
+        return false;
+    }
+    for (int var = 0; var < n_vars(); var++) {
+        if (get_values(var) != other.get_values(var)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 }

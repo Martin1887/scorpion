@@ -606,7 +606,7 @@ SplitAndAbsState FlawSearch::select_flaw_and_pick_split(
         default:
             double max_rating = numeric_limits<double>::lowest();
             for (LegacyFlaw &fl : flaws) {
-                SplitAndAbsState spabs = get_split_from_flaw(move(fl), backward_direction, backward_direction);
+                SplitAndAbsState spabs = splits_cache_get(move(fl), backward_direction, backward_direction);
                 double rating = split_selector.rate_split(spabs.abs, *spabs.split, split_selector.sequence_pick);
                 if (rating > max_rating) {
                     selected_split = utils::make_unique_ptr<SplitAndAbsState>(move(spabs));
@@ -614,6 +614,7 @@ SplitAndAbsState FlawSearch::select_flaw_and_pick_split(
                 }
             }
             assert(selected_split);
+            splits_cache_invalidate(selected_split->abs.get_id());
             return move(*selected_split);
         }
     }

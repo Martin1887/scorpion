@@ -4,6 +4,7 @@
 #include "../algorithms/dynamic_bitset.h"
 #include "../task_proxy.h"
 
+#include <cmath>
 #include <ostream>
 #include <vector>
 
@@ -23,6 +24,7 @@ public:
     explicit CartesianSet(const std::vector<int> &domain_sizes, std::vector<FactPair> facts);
 
     int n_vars() const;
+    int n_values(int var) const;
     void add(int var, int value);
     void set_single_value(int var, int value);
     void remove(int var, int value);
@@ -43,7 +45,17 @@ public:
 
     friend std::ostream &operator<<(
         std::ostream &os, const CartesianSet &cartesian_set);
+
+    bool operator==(const CartesianSet &other) const;
 };
+}
+
+namespace utils {
+inline void feed(HashState &hash_state, cegar::CartesianSet val) {
+    for (int var = 0; var < val.n_vars(); var++) {
+        feed(hash_state, val.get_values(var));
+    }
+}
 }
 
 #endif
