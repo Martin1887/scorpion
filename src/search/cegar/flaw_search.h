@@ -308,10 +308,10 @@ public:
 }
 
 namespace utils {
-inline void feed(HashState &hash_state, cegar::LegacyFlaw val) {
+inline void feed(HashState &hash_state, const cegar::LegacyFlaw &val) {
     feed(hash_state, val.abstract_state_id);
-    feed(hash_state, val.split_last_state);
     feed(hash_state, val.flaw_search_state.get_cartesian_set());
+    feed(hash_state, val.split_last_state);
 }
 }
 #endif

@@ -51,8 +51,10 @@ public:
 }
 
 namespace utils {
-inline void feed(HashState &hash_state, cegar::CartesianSet val) {
-    for (int var = 0; var < val.n_vars(); var++) {
+inline void feed(HashState &hash_state, const cegar::CartesianSet &val) {
+    int n_vars = val.n_vars();
+    feed(hash_state, n_vars);
+    for (int var = 0; var < n_vars; var++) {
         feed(hash_state, val.get_values(var));
     }
 }
