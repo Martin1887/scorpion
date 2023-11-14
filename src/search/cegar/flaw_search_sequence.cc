@@ -93,7 +93,7 @@ void FlawSearch::get_deviation_splits(
     }
 }
 
-SplitAndAbsState FlawSearch::create_split(
+unique_ptr<Split> FlawSearch::create_split(
     const vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
@@ -164,7 +164,7 @@ SplitAndAbsState FlawSearch::create_split(
             bool target_hit = false;
             for (int target : targets) {
                 if (!utils::extra_memory_padding_is_reserved()) {
-                    return SplitAndAbsState{nullptr, abstract_state};
+                    return nullptr;
                 }
 
                 // At most one of the f-optimal targets can include the successor state.
@@ -202,16 +202,16 @@ SplitAndAbsState FlawSearch::create_split(
     compute_splits_timer.stop();
 
     if (num_splits == 0) {
-        return SplitAndAbsState{nullptr, abstract_state};
+        return nullptr;
     }
 
     pick_split_timer.resume();
     Split split = split_selector.pick_split(abstract_state, move(splits), rng);
     pick_split_timer.stop();
-    return SplitAndAbsState{utils::make_unique_ptr<Split>(move(split)), abstract_state};
+    return utils::make_unique_ptr<Split>(move(split));
 }
 
-SplitAndAbsState FlawSearch::create_split_from_goal_state(
+unique_ptr<Split> FlawSearch::create_split_from_goal_state(
     const vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
@@ -278,13 +278,13 @@ SplitAndAbsState FlawSearch::create_split_from_goal_state(
     compute_splits_timer.stop();
 
     if (num_splits == 0) {
-        return SplitAndAbsState{nullptr, abstract_state};
+        return nullptr;
     }
 
     pick_split_timer.resume();
     Split split = split_selector.pick_split(abstract_state, move(splits), rng);
     pick_split_timer.stop();
-    return SplitAndAbsState{utils::make_unique_ptr<Split>(move(split)), abstract_state};
+    return utils::make_unique_ptr<Split>(move(split));
 }
 
 vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
@@ -545,43 +545,49 @@ SplitProperties FlawSearch::select_from_sequence_flaws(
     if (forward_flaws.empty() && backward_flaws.empty()) {
         return SplitProperties(nullptr, false, 0, 0);
     }
-    const AbstractState invalid_abs(-1, -1, CartesianSet(vector<int>{}));
-    SplitAndAbsState best_fw = forward_flaws.empty() ? SplitAndAbsState{nullptr, invalid_abs}
-    : select_flaw_and_pick_split(move(forward_flaws), false, rng);
-    SplitAndAbsState best_bw = backward_flaws.empty() ? SplitAndAbsState{nullptr, invalid_abs}
-    : select_flaw_and_pick_split(move(backward_flaws), true, rng);
+    unique_ptr<Split> best_fw = forward_flaws.empty() ? nullptr
+        : select_flaw_and_pick_split(move(forward_flaws), false, rng);
+    unique_ptr<Split> best_bw = backward_flaws.empty() ? nullptr
+        : select_flaw_and_pick_split(move(backward_flaws), true, rng);
 
-    if (!best_fw.split) {
-        return SplitProperties(move(best_bw.split), true, n_forward, n_backward);
-    } else if (!best_bw.split) {
-        return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
+    if (!best_fw) {
+        splits_cache_invalidate(best_bw->abstract_state_id);
+        return SplitProperties(move(best_bw), true, n_forward, n_backward);
+    } else if (!best_bw) {
+        splits_cache_invalidate(best_fw->abstract_state_id);
+        return SplitProperties(move(best_fw), false, n_forward, n_backward);
     } else {
         switch (split_selector.sequence_pick) {
+        // Cache is filled only the `default` case.
         case PickSplit::RANDOM:
             if (rng.random(2) == 0) {
-                return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
+                return SplitProperties(move(best_fw), false, n_forward, n_backward);
             } else {
-                return SplitProperties(move(best_bw.split), true, n_forward, n_backward);
+                return SplitProperties(move(best_bw), true, n_forward, n_backward);
             }
         // Prefer forward splits to backward splits in goal-related strategies
         case PickSplit::FIRST_FLAW:
-            return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
+            return SplitProperties(move(best_fw), false, n_forward, n_backward);
         case PickSplit::LAST_FLAW:
-            return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
+            return SplitProperties(move(best_fw), false, n_forward, n_backward);
         case PickSplit::CLOSEST_TO_GOAL_FLAW:
-            return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
+            return SplitProperties(move(best_fw), false, n_forward, n_backward);
         default:
-            if (split_selector.rate_split(best_fw.abs, *best_fw.split, split_selector.sequence_pick) >
-                split_selector.rate_split(best_bw.abs, *best_bw.split, split_selector.sequence_pick)) {
-                return SplitProperties(move(best_fw.split), false, n_forward, n_backward);
+            const AbstractState &fw_abstract_state = abstraction.get_state(best_fw->abstract_state_id);
+            const AbstractState &bw_abstract_state = abstraction.get_state(best_bw->abstract_state_id);
+            if (split_selector.rate_split(fw_abstract_state, *best_fw, split_selector.sequence_pick) >
+                split_selector.rate_split(bw_abstract_state, *best_bw, split_selector.sequence_pick)) {
+                splits_cache_invalidate(best_fw->abstract_state_id);
+                return SplitProperties(move(best_fw), false, n_forward, n_backward);
             } else {
-                return SplitProperties(move(best_bw.split), true, n_forward, n_backward);
+                splits_cache_invalidate(best_fw->abstract_state_id);
+                return SplitProperties(move(best_bw), true, n_forward, n_backward);
             }
         }
     }
 }
 
-SplitAndAbsState FlawSearch::select_flaw_and_pick_split(
+unique_ptr<Split> FlawSearch::select_flaw_and_pick_split(
     vector<LegacyFlaw> &&flaws,
     bool backward_direction,
     utils::RandomNumberGenerator &rng) {
@@ -589,7 +595,7 @@ SplitAndAbsState FlawSearch::select_flaw_and_pick_split(
     if (flaws.size() == 1) {
         return get_split_from_flaw(move(flaws[0]), backward_direction, backward_direction);
     } else {
-        unique_ptr<SplitAndAbsState> selected_split = nullptr;
+        unique_ptr<Split> selected_split = nullptr;
         switch (split_selector.sequence_pick) {
         case PickSplit::RANDOM:
             return get_split_from_flaw(move(*rng.choose(flaws)), backward_direction, backward_direction);
@@ -606,16 +612,16 @@ SplitAndAbsState FlawSearch::select_flaw_and_pick_split(
         default:
             double max_rating = numeric_limits<double>::lowest();
             for (LegacyFlaw &fl : flaws) {
-                SplitAndAbsState spabs = splits_cache_get(move(fl), backward_direction, backward_direction);
-                double rating = split_selector.rate_split(spabs.abs, *spabs.split, split_selector.sequence_pick);
+                unique_ptr<Split> split = splits_cache_get(move(fl), backward_direction, backward_direction);
+                const AbstractState &abs = abstraction.get_state(split->abstract_state_id);
+                double rating = split_selector.rate_split(abs, *split, split_selector.sequence_pick);
                 if (rating > max_rating) {
-                    selected_split = utils::make_unique_ptr<SplitAndAbsState>(move(spabs));
+                    selected_split = move(split);
                     max_rating = rating;
                 }
             }
             assert(selected_split);
-            splits_cache_invalidate(selected_split->abs.get_id());
-            return move(*selected_split);
+            return selected_split;
         }
     }
 }

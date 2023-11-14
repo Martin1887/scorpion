@@ -27,41 +27,23 @@ Cost FlawSearch::get_h_value(int abstract_state_id) const {
     return shortest_paths.get_64bit_goal_distance(abstract_state_id);
 }
 
-OptimalTransitions FlawSearch::get_f_optimal_transitions(int abstract_state_id, bool reverse) const {
+OptimalTransitions FlawSearch::get_f_optimal_transitions(int abstract_state_id) const {
     OptimalTransitions transitions;
-    if (reverse) {
-        for (const Transition &t :
-             abstraction.get_transition_system().get_incoming_transitions()[abstract_state_id]) {
-            if (shortest_paths.is_optimal_transition(t.target_id, t.op_id, abstract_state_id)) {
-                transitions[t.op_id].push_back(t.target_id);
-            }
-        }
-    } else {
-        for (const Transition &t :
-             abstraction.get_transition_system().get_outgoing_transitions()[abstract_state_id]) {
-            if (shortest_paths.is_optimal_transition(abstract_state_id, t.op_id, t.target_id)) {
-                transitions[t.op_id].push_back(t.target_id);
-            }
+    for (const Transition &t :
+         abstraction.get_transition_system().get_outgoing_transitions()[abstract_state_id]) {
+        if (shortest_paths.is_optimal_transition(abstract_state_id, t.op_id, t.target_id)) {
+            transitions[t.op_id].push_back(t.target_id);
         }
     }
     return transitions;
 }
 
-OptimalTransitions FlawSearch::get_f_optimal_backward_transitions(int abstract_state_id, bool reverse) const {
+OptimalTransitions FlawSearch::get_f_optimal_backward_transitions(int abstract_state_id) const {
     OptimalTransitions transitions;
-    if (reverse) {
-        for (const Transition &t :
-             abstraction.get_transition_system().get_outgoing_transitions()[abstract_state_id]) {
-            if (shortest_paths.is_backward_optimal_transition(t.target_id, t.op_id, abstract_state_id)) {
-                transitions[t.op_id].push_back(t.target_id);
-            }
-        }
-    } else {
-        for (const Transition &t :
-             abstraction.get_transition_system().get_incoming_transitions()[abstract_state_id]) {
-            if (shortest_paths.is_backward_optimal_transition(abstract_state_id, t.op_id, t.target_id)) {
-                transitions[t.op_id].push_back(t.target_id);
-            }
+    for (const Transition &t :
+         abstraction.get_transition_system().get_incoming_transitions()[abstract_state_id]) {
+        if (shortest_paths.is_backward_optimal_transition(abstract_state_id, t.op_id, t.target_id)) {
+            transitions[t.op_id].push_back(t.target_id);
         }
     }
     return transitions;

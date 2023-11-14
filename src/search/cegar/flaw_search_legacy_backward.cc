@@ -94,7 +94,7 @@ void FlawSearch::get_deviation_backward_splits(
     }
 }
 
-SplitAndAbsState FlawSearch::create_backward_split(
+unique_ptr<Split> FlawSearch::create_backward_split(
     const vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
@@ -200,7 +200,7 @@ SplitAndAbsState FlawSearch::create_backward_split(
             bool source_hit = false;
             for (int source : sources) {
                 if (!utils::extra_memory_padding_is_reserved()) {
-                    return SplitAndAbsState{nullptr, abstract_state};
+                    return nullptr;
                 }
 
                 // At most one of the f-optimal targets can include the successor state.
@@ -249,16 +249,16 @@ SplitAndAbsState FlawSearch::create_backward_split(
     compute_splits_timer.stop();
 
     if (num_splits == 0) {
-        return SplitAndAbsState{nullptr, abstract_state};
+        return nullptr;
     }
 
     pick_split_timer.resume();
     Split split = split_selector.pick_split(abstract_state, move(splits), rng);
     pick_split_timer.stop();
-    return SplitAndAbsState{utils::make_unique_ptr<Split>(move(split)), abstract_state};
+    return utils::make_unique_ptr<Split>(move(split));
 }
 
-SplitAndAbsState FlawSearch::create_backward_split_from_init_state(
+unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
     const vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
@@ -329,12 +329,12 @@ SplitAndAbsState FlawSearch::create_backward_split_from_init_state(
     compute_splits_timer.stop();
 
     if (num_splits == 0) {
-        return SplitAndAbsState{nullptr, abstract_state};
+        return nullptr;
     }
 
     pick_split_timer.resume();
     Split split = split_selector.pick_split(abstract_state, move(splits), rng);
     pick_split_timer.stop();
-    return SplitAndAbsState{utils::make_unique_ptr<Split>(move(split)), abstract_state};
+    return utils::make_unique_ptr<Split>(move(split));
 }
 }

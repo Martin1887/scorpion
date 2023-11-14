@@ -105,19 +105,6 @@ struct SplitProperties {
           n_backward_flaws(n_backward_flaws) {}
 };
 
-struct SplitAndAbsState {
-    std::unique_ptr<Split> split;
-    const AbstractState &abs;
-
-    friend std::ostream &operator<<(std::ostream &os, const SplitAndAbsState &s) {
-        if (s.split) {
-            return os << "[" << *s.split << " in " << s.abs.get_id() << "]";
-        } else {
-            return os << "nullptr split";
-        }
-    }
-};
-
 /*
   Select split in case there are multiple possible splits.
 */

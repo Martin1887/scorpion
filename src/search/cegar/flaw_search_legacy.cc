@@ -81,9 +81,9 @@ void FlawSearch::get_deviation_splits(
     }
 }
 
-SplitAndAbsState FlawSearch::get_split_from_flaw(const LegacyFlaw &flaw,
-                                                 const bool backward,
-                                                 const bool split_unwanted_values) {
+unique_ptr<Split> FlawSearch::get_split_from_flaw(const LegacyFlaw &flaw,
+                                                  const bool backward,
+                                                  const bool split_unwanted_values) {
     if (backward) {
         if (flaw.split_last_state) {
             return create_backward_split_from_init_state({flaw.flaw_search_state},
@@ -118,13 +118,13 @@ SplitProperties FlawSearch::get_split_legacy(const Solution &solution,
     if (backward) {
         unique_ptr<LegacyFlaw> backward_flaw = get_flaw_legacy_backward(solution);
         if (backward_flaw) {
-            return SplitProperties(get_split_from_flaw(*backward_flaw, true, split_unwanted_values).split,
+            return SplitProperties(get_split_from_flaw(*backward_flaw, true, split_unwanted_values),
                                    true, 0, 1);
         }
     } else {
         unique_ptr<LegacyFlaw> forward_flaw = get_flaw_legacy_forward(solution);
         if (forward_flaw) {
-            return SplitProperties(get_split_from_flaw(*forward_flaw, false, split_unwanted_values).split,
+            return SplitProperties(get_split_from_flaw(*forward_flaw, false, split_unwanted_values),
                                    false, 1, 0);
         }
     }
@@ -154,10 +154,10 @@ SplitProperties FlawSearch::get_split_legacy_closest_to_goal(
     }
 
     if (backward_chosen) {
-        return SplitProperties(get_split_from_flaw(*backward_flaw, true, split_unwanted_values).split,
+        return SplitProperties(get_split_from_flaw(*backward_flaw, true, split_unwanted_values),
                                true);
     } else {
-        return SplitProperties(get_split_from_flaw(*forward_flaw, false, split_unwanted_values).split,
+        return SplitProperties(get_split_from_flaw(*forward_flaw, false, split_unwanted_values),
                                false);
     }
 }

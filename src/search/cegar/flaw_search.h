@@ -156,11 +156,11 @@ class FlawSearch {
     FlawedStates flawed_states;
     bool current_bidirectional_dir_backward = false;
     bool batch_bidirectional_already_changed_dir = false;
-    // {AbstractState ID -> {bw_direction -> {split_unwanted_values -> {LegacyFlaw -> {SplitAndAbsState}}}}}
+    // {AbstractState ID -> {bw_direction -> {split_unwanted_values -> {LegacyFlaw -> {std::shared_ptr<Split>}}}}}
     HashMap<int,
             HashMap<bool,
                     HashMap<bool,
-                            HashMap<LegacyFlaw, SplitAndAbsState>>>> splits_cache;
+                            HashMap<LegacyFlaw, std::shared_ptr<Split>>>>> splits_cache;
     // If optimal transitions are different the cached split must be recomputed.
     // {AbstractState ID -> {bw_direction -> OptimalTransitions}}
     HashMap<int, HashMap<bool, OptimalTransitions>> opt_tr_cache;
@@ -206,8 +206,8 @@ class FlawSearch {
     int get_abstract_state_id(const State &state) const;
     Cost get_h_value(int abstract_state_id) const;
     void add_flaw(int abs_id, const State &state);
-    OptimalTransitions get_f_optimal_transitions(int abstract_state_id, bool reverse = false) const;
-    OptimalTransitions get_f_optimal_backward_transitions(int abstract_state_id, bool reverse = false) const;
+    OptimalTransitions get_f_optimal_transitions(int abstract_state_id) const;
+    OptimalTransitions get_f_optimal_backward_transitions(int abstract_state_id) const;
 
     void initialize();
     SearchStatus step();
@@ -218,13 +218,13 @@ class FlawSearch {
     std::unique_ptr<Split> create_split_from_goal_state(
         const std::vector<StateID> &state_ids, int abstract_state_id, bool split_unwanted_values);
 
-    SplitAndAbsState create_split(
+    std::unique_ptr<Split> create_split(
         const std::vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values);
-    SplitAndAbsState create_split_from_goal_state(
+    std::unique_ptr<Split> create_split_from_goal_state(
         const std::vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values);
-    SplitAndAbsState create_backward_split(
+    std::unique_ptr<Split> create_backward_split(
         const std::vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values);
-    SplitAndAbsState create_backward_split_from_init_state(
+    std::unique_ptr<Split> create_backward_split_from_init_state(
         const std::vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values);
 
     FlawedState get_flawed_state_with_min_h();
@@ -243,7 +243,7 @@ class FlawSearch {
     // Return flaw-search state id and abstract state id where create the split.
     std::unique_ptr<LegacyFlaw> get_flaw_legacy_backward(const Solution &solution);
 
-    SplitAndAbsState select_flaw_and_pick_split(
+    std::unique_ptr<Split> select_flaw_and_pick_split(
         std::vector<LegacyFlaw> &&flaws,
         bool backward_direction,
         utils::RandomNumberGenerator &rng);
@@ -256,13 +256,13 @@ class FlawSearch {
         std::vector<LegacyFlaw> &&backward_flaws,
         utils::RandomNumberGenerator &rng);
 
-    SplitAndAbsState splits_cache_get(LegacyFlaw f, bool backward_direction, bool split_unwanted_values);
+    std::unique_ptr<Split> splits_cache_get(LegacyFlaw f, bool backward_direction, bool split_unwanted_values);
 
     void splits_cache_invalidate(int abstract_state_id);
 
-    SplitAndAbsState get_split_from_flaw(const LegacyFlaw &flaw,
-                                         const bool backward,
-                                         const bool split_unwanted_values);
+    std::unique_ptr<Split> get_split_from_flaw(const LegacyFlaw &flaw,
+                                               const bool backward,
+                                               const bool split_unwanted_values);
 
     SplitProperties get_split(const utils::CountdownTimer &cegar_timer);
     SplitProperties get_split_legacy(const Solution &solution,
