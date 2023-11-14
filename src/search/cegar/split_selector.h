@@ -41,11 +41,11 @@ enum class PickSplit {
     // Compute split that covers the maximum number of flaws for several concrete states.
     MAX_COVER,
     // New strategies specially designed for sequence flaws.
+    HIGHEST_COST_OPERATOR,
     FIRST_FLAW,
     LAST_FLAW,
     // The first one in regression, the latest one in progression.
     CLOSEST_TO_GOAL_FLAW,
-    HIGHEST_COST_OPERATOR,
 };
 
 
