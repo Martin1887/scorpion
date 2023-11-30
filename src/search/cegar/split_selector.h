@@ -119,6 +119,7 @@ class SplitSelector {
     const PickSplit first_pick;
     const PickSplit tiebreak_pick;
     const PickSplit sequence_pick;
+    const PickSplit sequence_tiebreak_pick;
 
     int get_num_unwanted_values(const AbstractState &state, const Split &split) const;
     double get_refinedness(const AbstractState &state, int var_id) const;
@@ -143,6 +144,7 @@ public:
         PickSplit pick,
         PickSplit tiebreak_pick,
         PickSplit sequence_pick,
+        PickSplit sequence_tiebreak_pick,
         bool debug);
     ~SplitSelector();
 

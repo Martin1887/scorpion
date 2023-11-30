@@ -146,6 +146,11 @@ static void add_pick_split_strategies(options::OptionParser &parser) {
         sequence_strategies,
         "split-selection strategy for choosing among flaws in different states",
         "CLOSEST_TO_GOAL_FLAW");
+    parser.add_enum_option<PickSplit>(
+        "sequence_tiebreak_split",
+        sequence_strategies,
+        "split-selection strategy for breaking ties when choosing among flaws in different states",
+        "MAX_REFINED");
 }
 
 static void add_memory_padding_option(options::OptionParser &parser) {

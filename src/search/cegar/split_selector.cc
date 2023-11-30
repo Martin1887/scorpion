@@ -57,16 +57,20 @@ SplitSelector::SplitSelector(
     PickSplit pick,
     PickSplit tiebreak_pick,
     PickSplit sequence_pick,
+    PickSplit sequence_tiebreak_pick,
     bool debug)
     : task(task),
       task_proxy(*task),
       debug(debug),
       first_pick(pick),
       tiebreak_pick(tiebreak_pick),
-      sequence_pick(sequence_pick) {
+      sequence_pick(sequence_pick),
+      sequence_tiebreak_pick(sequence_tiebreak_pick) {
     if (first_pick == PickSplit::MIN_HADD || first_pick == PickSplit::MAX_HADD ||
         tiebreak_pick == PickSplit::MIN_HADD || tiebreak_pick == PickSplit::MAX_HADD ||
-        sequence_pick == PickSplit::MIN_HADD || sequence_pick == PickSplit::MAX_HADD) {
+        sequence_pick == PickSplit::MIN_HADD || sequence_pick == PickSplit::MAX_HADD ||
+        sequence_tiebreak_pick == PickSplit::MIN_HADD ||
+        sequence_tiebreak_pick == PickSplit::MAX_HADD) {
         additive_heuristic = create_additive_heuristic(task);
         additive_heuristic->compute_heuristic_for_cegar(
             task_proxy.get_initial_state());

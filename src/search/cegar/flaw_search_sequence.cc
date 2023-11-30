@@ -343,7 +343,8 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
             if (debug)
                 log << "  Operator not applicable: " << op.get_name() << endl;
             flaws.push_back(LegacyFlaw(move(flaw_search_state), abstract_state->get_id(), false));
-            if (!in_sequence) {
+            if (!in_sequence ||
+                split_selector.sequence_pick == PickSplit::FIRST_FLAW) {
                 return flaws;
             } else {
                 abstract_state = &abstraction.get_state(step.target_id);
@@ -463,7 +464,9 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
             if (debug)
                 log << "  Operator not backward applicable: " << op.get_name() << endl;
             flaws.push_back(LegacyFlaw(move(flaw_search_state), abstract_state->get_id(), false));
-            if (!in_sequence) {
+            if (!in_sequence ||
+                split_selector.sequence_pick == PickSplit::FIRST_FLAW ||
+                split_selector.sequence_pick == PickSplit::CLOSEST_TO_GOAL_FLAW) {
                 return flaws;
             } else {
                 if (i > 0) {
@@ -550,41 +553,108 @@ SplitProperties FlawSearch::select_from_sequence_flaws(
     unique_ptr<Split> best_bw = backward_flaws.empty() ? nullptr
         : select_flaw_and_pick_split(move(backward_flaws), true, rng);
 
+
     if (!best_fw) {
-        splits_cache_invalidate(best_bw->abstract_state_id);
-        return SplitProperties(move(best_bw), true, n_forward, n_backward);
+        return return_best_sequence_split(move(best_bw), true, n_forward, n_backward);
     } else if (!best_bw) {
-        splits_cache_invalidate(best_fw->abstract_state_id);
-        return SplitProperties(move(best_fw), false, n_forward, n_backward);
+        return return_best_sequence_split(move(best_fw), false, n_forward, n_backward);
     } else {
+        const AbstractState &fw_abstract_state = abstraction.get_state(best_fw->abstract_state_id);
+        const AbstractState &bw_abstract_state = abstraction.get_state(best_bw->abstract_state_id);
+        int dist_diff = shortest_paths.get_64bit_goal_distance(best_fw->abstract_state_id) -
+            shortest_paths.get_64bit_goal_distance(best_bw->abstract_state_id);
+
         switch (split_selector.sequence_pick) {
         // Cache is filled only the `default` case.
         case PickSplit::RANDOM:
             if (rng.random(2) == 0) {
-                return SplitProperties(move(best_fw), false, n_forward, n_backward);
+                return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, false);
             } else {
-                return SplitProperties(move(best_bw), true, n_forward, n_backward);
+                return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, false);
             }
-        // Prefer forward splits to backward splits in goal-related strategies
         case PickSplit::FIRST_FLAW:
-            return SplitProperties(move(best_fw), false, n_forward, n_backward);
+            return sequence_splits_tiebreak(move(best_fw),
+                                            fw_abstract_state,
+                                            move(best_bw),
+                                            bw_abstract_state,
+                                            n_forward,
+                                            n_backward,
+                                            false);
         case PickSplit::LAST_FLAW:
-            return SplitProperties(move(best_fw), false, n_forward, n_backward);
+            return sequence_splits_tiebreak(move(best_fw),
+                                            fw_abstract_state,
+                                            move(best_bw),
+                                            bw_abstract_state,
+                                            n_forward,
+                                            n_backward,
+                                            false);
         case PickSplit::CLOSEST_TO_GOAL_FLAW:
-            return SplitProperties(move(best_fw), false, n_forward, n_backward);
-        default:
-            const AbstractState &fw_abstract_state = abstraction.get_state(best_fw->abstract_state_id);
-            const AbstractState &bw_abstract_state = abstraction.get_state(best_bw->abstract_state_id);
-            if (split_selector.rate_split(fw_abstract_state, *best_fw, split_selector.sequence_pick) >
-                split_selector.rate_split(bw_abstract_state, *best_bw, split_selector.sequence_pick)) {
-                splits_cache_invalidate(best_fw->abstract_state_id);
-                return SplitProperties(move(best_fw), false, n_forward, n_backward);
+            // Find which is closest to goal, and break tie only if they are at the same distance.
+            if (dist_diff > 0) {
+                // Forward distance is higher, return backward flaw.
+                return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, false);
+            } else if (dist_diff < 0) {
+                return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, false);
             } else {
-                splits_cache_invalidate(best_fw->abstract_state_id);
-                return SplitProperties(move(best_bw), true, n_forward, n_backward);
+                return sequence_splits_tiebreak(move(best_fw),
+                                                fw_abstract_state,
+                                                move(best_bw),
+                                                bw_abstract_state,
+                                                n_forward,
+                                                n_backward,
+                                                false);
+            }
+        default:
+            double diff_rate =
+                split_selector.rate_split(fw_abstract_state, *best_fw, split_selector.sequence_pick) -
+                split_selector.rate_split(bw_abstract_state, *best_bw, split_selector.sequence_pick);
+            if (abs(diff_rate) < EPSILON) {
+                // Break tie because they are equal.
+                return sequence_splits_tiebreak(move(best_fw),
+                                                fw_abstract_state,
+                                                move(best_bw),
+                                                bw_abstract_state,
+                                                n_forward,
+                                                n_backward);
+            } else if (diff_rate > 0) {
+                // Forward is higher.
+                return return_best_sequence_split(move(best_fw), false, n_forward, n_backward);
+            } else {
+                return return_best_sequence_split(move(best_bw), true, n_forward, n_backward);
             }
         }
     }
+}
+
+SplitProperties FlawSearch::sequence_splits_tiebreak(unique_ptr<Split> best_fw,
+                                                     const AbstractState &fw_abstract_state,
+                                                     unique_ptr<Split> best_bw,
+                                                     const AbstractState &bw_abstract_state,
+                                                     int n_forward,
+                                                     int n_backward,
+                                                     bool invalidate_cache) {
+    double tiebreak_diff_rate =
+        split_selector.rate_split(fw_abstract_state, *best_fw, split_selector.sequence_tiebreak_pick) -
+        split_selector.rate_split(bw_abstract_state, *best_bw, split_selector.sequence_tiebreak_pick);
+    if (abs(tiebreak_diff_rate) < EPSILON) {
+        // Preference for backward flaw.
+        return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, invalidate_cache);
+    } else if (tiebreak_diff_rate > 0) {
+        return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, invalidate_cache);
+    } else {
+        return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, invalidate_cache);
+    }
+}
+
+SplitProperties FlawSearch::return_best_sequence_split(unique_ptr<Split> best,
+                                                       bool bw_dir,
+                                                       int n_forward,
+                                                       int n_backward,
+                                                       bool invalidate_cache) {
+    if (invalidate_cache) {
+        splits_cache_invalidate(best->abstract_state_id);
+    }
+    return SplitProperties(move(best), bw_dir, n_forward, n_backward);
 }
 
 unique_ptr<Split> FlawSearch::select_flaw_and_pick_split(
@@ -611,13 +681,22 @@ unique_ptr<Split> FlawSearch::select_flaw_and_pick_split(
             }
         default:
             double max_rating = numeric_limits<double>::lowest();
+            double max_tiebreak_rating = numeric_limits<double>::lowest();
             for (LegacyFlaw &fl : flaws) {
                 unique_ptr<Split> split = splits_cache_get(move(fl), backward_direction, backward_direction);
                 const AbstractState &abs = abstraction.get_state(split->abstract_state_id);
                 double rating = split_selector.rate_split(abs, *split, split_selector.sequence_pick);
                 if (rating > max_rating) {
-                    selected_split = move(split);
                     max_rating = rating;
+                    max_tiebreak_rating = split_selector.rate_split(abs, *split, split_selector.sequence_tiebreak_pick);
+                    selected_split = move(split);
+                } else if (max_rating - rating < EPSILON) {
+                    double tiebreak_rating = split_selector.rate_split(abs, *split, split_selector.sequence_tiebreak_pick);
+                    if (tiebreak_rating > max_tiebreak_rating) {
+                        max_rating = rating;
+                        max_tiebreak_rating = tiebreak_rating;
+                        selected_split = move(split);
+                    }
                 }
             }
             assert(selected_split);

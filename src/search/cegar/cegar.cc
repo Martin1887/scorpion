@@ -31,6 +31,7 @@ CEGAR::CEGAR(
     PickSplit pick_split,
     PickSplit tiebreak_split,
     PickSplit sequence_split,
+    PickSplit sequence_tiebreak_split,
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
     bool intersect_flaw_search_abstract_states,
@@ -52,7 +53,8 @@ CEGAR::CEGAR(
         task_properties::get_operator_costs(task_proxy), log);
     flaw_search = utils::make_unique_ptr<FlawSearch>(
         task, *abstraction, *shortest_paths, rng,
-        pick_flawed_abstract_state, pick_split, tiebreak_split, sequence_split,
+        pick_flawed_abstract_state, pick_split, tiebreak_split,
+        sequence_split, sequence_tiebreak_split,
         max_concrete_states_per_abstract_state, max_state_expansions,
         intersect_flaw_search_abstract_states, log);
 

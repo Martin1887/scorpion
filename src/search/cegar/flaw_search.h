@@ -143,6 +143,7 @@ class FlawSearch {
     mutable utils::LogProxy silent_log;  // For concrete search space.
 
     static const int MISSING = -1;
+    constexpr static const double EPSILON = 0.000001;
 
     // Search data
     std::stack<StateID> open_list;
@@ -255,6 +256,18 @@ class FlawSearch {
         std::vector<LegacyFlaw> &&forward_flaws,
         std::vector<LegacyFlaw> &&backward_flaws,
         utils::RandomNumberGenerator &rng);
+    SplitProperties sequence_splits_tiebreak(std::unique_ptr<Split> best_fw,
+                                             const AbstractState &fw_abstract_state,
+                                             std::unique_ptr<Split> best_bw,
+                                             const AbstractState &bw_abstract_state,
+                                             int n_forward,
+                                             int n_backward,
+                                             bool invalidate_cache = true);
+    SplitProperties return_best_sequence_split(std::unique_ptr<Split> best,
+                                               bool bw_dir,
+                                               int n_forward,
+                                               int n_backward,
+                                               bool invalidate_cache = true);
 
     std::unique_ptr<Split> splits_cache_get(LegacyFlaw f, bool backward_direction, bool split_unwanted_values);
 
@@ -282,6 +295,7 @@ public:
         PickSplit pick_split,
         PickSplit tiebreak_split,
         PickSplit sequence_split,
+        PickSplit sequence_tiebreak_split,
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
         bool intersect_flaw_search_abstract_states,
