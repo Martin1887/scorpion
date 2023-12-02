@@ -251,10 +251,12 @@ class FlawSearch {
     SplitProperties select_from_sequence_flaws(
         std::vector<LegacyFlaw> &&forward_flaws,
         std::vector<LegacyFlaw> &&backward_flaws,
+        const Solution &solution,
         utils::RandomNumberGenerator &rng);
     SplitProperties pick_sequence_split(
         std::vector<LegacyFlaw> &&forward_flaws,
         std::vector<LegacyFlaw> &&backward_flaws,
+        const Solution &solution,
         utils::RandomNumberGenerator &rng);
     SplitProperties sequence_splits_tiebreak(std::unique_ptr<Split> best_fw,
                                              const AbstractState &fw_abstract_state,
@@ -262,11 +264,13 @@ class FlawSearch {
                                              const AbstractState &bw_abstract_state,
                                              int n_forward,
                                              int n_backward,
+                                             const Solution &solution,
                                              bool invalidate_cache = true);
     SplitProperties return_best_sequence_split(std::unique_ptr<Split> best,
                                                bool bw_dir,
                                                int n_forward,
                                                int n_backward,
+                                               const Solution &solution,
                                                bool invalidate_cache = true);
 
     std::unique_ptr<Split> splits_cache_get(LegacyFlaw f, bool backward_direction, bool split_unwanted_values);
@@ -283,6 +287,7 @@ class FlawSearch {
                                      const bool split_unwanted_values = false);
     SplitProperties get_split_legacy_closest_to_goal(const Solution &solution,
                                                      const bool split_unwanted_values);
+    double get_plan_perc(int abstract_state_id, const Solution &solution);
     void update_current_direction(const bool half_limits_reached);
 
 public:

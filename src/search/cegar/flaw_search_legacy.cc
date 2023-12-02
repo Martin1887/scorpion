@@ -119,13 +119,13 @@ SplitProperties FlawSearch::get_split_legacy(const Solution &solution,
         unique_ptr<LegacyFlaw> backward_flaw = get_flaw_legacy_backward(solution);
         if (backward_flaw) {
             return SplitProperties(get_split_from_flaw(*backward_flaw, true, split_unwanted_values),
-                                   true, 0, 1);
+                                   get_plan_perc(backward_flaw->abstract_state_id, solution), true, 0, 1);
         }
     } else {
         unique_ptr<LegacyFlaw> forward_flaw = get_flaw_legacy_forward(solution);
         if (forward_flaw) {
             return SplitProperties(get_split_from_flaw(*forward_flaw, false, split_unwanted_values),
-                                   false, 1, 0);
+                                   get_plan_perc(forward_flaw->abstract_state_id, solution), false, 1, 0);
         }
     }
 
@@ -145,7 +145,7 @@ SplitProperties FlawSearch::get_split_legacy_closest_to_goal(
     bool backward_chosen = true;
 
     if (!backward_flaw && !forward_flaw) {
-        return SplitProperties(nullptr, false);
+        return SplitProperties(nullptr, 0, false);
     } else if (!backward_flaw) {
         backward_chosen = false;
     } else if (shortest_paths.get_64bit_goal_distance(backward_flaw->abstract_state_id) >
@@ -155,10 +155,10 @@ SplitProperties FlawSearch::get_split_legacy_closest_to_goal(
 
     if (backward_chosen) {
         return SplitProperties(get_split_from_flaw(*backward_flaw, true, split_unwanted_values),
-                               true);
+                               get_plan_perc(backward_flaw->abstract_state_id, solution), true);
     } else {
         return SplitProperties(get_split_from_flaw(*forward_flaw, false, split_unwanted_values),
-                               false);
+                               get_plan_perc(forward_flaw->abstract_state_id, solution), false);
     }
 }
 

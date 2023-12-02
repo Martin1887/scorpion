@@ -91,18 +91,21 @@ struct Split {
 
 struct SplitProperties {
     std::unique_ptr<Split> split;
+    double flawed_state_pos_plan_length_perc;
     bool backward_direction;
-    int n_forward_flaws;
-    int n_backward_flaws;
+    int n_forward_flawed_states;
+    int n_backward_flawed_states;
 
     SplitProperties(std::unique_ptr<Split> split,
+                    double flawed_state_pos_plan_length_perc,
                     bool backward_direction,
                     int n_forward_flaws = 0,
                     int n_backward_flaws = 0)
         : split(std::move(split)),
+          flawed_state_pos_plan_length_perc(flawed_state_pos_plan_length_perc),
           backward_direction(backward_direction),
-          n_forward_flaws(n_forward_flaws),
-          n_backward_flaws(n_backward_flaws) {}
+          n_forward_flawed_states(n_forward_flaws),
+          n_backward_flawed_states(n_backward_flaws) {}
 };
 
 /*

@@ -514,12 +514,13 @@ SplitProperties FlawSearch::get_sequence_splits(const Solution &solution,
         backward_flaws = get_backward_flaws(solution, true, only_in_abstraction);
     }
 
-    return pick_sequence_split(move(forward_flaws), move(backward_flaws), rng);
+    return pick_sequence_split(move(forward_flaws), move(backward_flaws), solution, rng);
 }
 
 SplitProperties FlawSearch::pick_sequence_split(
     vector<LegacyFlaw> &&forward_flaws,
     vector<LegacyFlaw> &&backward_flaws,
+    const Solution &solution,
     utils::RandomNumberGenerator &rng) {
     bool debug = log.is_at_least_debug();
     if (debug) {
@@ -527,7 +528,7 @@ SplitProperties FlawSearch::pick_sequence_split(
         utils::g_log << "Backward splits: " << backward_flaws << endl;
     }
     SplitProperties best =
-        select_from_sequence_flaws(move(forward_flaws), move(backward_flaws), rng);
+        select_from_sequence_flaws(move(forward_flaws), move(backward_flaws), solution, rng);
     if (debug) {
         if (best.split) {
             utils::g_log << "Selected split: " << *best.split << endl;
@@ -542,22 +543,22 @@ SplitProperties FlawSearch::pick_sequence_split(
 SplitProperties FlawSearch::select_from_sequence_flaws(
     vector<LegacyFlaw> &&forward_flaws,
     vector<LegacyFlaw> &&backward_flaws,
+    const Solution &solution,
     utils::RandomNumberGenerator &rng) {
     int n_forward = forward_flaws.size();
     int n_backward = backward_flaws.size();
     if (forward_flaws.empty() && backward_flaws.empty()) {
-        return SplitProperties(nullptr, false, 0, 0);
+        return SplitProperties(nullptr, 0, false, 0, 0);
     }
     unique_ptr<Split> best_fw = forward_flaws.empty() ? nullptr
         : select_flaw_and_pick_split(move(forward_flaws), false, rng);
     unique_ptr<Split> best_bw = backward_flaws.empty() ? nullptr
         : select_flaw_and_pick_split(move(backward_flaws), true, rng);
 
-
     if (!best_fw) {
-        return return_best_sequence_split(move(best_bw), true, n_forward, n_backward);
+        return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution);
     } else if (!best_bw) {
-        return return_best_sequence_split(move(best_fw), false, n_forward, n_backward);
+        return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, solution);
     } else {
         const AbstractState &fw_abstract_state = abstraction.get_state(best_fw->abstract_state_id);
         const AbstractState &bw_abstract_state = abstraction.get_state(best_bw->abstract_state_id);
@@ -568,9 +569,9 @@ SplitProperties FlawSearch::select_from_sequence_flaws(
         // Cache is filled only the `default` case.
         case PickSplit::RANDOM:
             if (rng.random(2) == 0) {
-                return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, false);
+                return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, solution, false);
             } else {
-                return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, false);
+                return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution, false);
             }
         case PickSplit::FIRST_FLAW:
             return sequence_splits_tiebreak(move(best_fw),
@@ -579,6 +580,7 @@ SplitProperties FlawSearch::select_from_sequence_flaws(
                                             bw_abstract_state,
                                             n_forward,
                                             n_backward,
+                                            solution,
                                             false);
         case PickSplit::LAST_FLAW:
             return sequence_splits_tiebreak(move(best_fw),
@@ -587,14 +589,15 @@ SplitProperties FlawSearch::select_from_sequence_flaws(
                                             bw_abstract_state,
                                             n_forward,
                                             n_backward,
+                                            solution,
                                             false);
         case PickSplit::CLOSEST_TO_GOAL_FLAW:
             // Find which is closest to goal, and break tie only if they are at the same distance.
             if (dist_diff > 0) {
                 // Forward distance is higher, return backward flaw.
-                return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, false);
+                return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution, false);
             } else if (dist_diff < 0) {
-                return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, false);
+                return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, solution, false);
             } else {
                 return sequence_splits_tiebreak(move(best_fw),
                                                 fw_abstract_state,
@@ -602,6 +605,7 @@ SplitProperties FlawSearch::select_from_sequence_flaws(
                                                 bw_abstract_state,
                                                 n_forward,
                                                 n_backward,
+                                                solution,
                                                 false);
             }
         default:
@@ -615,12 +619,13 @@ SplitProperties FlawSearch::select_from_sequence_flaws(
                                                 move(best_bw),
                                                 bw_abstract_state,
                                                 n_forward,
-                                                n_backward);
+                                                n_backward,
+                                                solution);
             } else if (diff_rate > 0) {
                 // Forward is higher.
-                return return_best_sequence_split(move(best_fw), false, n_forward, n_backward);
+                return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, solution);
             } else {
-                return return_best_sequence_split(move(best_bw), true, n_forward, n_backward);
+                return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution);
             }
         }
     }
@@ -632,17 +637,18 @@ SplitProperties FlawSearch::sequence_splits_tiebreak(unique_ptr<Split> best_fw,
                                                      const AbstractState &bw_abstract_state,
                                                      int n_forward,
                                                      int n_backward,
+                                                     const Solution &solution,
                                                      bool invalidate_cache) {
     double tiebreak_diff_rate =
         split_selector.rate_split(fw_abstract_state, *best_fw, split_selector.sequence_tiebreak_pick) -
         split_selector.rate_split(bw_abstract_state, *best_bw, split_selector.sequence_tiebreak_pick);
     if (abs(tiebreak_diff_rate) < EPSILON) {
         // Preference for backward flaw.
-        return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, invalidate_cache);
+        return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution, invalidate_cache);
     } else if (tiebreak_diff_rate > 0) {
-        return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, invalidate_cache);
+        return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, solution, invalidate_cache);
     } else {
-        return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, invalidate_cache);
+        return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution, invalidate_cache);
     }
 }
 
@@ -650,11 +656,12 @@ SplitProperties FlawSearch::return_best_sequence_split(unique_ptr<Split> best,
                                                        bool bw_dir,
                                                        int n_forward,
                                                        int n_backward,
+                                                       const Solution &solution,
                                                        bool invalidate_cache) {
     if (invalidate_cache) {
         splits_cache_invalidate(best->abstract_state_id);
     }
-    return SplitProperties(move(best), bw_dir, n_forward, n_backward);
+    return SplitProperties(move(best), get_plan_perc(best->abstract_state_id, solution), bw_dir, n_forward, n_backward);
 }
 
 unique_ptr<Split> FlawSearch::select_flaw_and_pick_split(

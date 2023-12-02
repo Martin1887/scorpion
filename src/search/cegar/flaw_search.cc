@@ -659,7 +659,8 @@ SplitProperties FlawSearch::get_split(const utils::CountdownTimer &cegar_timer) 
                  || pick_flawed_abstract_state == PickFlawedAbstractState::MIN_H)
                || best_flaw_h == get_h_value(split->abstract_state_id));
     }
-    return SplitProperties(move(split), false, found_flaws, 0);
+    // TODO: compute the percentage of the flawed split respect the plan length.
+    return SplitProperties(move(split), 0, false, found_flaws, 0);
 }
 
 SplitProperties FlawSearch::get_split_and_direction(const Solution &solution,
@@ -741,6 +742,21 @@ void FlawSearch::update_current_direction(const bool half_limits_reached) {
     default:
         break;
     }
+}
+
+double FlawSearch::get_plan_perc(int abstract_state_id, const Solution &solution) {
+    if (abstraction.get_initial_state().get_id() == abstract_state_id) {
+        return 0;
+    }
+    int pos = 0;
+    for (const Transition &step : solution) {
+        pos++;
+        if (step.target_id == abstract_state_id) {
+            break;
+        }
+    }
+
+    return (double)pos / (double)solution.size();
 }
 
 void FlawSearch::print_statistics() const {

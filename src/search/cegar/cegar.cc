@@ -155,10 +155,18 @@ bool CEGAR::may_keep_refining(bool in_current_direction) const {
 }
 
 void CEGAR::refinement_loop() {
+    int stats_iters = 1000;
+    int delta_forward_refinements = 0;
     int forward_refinements = 0;
     int backward_refinements = 0;
-    int forward_flaws = 0;
-    int backward_flaws = 0;
+    int forward_flawed_states = 0;
+    int backward_flawed_states = 0;
+    double forward_flawed_states_plan_length_perone = 0;
+    double backward_flawed_states_plan_length_perone = 0;
+    double forward_flawed_state_pos_plan_length_perc = 0;
+    double backward_flawed_state_pos_plan_length_perc = 0;
+    Cost previous_optimal_cost = 0;
+    int n_optimal_cost_increased = 0;
     /*
       For landmark tasks we have to map all states in which the
       landmark might have been achieved to arbitrary abstract goal
@@ -308,16 +316,57 @@ void CEGAR::refinement_loop() {
             backward_refinements++;
         } else {
             forward_refinements++;
+            delta_forward_refinements++;
         }
-        forward_flaws += split_prop.n_forward_flaws;
-        backward_flaws += split_prop.n_backward_flaws;
-        if (n_refinements % 100 == 0) {
+        forward_flawed_states += split_prop.n_forward_flawed_states;
+        backward_flawed_states += split_prop.n_backward_flawed_states;
+        if (solution->size() > 0) {
+            forward_flawed_states_plan_length_perone += (double)split_prop.n_forward_flawed_states / (double)solution->size();
+            backward_flawed_states_plan_length_perone += (double)split_prop.n_backward_flawed_states / (double)solution->size();
+        } else {
+            forward_flawed_states_plan_length_perone += 1;
+            backward_flawed_states_plan_length_perone += 1;
+        }
+        if (split_prop.backward_direction) {
+            backward_flawed_state_pos_plan_length_perc += split_prop.flawed_state_pos_plan_length_perc;
+        } else {
+            forward_flawed_state_pos_plan_length_perc += split_prop.flawed_state_pos_plan_length_perc;
+        }
+        double optimal_cost = get_optimal_plan_cost(*solution);
+        if (optimal_cost > previous_optimal_cost) {
+            n_optimal_cost_increased++;
+        }
+        previous_optimal_cost = optimal_cost;
+        if (n_refinements % stats_iters == 0) {
             if (log.is_at_least_normal()) {
                 log << "Number of refinements: " << n_refinements << endl;
                 log << "Forward refinements: " << forward_refinements << endl;
                 log << "Backward refinements: " << backward_refinements << endl;
-                log << "Total forward flaws found: " << forward_flaws << endl;
-                log << "Total backward flaws found: " << backward_flaws << endl;
+                log << "Total forward flawed states found: " << forward_flawed_states << endl;
+                log << "Total backward flawed states found: " << backward_flawed_states << endl;
+                log << "Average percentage of forward flawed states found in the last stats iter respect to plan length: "
+                    << (100 * forward_flawed_states_plan_length_perone / stats_iters) << endl;
+                log << "Average percentage of backward flawed states found in the last stats iter respect to plan length: "
+                    << (100 * backward_flawed_states_plan_length_perone / stats_iters) << endl;
+                double avg_fw_perc = 0;
+                double avg_bw_perc = 0;
+                if (delta_forward_refinements > 0) {
+                    avg_fw_perc = forward_flawed_state_pos_plan_length_perc / delta_forward_refinements;
+                }
+                if (delta_forward_refinements < stats_iters) {
+                    avg_bw_perc = backward_flawed_state_pos_plan_length_perc / (stats_iters - delta_forward_refinements);
+                }
+                log << "Average position of refined forward flawed states in the last stats iter respect to plan length: "
+                    << avg_fw_perc << endl;
+                log << "Average position of refined backward flawed states in the last stats iter respect to plan length: "
+                    << avg_bw_perc << endl;
+                log << "Total number of times the cost of the optimal plan has been increased: "
+                    << n_optimal_cost_increased << endl;
+                forward_flawed_states_plan_length_perone = 0;
+                backward_flawed_states_plan_length_perone = 0;
+                forward_flawed_state_pos_plan_length_perc = 0;
+                backward_flawed_state_pos_plan_length_perc = 0;
+                delta_forward_refinements = 0;
             }
         }
 
@@ -349,9 +398,37 @@ void CEGAR::refinement_loop() {
         log << "Number of refinements: " << n_refinements << endl;
         log << "Forward refinements: " << forward_refinements << endl;
         log << "Backward refinements: " << backward_refinements << endl;
-        log << "Total forward flaws found: " << forward_flaws << endl;
-        log << "Total backward flaws found: " << backward_flaws << endl;
+        log << "Total forward flawed states found: " << forward_flawed_states << endl;
+        log << "Total backward flawed states found: " << backward_flawed_states << endl;
+        log << "Average percentage of forward flawed states found in the last stats iter respect to plan length: "
+            << (100 * forward_flawed_states_plan_length_perone / stats_iters) << endl;
+        log << "Average percentage of backward flawed states found in the last stats iter respect to plan length: "
+            << (100 * backward_flawed_states_plan_length_perone / stats_iters) << endl;
+        double avg_fw_perc = 0;
+        double avg_bw_perc = 0;
+        if (delta_forward_refinements > 0) {
+            avg_fw_perc = forward_flawed_state_pos_plan_length_perc / delta_forward_refinements;
+        }
+        if (delta_forward_refinements < stats_iters) {
+            avg_bw_perc = backward_flawed_state_pos_plan_length_perc / (stats_iters - delta_forward_refinements);
+        }
+        log << "Average position of refined forward flawed states in the last stats iter respect to plan length: "
+            << avg_fw_perc << endl;
+        log << "Average position of refined backward flawed states in the last stats iter respect to plan length: "
+            << avg_bw_perc << endl;
+        log << "Total number of times the cost of the optimal plan has been increased: "
+            << n_optimal_cost_increased << endl;
     }
+}
+
+int CEGAR::get_optimal_plan_cost(const Solution &solution) const {
+    double cost = 0;
+    for (Transition trans : solution) {
+        OperatorProxy op = task_proxy.get_operators()[trans.op_id];
+        cost += op.get_cost();
+    }
+
+    return cost;
 }
 
 void CEGAR::print_statistics() const {
