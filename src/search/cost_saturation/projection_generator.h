@@ -19,7 +19,7 @@ class ProjectionGenerator : public AbstractionGenerator {
     const bool create_complete_transition_system;
 
 public:
-    explicit ProjectionGenerator(const options::Options &opts);
+    explicit ProjectionGenerator(const plugins::Options &opts);
 
     Abstractions generate_abstractions(
         const std::shared_ptr<AbstractTask> &task,

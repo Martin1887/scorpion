@@ -6,7 +6,7 @@
 namespace symbolic {
 class TopKSelector : public PlanSelector {
 public:
-    TopKSelector(const options::Options &opts);
+    TopKSelector(const plugins::Options &opts);
 
     ~TopKSelector() {}
 

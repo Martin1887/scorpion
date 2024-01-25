@@ -12,8 +12,8 @@ static void create_bdds_from_add(symbolic::SymVariables *sym_vars, ADD add,
     double min_value = Cudd_V(cur_add.FindMin().getNode());
 
     while (cur_add != sym_vars->constant(numeric_limits<double>::infinity())) {
-        result[min_value] = cur_add.BddInterval(min_value, min_value);
-        cur_add = cur_add.Maximum(result[min_value].Add()
+        result[(int)min_value] = cur_add.BddInterval(min_value, min_value);
+        cur_add = cur_add.Maximum(result[(int)min_value].Add()
                                   * sym_vars->constant(numeric_limits<double>::infinity()));
         min_value = Cudd_V(cur_add.FindMin().getNode());
     }

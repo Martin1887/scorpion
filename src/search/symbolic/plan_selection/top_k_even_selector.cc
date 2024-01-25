@@ -1,11 +1,11 @@
 #include "top_k_even_selector.h"
 
-#include "../../option_parser.h"
+#include "../../plugins/options.h"
 
 using namespace std;
 
 namespace symbolic {
-TopKEvenSelector::TopKEvenSelector(const options::Options &opts)
+TopKEvenSelector::TopKEvenSelector(const plugins::Options &opts)
     : PlanSelector(opts) {
     anytime_completness = true;
 }
@@ -20,14 +20,12 @@ void TopKEvenSelector::add_plan(const Plan &plan) {
     }
 }
 
-static shared_ptr<PlanSelector> _parse(OptionParser &parser) {
-    PlanSelector::add_options_to_parser(parser);
+class TopkEvenSelectorFeature : public plugins::TypedFeature<PlanSelector, TopKEvenSelector> {
+public:
+    TopkEvenSelectorFeature() : TypedFeature("top_k_even") {
+        PlanSelector::add_options_to_feature(*this);
+    }
+};
 
-    Options opts = parser.parse();
-    if (parser.dry_run())
-        return nullptr;
-    return make_shared<TopKEvenSelector>(opts);
-}
-
-static Plugin<PlanSelector> _plugin("top_k_even", _parse);
+static plugins::FeaturePlugin<TopkEvenSelectorFeature> _plugin;
 }

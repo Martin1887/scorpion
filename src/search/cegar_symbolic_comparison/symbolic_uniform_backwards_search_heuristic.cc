@@ -8,7 +8,7 @@ using namespace std;
 using namespace symbolic;
 
 namespace cegar_symbolic_comparison {
-SymUniformBackSearch::SymUniformBackSearch(const options::Options &opts,
+SymUniformBackSearch::SymUniformBackSearch(const plugins::Options &opts,
                                            std::shared_ptr < symbolic::SymStateSpaceManager > originalStateSpace,
                                            std::shared_ptr < symbolic::SymVariables > vars)
     : SymbolicSearch(opts, vars, originalStateSpace->getParams()) {
@@ -56,11 +56,11 @@ ADD SymUniformBackSearch::getHeuristic() const {
 
 
 
-SymUniformBackSearchHeuristic::SymUniformBackSearchHeuristic(const Options &opts)
+SymUniformBackSearchHeuristic::SymUniformBackSearchHeuristic(const plugins::Options &opts)
     : Heuristic(opts),
       task(tasks::g_root_task) {
 }
-SymUniformBackSearchHeuristic::SymUniformBackSearchHeuristic(const Options &opts,
+SymUniformBackSearchHeuristic::SymUniformBackSearchHeuristic(const plugins::Options &opts,
                                                              shared_ptr < SymVariables > vars,
                                                              double max_time)
     : Heuristic(opts),
@@ -69,7 +69,7 @@ SymUniformBackSearchHeuristic::SymUniformBackSearchHeuristic(const Options &opts
       task(tasks::g_root_task) {
     initialize(opts);
 }
-SymUniformBackSearchHeuristic::SymUniformBackSearchHeuristic(const Options &opts,
+SymUniformBackSearchHeuristic::SymUniformBackSearchHeuristic(const plugins::Options &opts,
                                                              shared_ptr < SymVariables > vars,
                                                              double max_time,
                                                              const shared_ptr < AbstractTask > task)
@@ -80,7 +80,7 @@ SymUniformBackSearchHeuristic::SymUniformBackSearchHeuristic(const Options &opts
     initialize(opts);
 }
 
-void SymUniformBackSearchHeuristic::initialize_from_parser(const options::Options &opts) {
+void SymUniformBackSearchHeuristic::initialize_from_parser(const plugins::Options &opts) {
     vars = make_shared<SymVariables>(opts, task);
     vars->init();
     max_time = opts.get<double>("symbw_time");
@@ -88,7 +88,7 @@ void SymUniformBackSearchHeuristic::initialize_from_parser(const options::Option
     initialize(opts);
 }
 
-void SymUniformBackSearchHeuristic::initialize(const Options &opts) {
+void SymUniformBackSearchHeuristic::initialize(const plugins::Options &opts) {
     SymParamsMgr mgrParams(opts, task);
     auto originalStateSpace = make_shared<OriginalStateSpace>(vars.get(), mgrParams, task);
 
@@ -112,7 +112,7 @@ int SymUniformBackSearchHeuristic::compute_heuristic(const State &state) {
 
     if (heuristic) {
         ADD evalNode = heuristic->Eval(inputs);
-        int abs_cost = Cudd_V(evalNode.getRegularNode());
+        int abs_cost = (int)Cudd_V(evalNode.getRegularNode());
 
         if (abs_cost == -1)
             return DEAD_END;

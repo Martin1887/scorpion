@@ -1,7 +1,7 @@
 #include "plan_selector.h"
 
-#include "../../option_parser.h"
-#include "../../plugin.h"
+#include "../../plugins/options.h"
+#include "../../plugins/plugin.h"
 #include "../../state_registry.h"
 #include "../../task_utils/task_properties.h"
 #include "../../utils/logging.h"
@@ -9,12 +9,12 @@
 using namespace std;
 
 namespace symbolic {
-void PlanSelector::add_options_to_parser(options::OptionParser &parser) {
-    parser.add_option < int > ("num_plans", "number of plans", "infinity",
-                               Bounds("1", "infinity"));
+void PlanSelector::add_options_to_feature(plugins::Feature &feature) {
+    feature.add_option < int > ("num_plans", "number of plans", "infinity",
+                                plugins::Bounds("1", "infinity"));
 }
 
-PlanSelector::PlanSelector(const options::Options &opts)
+PlanSelector::PlanSelector(const plugins::Options &opts)
     : sym_vars(nullptr), state_registry(nullptr), anytime_completness(false),
       num_desired_plans(opts.get < int > ("num_plans")), num_accepted_plans(0),
       num_rejected_plans(0),
@@ -65,7 +65,7 @@ void PlanSelector::print_options() const {
     utils::g_log << "Plan files: " << plan_mgr.get_plan_filename() << endl;
 }
 
-size_t PlanSelector::different(const vector < Plan > &plans,
+size_t PlanSelector::different(const vector<Plan> &plans,
                                const Plan &plan) const {
     for (auto &cur : plans) {
         if (cur.size() == plan.size()) {
@@ -224,6 +224,11 @@ vector < Plan > PlanSelector::get_accepted_plans() const {
     }
     return res;
 }
-
-static PluginTypePlugin < PlanSelector > _type_plugin("PlanDataBase", "");
 }
+
+static class PlanSelectorCategoryPlugin : public plugins::TypedCategoryPlugin<symbolic::PlanSelector> {
+public:
+    PlanSelectorCategoryPlugin() : TypedCategoryPlugin("PlanSelector") {
+    }
+}
+_category_plugin;

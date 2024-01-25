@@ -2,8 +2,11 @@
 #define OPEN_LISTS_STANDARD_SCALAR_OPEN_LIST_H
 
 #include "../open_list_factory.h"
-#include "../option_parser_util.h"
+#include "../plugins/options.h"
 
+namespace plugins {
+class Options;
+}
 
 /*
   Open list indexed by a single int, using FIFO tie-breaking.
@@ -13,9 +16,9 @@
 
 namespace standard_scalar_open_list {
 class StandardScalarOpenListFactory : public OpenListFactory {
-    Options options;
+    plugins::Options options;
 public:
-    explicit StandardScalarOpenListFactory(const Options &options);
+    explicit StandardScalarOpenListFactory(const plugins::Options &options);
     virtual ~StandardScalarOpenListFactory() override = default;
 
     virtual std::unique_ptr<StateOpenList> create_state_open_list() override;

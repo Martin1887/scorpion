@@ -1,19 +1,16 @@
 #include "sym_variables.h"
 
-#include "../options/option_parser.h"
-#include "../options/options.h"
+#include "../plugins/options.h"
+#include "../plugins/plugin.h"
 #include "../task_utils/task_properties.h"
 #include "../utils/logging.h"
 #include "opt_order.h"
 #include "sym_axiom/sym_axiom_compilation.h"
 
-#include <fstream>
 #include <iostream>
-#include <sstream>
 #include <string>
 
 using namespace std;
-using options::Options;
 
 namespace symbolic {
 void exceptionError(string /*message*/) {
@@ -21,7 +18,7 @@ void exceptionError(string /*message*/) {
     throw BDDError();
 }
 
-SymVariables::SymVariables(const Options &opts,
+SymVariables::SymVariables(const plugins::Options &opts,
                            const shared_ptr<AbstractTask> &task)
     : task_proxy(*task), task(task),
       cudd_init_nodes(16000000L), cudd_init_cache_size(16000000L),
@@ -62,7 +59,7 @@ void SymVariables::init(const vector<int> &v_order) {
     bdd_index_eff = vector<vector<int>>(v_order.size());
     int _numBDDVars = 0; // numBDDVars;
     for (int var : var_order) {
-        int var_len = ceil(log2(task_proxy.get_variables()[var].get_domain_size()));
+        int var_len = (int)ceil(log2(task_proxy.get_variables()[var].get_domain_size()));
         numBDDVars += var_len;
         if (!task_proxy.get_variables()[var].is_derived()) {
             numPrimaryBDDVars += var_len;
@@ -130,7 +127,7 @@ void SymVariables::init(const vector<int> &v_order) {
         size_t var_id = 0;
         for (int var : var_order) {
             size_t var_len =
-                ceil(log2(tasks::g_root_task->get_variable_domain_size(var)));
+                (int)ceil(log2(tasks::g_root_task->get_variable_domain_size(var)));
             manager->MakeTreeNode(var_id, var_len * 2, MTR_FIXED);
             var_id += var_len * 2;
         }
@@ -303,9 +300,9 @@ void SymVariables::print_options() const {
     utils::g_log << "Dynamic reordering: " << (dynamic_reordering ? "True" : "False") << endl;
 }
 
-void SymVariables::add_options_to_parser(options::OptionParser &parser) {
-    parser.add_option<bool>("gamer_ordering", "Use Gamer ordering optimization",
-                            "true");
-    parser.add_option<bool>("dynamic_reordering", "Enable dynamic group sift reordering.", "false");
+void SymVariables::add_options_to_feature(plugins::Feature &feature) {
+    feature.add_option<bool>("gamer_ordering", "Use Gamer ordering optimization",
+                             "true");
+    feature.add_option<bool>("dynamic_reordering", "Enable dynamic group sift reordering.", "false");
 }
 }

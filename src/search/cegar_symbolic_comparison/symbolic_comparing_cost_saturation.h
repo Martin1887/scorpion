@@ -1,13 +1,12 @@
 #ifndef CEGAR_SYMBOLIC_COMPARING_COST_SATURATION_H
 #define CEGAR_SYMBOLIC_COMPARING_COST_SATURATION_H
 
-#include "../cegar/cartesian_heuristic_function.h"
-#include "../cegar/cost_saturation.h"
-#include "../cegar/flaw_search.h"
-#include "../cegar/refinement_hierarchy.h"
-#include "../cegar/split_selector.h"
+#include "../cartesian_abstractions/cost_saturation.h"
+#include "../cartesian_abstractions/flaw_search.h"
+#include "../cartesian_abstractions/refinement_hierarchy.h"
+#include "../cartesian_abstractions/split_selector.h"
 
-#include "../options/options.h"
+#include "../plugins/options.h"
 
 #include "../symbolic/sym_variables.h"
 
@@ -15,8 +14,8 @@
 #include <vector>
 
 namespace cegar_symbolic_comparison {
-class CegarSymbolicComparingCostSaturation : public cegar::CostSaturation {
-    const options::Options opts;
+class CegarSymbolicComparingCostSaturation : public cartesian_abstractions::CostSaturation {
+    const plugins::Options opts;
     std::shared_ptr < symbolic::SymVariables > vars;
 
     void build_abstractions(
@@ -26,22 +25,21 @@ class CegarSymbolicComparingCostSaturation : public cegar::CostSaturation {
 
 public:
     CegarSymbolicComparingCostSaturation(
-        const std::vector < std::shared_ptr < cegar::SubtaskGenerator >> &subtask_generators,
+        const std::vector < std::shared_ptr < cartesian_abstractions::SubtaskGenerator >> &subtask_generators,
         int max_states,
         int max_non_looping_transitions,
         double max_time,
         bool use_general_costs,
-        cegar::PickFlawedAbstractState pick_flawed_abstract_state,
-        cegar::PickSplit pick_split,
-        cegar::PickSplit tiebreak_split,
+        cartesian_abstractions::PickFlawedAbstractState pick_flawed_abstract_state,
+        cartesian_abstractions::PickSplit pick_split,
+        cartesian_abstractions::PickSplit tiebreak_split,
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
-        cegar::SearchStrategy search_strategy,
         int memory_padding_mb,
         utils::RandomNumberGenerator &rng,
         utils::LogProxy &log,
-        cegar::DotGraphVerbosity dot_graph_verbosity,
-        const options::Options &opts,
+        cartesian_abstractions::DotGraphVerbosity dot_graph_verbosity,
+        const plugins::Options &opts,
         std::shared_ptr < symbolic::SymVariables > vars);
 };
 }

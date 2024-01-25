@@ -1,10 +1,11 @@
 #include "sym_params_search.h"
 
-#include "../option_parser.h"
+#include "../plugins/plugin.h"
+#include "../plugins/options.h"
 #include "../utils/logging.h"
 #include "../utils/timer.h"
 
-using options::Options;
+using plugins::Options;
 using namespace std;
 using utils::g_timer;
 
@@ -21,11 +22,11 @@ SymParamsSearch::SymParamsSearch(const Options &opts)
 }
 
 void SymParamsSearch::increase_bound() {
-    maxAllotedNodes *= ratioAllotedNodes;
+    maxAllotedNodes = (int)(maxAllotedNodes * ratioAllotedNodes);
     if (maxAllotedNodes <= 0)
         maxAllotedNodes = 0;
 
-    maxAllotedTime *= ratioAllotedTime;
+    maxAllotedTime = (int)(maxAllotedTime * ratioAllotedTime);
     if (maxAllotedTime <= 0)
         maxAllotedTime = 0;
     utils::g_log << "Increase allot limits! "
@@ -42,25 +43,25 @@ void SymParamsSearch::print_options() const {
                  << " nodes: " << ratioAllotedNodes << endl;
 }
 
-void SymParamsSearch::add_options_to_parser(OptionParser &parser) {
-    parser.add_option < int > ("max_alloted_time", "maximum alloted time for an step",
-                               to_string(60000));
-    parser.add_option < int > ("max_alloted_nodes",
-                               "maximum alloted nodes for an step",
-                               to_string(10000000));
+void SymParamsSearch::add_options_to_feature(plugins::Feature &feature) {
+    feature.add_option < int > ("max_alloted_time", "maximum alloted time for an step",
+                                to_string(60000));
+    feature.add_option < int > ("max_alloted_nodes",
+                                "maximum alloted nodes for an step",
+                                to_string(10000000));
 
-    parser.add_option < double > ("ratio_alloted_time",
-                                  "multiplier to decide alloted time for a step",
-                                  "2.0");
-    parser.add_option < double > ("ratio_alloted_nodes",
-                                  "multiplier to decide alloted nodes for a step",
-                                  "2.0");
+    feature.add_option < double > ("ratio_alloted_time",
+                                   "multiplier to decide alloted time for a step",
+                                   "2.0");
+    feature.add_option < double > ("ratio_alloted_nodes",
+                                   "multiplier to decide alloted nodes for a step",
+                                   "2.0");
 
-    parser.add_option < bool > (
+    feature.add_option < bool > (
         "non_stop",
         "Removes initial state from closed to avoid backward search to stop.",
         "false");
-    parser.add_option<bool>("debug", "print debug trace", "false");
+    feature.add_option<bool>("debug", "print debug trace", "false");
 }
 
 int SymParamsSearch::getMaxStepNodes() const {
@@ -69,9 +70,9 @@ int SymParamsSearch::getMaxStepNodes() const {
     if (g_timer() < maxStepNodesTimeStartIncrement)
         return maxStepNodesMin;
     else
-        return std::min < double > (
+        return std::min<int>(
             maxStepNodes,
-            maxStepNodesMin + maxStepNodesPerPlanningSecond *
-            (g_timer() - maxStepNodesTimeStartIncrement));
+            (int)(maxStepNodesMin + maxStepNodesPerPlanningSecond *
+                  (g_timer() - maxStepNodesTimeStartIncrement)));
 }
 } // namespace symbolic

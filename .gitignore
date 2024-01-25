@@ -1,3 +1,5 @@
+.vscode
+.clangd
 .cache
 __pycache__/
 /output.sas
@@ -42,3 +44,4 @@ src/preprocess_h2/CMakeFiles/progress.marks
 src/search/libcudd-prefix/src/libcudd-stamp/libcudd-source_dirinfo.txt
 src/search/libcudd-prefix/tmp/libcudd-cfgcmd.txt
 src/search/libcudd-prefix/tmp/libcudd-mkdirs.cmake
+src/dd_libs

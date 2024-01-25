@@ -2,7 +2,7 @@
 #define SYMBOLIC_UNIFORM_BACKWARDS_SEARCH_HEURISTIC_H
 
 #include "../symbolic/plan_reconstruction/sym_solution_cut.h"
-#include "../symbolic/search_engines/symbolic_search.h"
+#include "../symbolic/search_algorithms/symbolic_search.h"
 #include "../symbolic/searches/uniform_cost_search.h"
 #include "../heuristic.h"
 
@@ -15,7 +15,7 @@ protected:
 
     virtual SearchStatus step() override {return SymbolicSearch::step();}
 public:
-    SymUniformBackSearch(const options::Options &opts,
+    SymUniformBackSearch(const plugins::Options &opts,
                          std::shared_ptr < symbolic::SymStateSpaceManager > originalStateSpace,
                          std::shared_ptr < symbolic::SymVariables > vars);
     virtual ~SymUniformBackSearch() = default;
@@ -36,21 +36,21 @@ class SymUniformBackSearchHeuristic : public Heuristic {
     std::vector < BDD > notMutexBDDs;
     std::unique_ptr < ADD > heuristic;
 
-    void initialize(const options::Options &opts);
+    void initialize(const plugins::Options &opts);
 protected:
     virtual int compute_heuristic(const State &ancestor_state) override;
 
 public:
-    SymUniformBackSearchHeuristic(const options::Options &opts);
-    SymUniformBackSearchHeuristic(const options::Options &opts,
+    SymUniformBackSearchHeuristic(const plugins::Options &opts);
+    SymUniformBackSearchHeuristic(const plugins::Options &opts,
                                   std::shared_ptr < symbolic::SymVariables > vars,
                                   double max_time);
-    SymUniformBackSearchHeuristic(const options::Options &opts,
+    SymUniformBackSearchHeuristic(const plugins::Options &opts,
                                   std::shared_ptr < symbolic::SymVariables > vars,
                                   double max_time,
                                   const std::shared_ptr < AbstractTask > task);
     virtual ~SymUniformBackSearchHeuristic() = default;
-    void initialize_from_parser(const options::Options &opts);
+    void initialize_from_parser(const plugins::Options &opts);
 
     int h_value(const State &ancestor_state) {return compute_heuristic(ancestor_state);}
 };

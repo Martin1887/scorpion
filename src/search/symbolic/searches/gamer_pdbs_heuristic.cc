@@ -2,9 +2,9 @@
 
 #include "uniform_cost_search.h"
 
-#include "../option_parser.h"
+#include "../plugins/plugin.h"
 #include "../original_state_space.h"
-#include "../plugin.h"
+#include "../plugins/plugin.h"
 #include "../sym_enums.h"
 #include "../sym_pdb.h"
 #include "../sym_variables.h"
@@ -21,7 +21,7 @@ namespace symbolic {
 PDBSearch::PDBSearch (GamerPDBsHeuristic *spdbheuristic_,
                       shared_ptr < SymStateSpaceManager > originalStateSpace,
                       shared_ptr < SymVariables > vars,
-                      const options::Options &opts,
+                      const plugins::Options &opts,
                       const std::shared_ptr < AbstractTask > task) :
     SymbolicSearch(opts, vars, originalStateSpace->getParams()),
     spdbheuristic(spdbheuristic_), state_space(originalStateSpace),
@@ -37,7 +37,7 @@ PDBSearch::PDBSearch (const set < int > &pattern_,
                       GamerPDBsHeuristic *spdbheuristic_,
                       const shared_ptr < OriginalStateSpace > &originalStateSpace,
                       shared_ptr < SymVariables > vars,
-                      const options::Options &opts,
+                      const plugins::Options &opts,
                       const std::shared_ptr < AbstractTask > task) :
     SymbolicSearch(opts, vars, originalStateSpace->getParams()),
     spdbheuristic(spdbheuristic_), pattern(pattern_),
@@ -117,7 +117,7 @@ ADD PDBSearch::getHeuristic() const {
 }
 
 
-GamerPDBsHeuristic::GamerPDBsHeuristic(const Options &opts)
+GamerPDBsHeuristic::GamerPDBsHeuristic(const plugins::Options &opts)
     : Heuristic(opts),
       generationTime(opts.get < int > ("generation_time")),
       generationMemory(opts.get < double > ("generation_memory")),
@@ -126,7 +126,7 @@ GamerPDBsHeuristic::GamerPDBsHeuristic(const Options &opts)
       task(tasks::g_root_task) {
     initialize(opts);
 }
-GamerPDBsHeuristic::GamerPDBsHeuristic(const Options &opts,
+GamerPDBsHeuristic::GamerPDBsHeuristic(const plugins::Options &opts,
                                        const std::shared_ptr < AbstractTask > task)
     : Heuristic(opts, task),
       generationTime(opts.get < int > ("generation_time")),
@@ -138,7 +138,7 @@ GamerPDBsHeuristic::GamerPDBsHeuristic(const Options &opts,
 }
 
 
-void GamerPDBsHeuristic::initialize(const Options &opts) {
+void GamerPDBsHeuristic::initialize(const plugins::Options &opts) {
     utils::Timer timer;
     cout << "Initializing gamer pdb heuristic..." << endl;
     dump_options();
@@ -310,7 +310,7 @@ int GamerPDBsHeuristic::compute_heuristic(const State &state) {
     int res = 0;
     if (perimeter_heuristic) {
         ADD evalNode = perimeter_heuristic->Eval(inputs);
-        res = Cudd_V(evalNode.getRegularNode());
+        res = (int)Cudd_V(evalNode.getRegularNode());
         //cout << "Perimeter: " << res << endl;
         if (res < max_perimeter_heuristic) {
             if (res == -1)
@@ -322,7 +322,7 @@ int GamerPDBsHeuristic::compute_heuristic(const State &state) {
 
     if (heuristic) {
         ADD evalNode = heuristic->Eval(inputs);
-        int abs_cost = Cudd_V(evalNode.getRegularNode());
+        int abs_cost = (int)Cudd_V(evalNode.getRegularNode());
 
         if (abs_cost == -1)
             return DEAD_END;
@@ -339,34 +339,24 @@ void GamerPDBsHeuristic::dump_options() const {
     cout << "Generation memory: " << generationMemory << endl;
 }
 
-static shared_ptr < GamerPDBsHeuristic > _parse(OptionParser &parser) {
-    Heuristic::add_options_to_parser(parser);
-    SymbolicSearch::add_options_to_parser(parser);
+class GamerPDBsHeuristicFeature : public plugins::TypedFeature<Evaluator, GamerPDBsHeuristic> {
+public:
+    GamerPDBsHeuristicFeature() : TypedFeature("gamer_pdbs") {
+        SymbolicSearch::add_options_to_feature(*this);
 
-    parser.add_option < std::shared_ptr < symbolic::PlanSelector >> (
-        "plan_selection", "plan selection strategy", "top_k(num_plans=1)");
+        add_option < std::shared_ptr < symbolic::PlanSelector >> (
+            "plan_selection", "plan selection strategy", "top_k(num_plans=1)");
 
-    parser.add_option < int > ("generation_time", "maximum time used in heuristic generation", "1200");
+        add_option < int > ("generation_time", "maximum time used in heuristic generation", "1200");
 
-    parser.add_option < double > ("generation_memory",
-                                  "maximum memory used in heuristic generation", to_string(3e9));
-    parser.add_option < bool > ("super_pdb", "construct super pdb", "false");
+        add_option < double > ("generation_memory",
+                               "maximum memory used in heuristic generation", to_string(3e9));
+        add_option < bool > ("super_pdb", "construct super pdb", "false");
 
-    parser.add_option < bool > ("perimeter", "construct perimeter pdbs", "false");
-
-
-
-    Options opts = parser.parse();
-    if (parser.help_mode())
-        return 0;
-
-    if (parser.dry_run()) {
-        return 0;
-    } else {
-        return make_shared < GamerPDBsHeuristic > (opts);
+        add_option < bool > ("perimeter", "construct perimeter pdbs", "false");
     }
-}
+};
 
 
-static Plugin < Evaluator > _plugin("gamer_pdbs", _parse);
+static plugins::FeaturePlugin<GamerPDBsHeuristicFeature> _plugin;
 }

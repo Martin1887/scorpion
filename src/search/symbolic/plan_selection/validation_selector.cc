@@ -1,13 +1,13 @@
 #include "validation_selector.h"
 
-#include "../../option_parser.h"
+#include "../../plugins/options.h"
 #include "../../task_utils/task_properties.h"
 #include "../../state_registry.h"
 
 using namespace std;
 
 namespace symbolic {
-ValidationSelector::ValidationSelector(const options::Options &opts)
+ValidationSelector::ValidationSelector(const plugins::Options &opts)
     : PlanSelector(opts), original_task_proxy(*tasks::g_root_task),
       original_state_registry(make_shared<StateRegistry>(original_task_proxy)) {
     anytime_completness = true;
@@ -42,14 +42,12 @@ bool ValidationSelector::is_valid_plan(const Plan &plan) {
     return task_properties::is_goal_state(original_task_proxy, cur);
 }
 
-static shared_ptr<PlanSelector> _parse(OptionParser &parser) {
-    PlanSelector::add_options_to_parser(parser);
+class ValidationSelectorFeature : public plugins::TypedFeature<PlanSelector, ValidationSelector> {
+public:
+    ValidationSelectorFeature() : TypedFeature("validation selector") {
+        PlanSelector::add_options_to_feature(*this);
+    }
+};
 
-    Options opts = parser.parse();
-    if (parser.dry_run())
-        return nullptr;
-    return make_shared<ValidationSelector>(opts);
-}
-
-static Plugin<PlanSelector> _plugin("validation_selector", _parse);
+static plugins::FeaturePlugin<ValidationSelectorFeature> _plugin;
 }

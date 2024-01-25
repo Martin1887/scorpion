@@ -1,12 +1,12 @@
 #include "unordered_selector.h"
 
-#include "../../option_parser.h"
+#include "../../plugins/options.h"
 #include "../../state_registry.h"
 
 using namespace std;
 
 namespace symbolic {
-UnorderedSelector::UnorderedSelector(const options::Options &opts) : PlanSelector(opts) {
+UnorderedSelector::UnorderedSelector(const plugins::Options &opts) : PlanSelector(opts) {
     PlanSelector::anytime_completness = true;
 }
 
@@ -37,14 +37,12 @@ void UnorderedSelector::save_accepted_plan(const Plan &ordered_plan, const Plan 
                        false, true);
 }
 
-static shared_ptr<PlanSelector> _parse(OptionParser &parser) {
-    PlanSelector::add_options_to_parser(parser);
+class UnorderedSelectorFeature : public plugins::TypedFeature<PlanSelector, UnorderedSelector> {
+public:
+    UnorderedSelectorFeature() : TypedFeature("unordered") {
+        PlanSelector::add_options_to_feature(*this);
+    }
+};
 
-    Options opts = parser.parse();
-    if (parser.dry_run())
-        return nullptr;
-    return make_shared<UnorderedSelector>(opts);
-}
-
-static Plugin<PlanSelector> _plugin("unordered", _parse);
+static plugins::FeaturePlugin<UnorderedSelectorFeature> _plugin;
 }

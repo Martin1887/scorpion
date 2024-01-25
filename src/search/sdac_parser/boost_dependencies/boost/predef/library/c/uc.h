@@ -13,26 +13,27 @@ http://www.boost.org/LICENSE_1_0.txt)
 #include <boost/predef/version_number.h>
 #include <boost/predef/make.h>
 
-/*`
-[heading `BOOST_LIB_C_UC`]
+/* tag::reference[]
+= `BOOST_LIB_C_UC`
 
-[@http://en.wikipedia.org/wiki/Uclibc uClibc] Standard C library.
+http://en.wikipedia.org/wiki/Uclibc[uClibc] Standard C library.
 
-[table
-    [[__predef_symbol__] [__predef_version__]]
+[options="header"]
+|===
+| {predef_symbol} | {predef_version}
 
-    [[`__UCLIBC__`] [__predef_detection__]]
+| `+__UCLIBC__+` | {predef_detection}
 
-    [[`__UCLIBC_MAJOR__`, `__UCLIBC_MINOR__`, `__UCLIBC_SUBLEVEL__`] [V.R.P]]
-    ]
- */
+| `+__UCLIBC_MAJOR__+`, `+__UCLIBC_MINOR__+`, `+__UCLIBC_SUBLEVEL__+` | V.R.P
+|===
+*/ // end::reference[]
 
 #define BOOST_LIB_C_UC BOOST_VERSION_NUMBER_NOT_AVAILABLE
 
 #if defined(__UCLIBC__)
 #   undef BOOST_LIB_C_UC
-#   define BOOST_LIB_C_UC BOOST_VERSION_NUMBER( \
-        __UCLIBC_MAJOR__, __UCLIBC_MINOR__, __UCLIBC_SUBLEVEL__)
+#   define BOOST_LIB_C_UC BOOST_VERSION_NUMBER(\
+        __UCLIBC_MAJOR__,__UCLIBC_MINOR__,__UCLIBC_SUBLEVEL__)
 #endif
 
 #if BOOST_LIB_C_UC
@@ -44,4 +45,4 @@ http://www.boost.org/LICENSE_1_0.txt)
 #endif
 
 #include <boost/predef/detail/test.h>
-BOOST_PREDEF_DECLARE_TEST(BOOST_LIB_C_UC, BOOST_LIB_C_UC_NAME)
+BOOST_PREDEF_DECLARE_TEST(BOOST_LIB_C_UC,BOOST_LIB_C_UC_NAME)

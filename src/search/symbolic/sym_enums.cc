@@ -1,4 +1,5 @@
 #include "sym_enums.h"
+#include "../plugins/plugin.h"
 #include "../utils/system.h"
 
 using namespace std;
@@ -48,3 +49,9 @@ const vector < string > DirValues {
     "FW", "BW", "BIDIR"
 };
 } // namespace symbolic
+
+static plugins::TypedEnumPlugin<symbolic::MutexType> _enum_plugin({
+    {"MUTEX_NOT", "mutex not"},
+    {"MUTEX_AND", "mutex and"},
+    {"MUTEX_EDELETION", "mutex edeletion"},
+});

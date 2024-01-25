@@ -15,7 +15,7 @@
 #include <vector>
 
 namespace options {
-class OptionParser;
+class Feature;
 class Options;
 } // namespace options
 
@@ -41,8 +41,8 @@ public:
 
     bool fast_sdac_generation;
 
-    SymParamsMgr(const options::Options &opts, const std::shared_ptr < AbstractTask > &task);
-    static void add_options_to_parser(options::OptionParser &parser);
+    SymParamsMgr(const plugins::Options &opts, const std::shared_ptr < AbstractTask > &task);
+    static void add_options_to_feature(plugins::Feature &feature);
     void print_options() const;
 };
 

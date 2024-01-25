@@ -1,19 +1,18 @@
 #include "symbolic_comparing_cost_saturation.h"
 
-#include "../cegar/abstract_search.h"
-#include "../cegar/abstract_state.h"
-#include "../cegar/abstraction.h"
-#include "../cegar/cartesian_heuristic_function.h"
-#include "../cegar/cegar.h"
-#include "../cegar/cost_saturation.h"
-#include "../cegar/subtask_generators.h"
-#include "../cegar/transition_system.h"
+#include "../cartesian_abstractions/abstract_state.h"
+#include "../cartesian_abstractions/abstraction.h"
+#include "../cartesian_abstractions/cartesian_heuristic_function.h"
+#include "../cartesian_abstractions/cegar.h"
+#include "../cartesian_abstractions/cost_saturation.h"
+#include "../cartesian_abstractions/subtask_generators.h"
+#include "../cartesian_abstractions/transition_system.h"
 
 #include "../task_utils/task_properties.h"
 #include "symbolic_uniform_backwards_search_heuristic.h"
 #include <memory>
 
-using namespace cegar;
+using namespace cartesian_abstractions;
 using namespace std;
 
 namespace cegar_symbolic_comparison {
@@ -28,12 +27,11 @@ CegarSymbolicComparingCostSaturation::CegarSymbolicComparingCostSaturation(
     PickSplit tiebreak_split,
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
-    SearchStrategy search_strategy,
     int memory_padding_mb,
     utils::RandomNumberGenerator &rng,
     utils::LogProxy &log,
     DotGraphVerbosity dot_graph_verbosity,
-    const Options &opts,
+    const plugins::Options &opts,
     shared_ptr < symbolic::SymVariables > vars)
     :
       CostSaturation(
@@ -47,7 +45,6 @@ CegarSymbolicComparingCostSaturation::CegarSymbolicComparingCostSaturation(
           tiebreak_split,
           max_concrete_states_per_abstract_state,
           max_state_expansions,
-          search_strategy,
           memory_padding_mb,
           rng,
           log,
@@ -96,7 +93,6 @@ void CegarSymbolicComparingCostSaturation::build_abstractions(
             tiebreak_split,
             max_concrete_states_per_abstract_state,
             max_state_expansions,
-            search_strategy,
             rng,
             log,
             dot_graph_verbosity);
@@ -155,7 +151,6 @@ void CegarSymbolicComparingCostSaturation::build_abstractions(
                 tiebreak_split,
                 max_concrete_states_per_abstract_state,
                 max_state_expansions,
-                search_strategy,
                 rng,
                 log,
                 dot_graph_verbosity);

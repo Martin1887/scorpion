@@ -10,6 +10,7 @@
 #include "../../task_proxy.h"
 
 #include "reconstruction_node.h"
+#include <queue>
 
 namespace symbolic {
 // We would like to use the prio queue implemented in FD but it requires

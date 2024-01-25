@@ -12,7 +12,7 @@ class ValidationSelector : public PlanSelector {
     bool is_valid_plan(const Plan &plan);
 
 public:
-    ValidationSelector(const options::Options &opts);
+    ValidationSelector(const plugins::Options &opts);
 
     ~ValidationSelector() {}
 

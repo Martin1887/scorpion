@@ -11,24 +11,25 @@ http://www.boost.org/LICENSE_1_0.txt)
 #include <boost/predef/version_number.h>
 #include <boost/predef/make.h>
 
-/*`
-[heading `BOOST_COMP_SUNPRO`]
+/* tag::reference[]
+= `BOOST_COMP_SUNPRO`
 
-[@http://en.wikipedia.org/wiki/Oracle_Solaris_Studio Oracle Solaris Studio] compiler.
+http://en.wikipedia.org/wiki/Oracle_Solaris_Studio[Oracle Solaris Studio] compiler.
 Version number available as major, minor, and patch.
 
-[table
-    [[__predef_symbol__] [__predef_version__]]
+[options="header"]
+|===
+| {predef_symbol} | {predef_version}
 
-    [[`__SUNPRO_CC`] [__predef_detection__]]
-    [[`__SUNPRO_C`] [__predef_detection__]]
+| `+__SUNPRO_CC+` | {predef_detection}
+| `+__SUNPRO_C+` | {predef_detection}
 
-    [[`__SUNPRO_CC`] [V.R.P]]
-    [[`__SUNPRO_C`] [V.R.P]]
-    [[`__SUNPRO_CC`] [VV.RR.P]]
-    [[`__SUNPRO_C`] [VV.RR.P]]
-    ]
- */
+| `+__SUNPRO_CC+` | V.R.P
+| `+__SUNPRO_C+` | V.R.P
+| `+__SUNPRO_CC+` | VV.RR.P
+| `+__SUNPRO_C+` | VV.RR.P
+|===
+*/ // end::reference[]
 
 #define BOOST_COMP_SUNPRO BOOST_VERSION_NUMBER_NOT_AVAILABLE
 
@@ -68,9 +69,9 @@ Version number available as major, minor, and patch.
 #endif
 
 #include <boost/predef/detail/test.h>
-BOOST_PREDEF_DECLARE_TEST(BOOST_COMP_SUNPRO, BOOST_COMP_SUNPRO_NAME)
+BOOST_PREDEF_DECLARE_TEST(BOOST_COMP_SUNPRO,BOOST_COMP_SUNPRO_NAME)
 
 #ifdef BOOST_COMP_SUNPRO_EMULATED
 #include <boost/predef/detail/test.h>
-BOOST_PREDEF_DECLARE_TEST(BOOST_COMP_SUNPRO_EMULATED, BOOST_COMP_SUNPRO_NAME)
+BOOST_PREDEF_DECLARE_TEST(BOOST_COMP_SUNPRO_EMULATED,BOOST_COMP_SUNPRO_NAME)
 #endif

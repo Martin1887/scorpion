@@ -11,25 +11,26 @@ http://www.boost.org/LICENSE_1_0.txt)
 #include <boost/predef/version_number.h>
 #include <boost/predef/make.h>
 
-/*`
-[heading `BOOST_COMP_PGI`]
+/* tag::reference[]
+= `BOOST_COMP_PGI`
 
-[@http://en.wikipedia.org/wiki/The_Portland_Group Portland Group C/C++] compiler.
+http://en.wikipedia.org/wiki/The_Portland_Group[Portland Group C/{CPP}] compiler.
 
-[table
-    [[__predef_symbol__] [__predef_version__]]
+[options="header"]
+|===
+| {predef_symbol} | {predef_version}
 
-    [[`__PGI`] [__predef_detection__]]
+| `+__PGI+` | {predef_detection}
 
-    [[`__PGIC__`, `__PGIC_MINOR__`, `__PGIC_PATCHLEVEL__`] [V.R.P]]
-    ]
- */
+| `+__PGIC__+`, `+__PGIC_MINOR__+`, `+__PGIC_PATCHLEVEL__+` | V.R.P
+|===
+*/ // end::reference[]
 
 #define BOOST_COMP_PGI BOOST_VERSION_NUMBER_NOT_AVAILABLE
 
 #if defined(__PGI)
 #   if !defined(BOOST_COMP_PGI_DETECTION) && (defined(__PGIC__) && defined(__PGIC_MINOR__) && defined(__PGIC_PATCHLEVEL__))
-#       define BOOST_COMP_PGI_DETECTION BOOST_VERSION_NUMBER(__PGIC__, __PGIC_MINOR__, __PGIC_PATCHLEVEL__)
+#       define BOOST_COMP_PGI_DETECTION BOOST_VERSION_NUMBER(__PGIC__,__PGIC_MINOR__,__PGIC_PATCHLEVEL__)
 #   endif
 #   if !defined(BOOST_COMP_PGI_DETECTION)
 #       define BOOST_COMP_PGI_DETECTION BOOST_VERSION_NUMBER_AVAILABLE
@@ -52,9 +53,9 @@ http://www.boost.org/LICENSE_1_0.txt)
 #endif
 
 #include <boost/predef/detail/test.h>
-BOOST_PREDEF_DECLARE_TEST(BOOST_COMP_PGI, BOOST_COMP_PGI_NAME)
+BOOST_PREDEF_DECLARE_TEST(BOOST_COMP_PGI,BOOST_COMP_PGI_NAME)
 
 #ifdef BOOST_COMP_PGI_EMULATED
 #include <boost/predef/detail/test.h>
-BOOST_PREDEF_DECLARE_TEST(BOOST_COMP_PGI_EMULATED, BOOST_COMP_PGI_NAME)
+BOOST_PREDEF_DECLARE_TEST(BOOST_COMP_PGI_EMULATED,BOOST_COMP_PGI_NAME)
 #endif

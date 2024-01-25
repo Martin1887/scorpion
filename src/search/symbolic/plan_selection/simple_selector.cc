@@ -9,7 +9,7 @@
 using namespace std;
 
 namespace symbolic {
-SimpleSelector::SimpleSelector(const options::Options &opts)
+SimpleSelector::SimpleSelector(const plugins::Options &opts)
     : PlanSelector(opts) {
     PlanSelector::anytime_completness = true;
 }
@@ -44,14 +44,12 @@ bool SimpleSelector::is_simple(const Plan &plan) {
     return true;
 }
 
-static shared_ptr<PlanSelector> _parse(OptionParser &parser) {
-    PlanSelector::add_options_to_parser(parser);
+class SimpleSelectorFeature : public plugins::TypedFeature<PlanSelector, SimpleSelector> {
+public:
+    SimpleSelectorFeature() : TypedFeature("simple") {
+        PlanSelector::add_options_to_feature(*this);
+    }
+};
 
-    Options opts = parser.parse();
-    if (parser.dry_run())
-        return nullptr;
-    return make_shared<SimpleSelector>(opts);
-}
-
-static Plugin<PlanSelector> _plugin("simple", _parse);
+static plugins::FeaturePlugin<SimpleSelectorFeature> _plugin;
 }

@@ -11,24 +11,25 @@ http://www.boost.org/LICENSE_1_0.txt)
 #include <boost/predef/version_number.h>
 #include <boost/predef/make.h>
 
-/*`
-[heading `BOOST_OS_IRIX`]
+/* tag::reference[]
+= `BOOST_OS_IRIX`
 
-[@http://en.wikipedia.org/wiki/Irix IRIX] operating system.
+http://en.wikipedia.org/wiki/Irix[IRIX] operating system.
 
-[table
-    [[__predef_symbol__] [__predef_version__]]
+[options="header"]
+|===
+| {predef_symbol} | {predef_version}
 
-    [[`sgi`] [__predef_detection__]]
-    [[`__sgi`] [__predef_detection__]]
-    ]
- */
+| `sgi` | {predef_detection}
+| `+__sgi+` | {predef_detection}
+|===
+*/ // end::reference[]
 
 #define BOOST_OS_IRIX BOOST_VERSION_NUMBER_NOT_AVAILABLE
 
 #if !defined(BOOST_PREDEF_DETAIL_OS_DETECTED) && ( \
     defined(sgi) || defined(__sgi) \
-                            )
+    )
 #   undef BOOST_OS_IRIX
 #   define BOOST_OS_IRIX BOOST_VERSION_NUMBER_AVAILABLE
 #endif
@@ -43,4 +44,4 @@ http://www.boost.org/LICENSE_1_0.txt)
 #endif
 
 #include <boost/predef/detail/test.h>
-BOOST_PREDEF_DECLARE_TEST(BOOST_OS_IRIX, BOOST_OS_IRIX_NAME)
+BOOST_PREDEF_DECLARE_TEST(BOOST_OS_IRIX,BOOST_OS_IRIX_NAME)

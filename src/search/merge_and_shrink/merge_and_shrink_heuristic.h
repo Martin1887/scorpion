@@ -20,9 +20,9 @@ class MergeAndShrinkHeuristic : public Heuristic {
 protected:
     virtual int compute_heuristic(const State &ancestor_state) override;
 public:
-    explicit MergeAndShrinkHeuristic(const options::Options &opts);
-    explicit MergeAndShrinkHeuristic(const options::Options &opts,
-                                     const std::shared_ptr < AbstractTask > task);
+    explicit MergeAndShrinkHeuristic(const plugins::Options &opts);
+    explicit MergeAndShrinkHeuristic(const plugins::Options &opts,
+                                     const std::shared_ptr<AbstractTask> task);
 };
 }
 

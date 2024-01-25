@@ -1,6 +1,6 @@
 #include "osp_uniform_cost_search.h"
 #include "../closed_list.h"
-#include "../search_engines/symbolic_search.h"
+#include "../search_algorithms/symbolic_search.h"
 
 namespace symbolic {
 void OspUniformCostSearch::checkFrontierCut(Bucket &bucket, int g) {

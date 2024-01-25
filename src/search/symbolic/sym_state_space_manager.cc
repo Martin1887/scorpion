@@ -5,8 +5,8 @@
 
 #include "../abstract_task.h"
 #include "../mutex_group.h"
-#include "../options/option_parser.h"
-#include "../options/options.h"
+#include "../plugins/plugin.h"
+#include "../plugins/options.h"
 #include "../task_proxy.h"
 #include "../task_utils/task_properties.h"
 #include "../utils/logging.h"
@@ -188,7 +188,7 @@ bool SymStateSpaceManager::is_relevant_op(const OperatorID &op) const {
     return false;
 }
 
-SymParamsMgr::SymParamsMgr(const options::Options &opts,
+SymParamsMgr::SymParamsMgr(const plugins::Options &opts,
                            const shared_ptr < AbstractTask > &task)
     : max_tr_size(opts.get < int > ("max_tr_size")),
       max_tr_time(opts.get < int > ("max_tr_time")),
@@ -218,26 +218,26 @@ void SymParamsMgr::print_options() const {
                  << endl;
 }
 
-void SymParamsMgr::add_options_to_parser(options::OptionParser &parser) {
-    parser.add_option < int > ("max_tr_size", "maximum size of TR BDDs", "100000");
+void SymParamsMgr::add_options_to_feature(plugins::Feature &feature) {
+    feature.add_option < int > ("max_tr_size", "maximum size of TR BDDs", "100000");
 
-    parser.add_option < int > ("max_tr_time", "maximum time (ms) to generate TR BDDs",
-                               "60000");
+    feature.add_option < int > ("max_tr_time", "maximum time (ms) to generate TR BDDs",
+                                "60000");
 
-    parser.add_enum_option < MutexType > ("mutex_type", MutexTypeValues, "mutex type",
-                                          "MUTEX_EDELETION");
+    feature.add_option < MutexType > ("mutex_type", "mutex type",
+                                      "MUTEX_EDELETION");
 
-    parser.add_option < int > ("max_mutex_size", "maximum size of mutex BDDs",
-                               "100000");
+    feature.add_option < int > ("max_mutex_size", "maximum size of mutex BDDs",
+                                "100000");
 
-    parser.add_option < int > ("max_mutex_time",
-                               "maximum time (ms) to generate mutex BDDs", "60000");
+    feature.add_option < int > ("max_mutex_time",
+                                "maximum time (ms) to generate mutex BDDs", "60000");
 
-    parser.add_option < int > ("max_aux_nodes", "maximum size in pop operations",
-                               "1000000");
-    parser.add_option < int > ("max_aux_time", "maximum time (ms) in pop operations",
-                               "2000");
-    parser.add_option < bool > (
+    feature.add_option < int > ("max_aux_nodes", "maximum size in pop operations",
+                                "1000000");
+    feature.add_option < int > ("max_aux_time", "maximum time (ms) in pop operations",
+                                "2000");
+    feature.add_option < bool > (
         "fast_sdac_generation",
         "Generates one TR per original operators and reuses it.",
         "true");

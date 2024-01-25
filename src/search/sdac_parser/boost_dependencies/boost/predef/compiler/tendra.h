@@ -11,17 +11,18 @@ http://www.boost.org/LICENSE_1_0.txt)
 #include <boost/predef/version_number.h>
 #include <boost/predef/make.h>
 
-/*`
-[heading `BOOST_COMP_TENDRA`]
+/* tag::reference[]
+= `BOOST_COMP_TENDRA`
 
-[@http://en.wikipedia.org/wiki/TenDRA_Compiler TenDRA C/C++] compiler.
+http://en.wikipedia.org/wiki/TenDRA_Compiler[TenDRA C/{CPP}] compiler.
 
-[table
-    [[__predef_symbol__] [__predef_version__]]
+[options="header"]
+|===
+| {predef_symbol} | {predef_version}
 
-    [[`__TenDRA__`] [__predef_detection__]]
-    ]
- */
+| `+__TenDRA__+` | {predef_detection}
+|===
+*/ // end::reference[]
 
 #define BOOST_COMP_TENDRA BOOST_VERSION_NUMBER_NOT_AVAILABLE
 
@@ -45,9 +46,9 @@ http://www.boost.org/LICENSE_1_0.txt)
 #endif
 
 #include <boost/predef/detail/test.h>
-BOOST_PREDEF_DECLARE_TEST(BOOST_COMP_TENDRA, BOOST_COMP_TENDRA_NAME)
+BOOST_PREDEF_DECLARE_TEST(BOOST_COMP_TENDRA,BOOST_COMP_TENDRA_NAME)
 
 #ifdef BOOST_COMP_TENDRA_EMULATED
 #include <boost/predef/detail/test.h>
-BOOST_PREDEF_DECLARE_TEST(BOOST_COMP_TENDRA_EMULATED, BOOST_COMP_TENDRA_NAME)
+BOOST_PREDEF_DECLARE_TEST(BOOST_COMP_TENDRA_EMULATED,BOOST_COMP_TENDRA_NAME)
 #endif

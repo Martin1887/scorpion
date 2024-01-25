@@ -19,22 +19,23 @@ http://www.boost.org/LICENSE_1_0.txt)
 #include <cstddef>
 #endif
 
-/*`
-[heading `BOOST_LIB_C_GNU`]
+/* tag::reference[]
+= `BOOST_LIB_C_GNU`
 
-[@http://en.wikipedia.org/wiki/Glibc GNU glibc] Standard C library.
+http://en.wikipedia.org/wiki/Glibc[GNU glibc] Standard C library.
 Version number available as major, and minor.
 
-[table
-    [[__predef_symbol__] [__predef_version__]]
+[options="header"]
+|===
+| {predef_symbol} | {predef_version}
 
-    [[`__GLIBC__`] [__predef_detection__]]
-    [[`__GNU_LIBRARY__`] [__predef_detection__]]
+| `+__GLIBC__+` | {predef_detection}
+| `+__GNU_LIBRARY__+` | {predef_detection}
 
-    [[`__GLIBC__`, `__GLIBC_MINOR__`] [V.R.0]]
-    [[`__GNU_LIBRARY__`, `__GNU_LIBRARY_MINOR__`] [V.R.0]]
-    ]
- */
+| `+__GLIBC__+`, `+__GLIBC_MINOR__+` | V.R.0
+| `+__GNU_LIBRARY__+`, `+__GNU_LIBRARY_MINOR__+` | V.R.0
+|===
+*/ // end::reference[]
 
 #define BOOST_LIB_C_GNU BOOST_VERSION_NUMBER_NOT_AVAILABLE
 
@@ -42,10 +43,10 @@ Version number available as major, and minor.
 #   undef BOOST_LIB_C_GNU
 #   if defined(__GLIBC__)
 #       define BOOST_LIB_C_GNU \
-    BOOST_VERSION_NUMBER(__GLIBC__, __GLIBC_MINOR__, 0)
+            BOOST_VERSION_NUMBER(__GLIBC__,__GLIBC_MINOR__,0)
 #   else
 #       define BOOST_LIB_C_GNU \
-    BOOST_VERSION_NUMBER(__GNU_LIBRARY__, __GNU_LIBRARY_MINOR__, 0)
+            BOOST_VERSION_NUMBER(__GNU_LIBRARY__,__GNU_LIBRARY_MINOR__,0)
 #   endif
 #endif
 
@@ -58,4 +59,4 @@ Version number available as major, and minor.
 #endif
 
 #include <boost/predef/detail/test.h>
-BOOST_PREDEF_DECLARE_TEST(BOOST_LIB_C_GNU, BOOST_LIB_C_GNU_NAME)
+BOOST_PREDEF_DECLARE_TEST(BOOST_LIB_C_GNU,BOOST_LIB_C_GNU_NAME)

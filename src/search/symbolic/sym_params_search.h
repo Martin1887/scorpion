@@ -3,9 +3,9 @@
 
 #include <algorithm>
 
-namespace options {
+namespace plugins {
 class Options;
-class OptionParser;
+class Feature;
 } // namespace options
 
 namespace symbolic {
@@ -44,24 +44,24 @@ public:
 
     bool debug;
 
-    SymParamsSearch(const options::Options &opts);
+    SymParamsSearch(const plugins::Options &opts);
 
     void increase_bound();
 
-    static void add_options_to_parser(options::OptionParser &parser);
+    static void add_options_to_feature(plugins::Feature &feature);
 
     void print_options() const;
 
     inline double getAllotedTime(double estimatedTime) const {
         return std::min(
             maxAllotedTime,
-            std::max < int > (estimatedTime * ratioAllotedTime, minAllotedTime));
+            std::max<int>((int)(estimatedTime * ratioAllotedTime), minAllotedTime));
     }
 
     inline double getAllotedNodes(double estimatedNodes) const {
         return std::min(
             maxAllotedNodes,
-            std::max < int > (estimatedNodes * ratioAllotedNodes, minAllotedNodes));
+            std::max<int>((int)(estimatedNodes * ratioAllotedNodes), minAllotedNodes));
     }
 
     void inheritParentParams(const SymParamsSearch &other) {

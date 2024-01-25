@@ -2,7 +2,7 @@
 #define SYMBOLIC_PLAN_DATABASE_H
 
 #include "../../plan_manager.h"
-#include "../../plugin.h"
+#include "../../plugins/plugin.h"
 #include "../sym_variables.h"
 
 #include "../plan_reconstruction/sym_solution_cut.h"
@@ -12,17 +12,19 @@
 
 class StateRegistry;
 
-namespace options {
-class OptionParser;
+namespace plugins {
+class Feature;
 class Options;
 } // namespace options
 
 namespace symbolic {
 class PlanSelector {
 public:
-    static void add_options_to_parser(options::OptionParser &parser);
+    static void add_options_to_feature(plugins::Feature &feature);
 
-    PlanSelector(const options::Options &opts);
+    PlanSelector(const plugins::Options &opts);
+
+    PlanSelector(const PlanSelector &) = delete;
 
     virtual ~PlanSelector() {}
 
@@ -30,7 +32,7 @@ public:
                       const std::shared_ptr<AbstractTask> &task,
                       PlanManager &plan_manager);
 
-    virtual void add_plan(const Plan &plan) = 0;
+    virtual void add_plan(const Plan &) {throw std::bad_function_call();}
 
     bool has_accepted_plan(const Plan &plan) const;
 
@@ -75,7 +77,7 @@ public:
 
     virtual void print_options() const;
 
-    virtual std::string tag() const = 0;
+    virtual std::string tag() const {throw std::bad_function_call();}
 
 protected:
     std::shared_ptr<SymVariables> sym_vars;

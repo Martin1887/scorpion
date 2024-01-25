@@ -22,9 +22,9 @@
 
 class GlobalState;
 
-namespace options {
+namespace plugins {
 class Options;
-class OptionParser;
+class Feature;
 } // namespace options
 
 namespace symbolic {
@@ -76,7 +76,7 @@ class SymVariables {
     void init(const std::vector < int > &v_order);
 
 public:
-    SymVariables(const options::Options &opts,
+    SymVariables(const plugins::Options &opts,
                  const std::shared_ptr < AbstractTask > &task);
 
     void init();
@@ -200,7 +200,7 @@ public:
     void to_dot(const BDD &bdd, const std::string &file_name) const;
     void to_dot(const ADD &bdd, const std::string &file_name) const;
 
-    static void add_options_to_parser(options::OptionParser &parser);
+    static void add_options_to_feature(plugins::Feature &feature);
 
     void print_options() const;
 

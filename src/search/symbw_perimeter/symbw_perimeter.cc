@@ -6,15 +6,15 @@ using namespace cegar_symbolic_comparison;
 using namespace std;
 
 namespace symbd_perimeter {
-static shared_ptr<Heuristic> _parse(OptionParser &parser) {
-    parser.add_option<double> (
+static shared_ptr<Heuristic> _parse(plugins::Feature &feature) {
+    feature.add_option<double> (
         "symbw_time",
         "Time in seconds for the symbolic backward perimeter",
         "1200.0",
         Bounds("0.0", "infinity"));
-    Heuristic::add_options_to_parser(parser);
-    symbolic::SymbolicSearch::add_options_to_parser(parser);
-    parser.add_option<std::shared_ptr<symbolic::PlanSelector>>(
+    Heuristic::add_options_to_feature(parser);
+    symbolic::SymbolicSearch::add_options_to_feature(parser);
+    feature.add_option<std::shared_ptr<symbolic::PlanSelector>>(
         "plan_selection", "plan selection strategy", "top_k(num_plans=1)");
 
     Options opts = parser.parse();

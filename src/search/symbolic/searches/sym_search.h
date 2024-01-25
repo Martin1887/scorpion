@@ -39,8 +39,8 @@ public:
     }
 
     virtual bool step() {
-        return stepImage(p.getAllotedTime(nextStepTime()),
-                         p.getAllotedNodes(nextStepNodesResult()));
+        return stepImage((int)p.getAllotedTime(nextStepTime()),
+                         (int)p.getAllotedNodes(nextStepNodesResult()));
     }
 
     virtual std::string get_last_dir() const = 0;

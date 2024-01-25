@@ -6,7 +6,7 @@
 namespace symbolic {
 class UnorderedSelector : public PlanSelector {
 public:
-    UnorderedSelector(const options::Options &opts);
+    UnorderedSelector(const plugins::Options &opts);
 
     ~UnorderedSelector() {}
 

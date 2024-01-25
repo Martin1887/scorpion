@@ -11,24 +11,25 @@ http://www.boost.org/LICENSE_1_0.txt)
 #include <boost/predef/version_number.h>
 #include <boost/predef/make.h>
 
-/*`
-[heading `BOOST_OS_AMIGAOS`]
+/* tag::reference[]
+= `BOOST_OS_AMIGAOS`
 
-[@http://en.wikipedia.org/wiki/AmigaOS AmigaOS] operating system.
+http://en.wikipedia.org/wiki/AmigaOS[AmigaOS] operating system.
 
-[table
-    [[__predef_symbol__] [__predef_version__]]
+[options="header"]
+|===
+| {predef_symbol} | {predef_version}
 
-    [[`AMIGA`] [__predef_detection__]]
-    [[`__amigaos__`] [__predef_detection__]]
-    ]
- */
+| `AMIGA` | {predef_detection}
+| `+__amigaos__+` | {predef_detection}
+|===
+*/ // end::reference[]
 
 #define BOOST_OS_AMIGAOS BOOST_VERSION_NUMBER_NOT_AVAILABLE
 
 #if !defined(BOOST_PREDEF_DETAIL_OS_DETECTED) && ( \
     defined(AMIGA) || defined(__amigaos__) \
-                              )
+    )
 #   undef BOOST_OS_AMIGAOS
 #   define BOOST_OS_AMIGAOS BOOST_VERSION_NUMBER_AVAILABLE
 #endif
@@ -43,4 +44,4 @@ http://www.boost.org/LICENSE_1_0.txt)
 #endif
 
 #include <boost/predef/detail/test.h>
-BOOST_PREDEF_DECLARE_TEST(BOOST_OS_AMIGAOS, BOOST_OS_AMIGAOS_NAME)
+BOOST_PREDEF_DECLARE_TEST(BOOST_OS_AMIGAOS,BOOST_OS_AMIGAOS_NAME)

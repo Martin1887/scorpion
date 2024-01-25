@@ -1,7 +1,7 @@
 #ifndef SYMBOLIC_GAMER_PDBS_HEURISTIC_H
 #define SYMBOLIC_GAMER_PDBS_HEURISTIC_H
 
-#include "../search_engines/symbolic_search.h"
+#include "../search_algorithms/symbolic_search.h"
 #include "../../heuristic.h"
 
 
@@ -25,14 +25,14 @@ public:
     PDBSearch(GamerPDBsHeuristic *spdbheuristic,
               std::shared_ptr < SymStateSpaceManager > originalStateSpace,
               std::shared_ptr < SymVariables > vars,
-              const options::Options &opts,
+              const plugins::Options &opts,
               const std::shared_ptr < AbstractTask > task = tasks::g_root_task);
 
     PDBSearch(const std::set < int > &pattern,
               GamerPDBsHeuristic *spdbheuristic,
               const std::shared_ptr < OriginalStateSpace > &originalStateSpace,
               std::shared_ptr < SymVariables > vars,
-              const options::Options &opts,
+              const plugins::Options &opts,
               const std::shared_ptr < AbstractTask > task = tasks::g_root_task);
 
 
@@ -73,14 +73,14 @@ class GamerPDBsHeuristic : public Heuristic {
 
     bool influences(int var, const std::set < int > &pattern);
 
-    void initialize(const options::Options &opts);
+    void initialize(const plugins::Options &opts);
 protected:
 
     virtual int compute_heuristic(const State &ancestor_state) override;
 
 public:
-    GamerPDBsHeuristic(const options::Options &opts);
-    GamerPDBsHeuristic(const options::Options &opts,
+    GamerPDBsHeuristic(const plugins::Options &opts);
+    GamerPDBsHeuristic(const plugins::Options &opts,
                        const std::shared_ptr < AbstractTask > task);
     virtual ~GamerPDBsHeuristic() = default;
 };
