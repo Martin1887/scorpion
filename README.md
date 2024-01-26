@@ -25,8 +25,7 @@ Install the dependencies (the table below lists which versions are tested):
     sudo apt install cmake g++ git make python3
 
 For plugins based on linear programming (e.g., `ocp()`, `pho()`) you need
-to [add an LP solver](https://www.fast-downward.org/LPBuildInstructions). Then
-compile the planner with
+to [add an LP solver](BUILD.md). Then compile the planner with
 
     ./build.py
 
@@ -36,12 +35,10 @@ and see the available options with
     ./fast-downward.py --search -- --help  # search component
 
 For more details (including build instructions for macOS and Windows), see the
-documentation about
-[compiling](https://www.fast-downward.org/ObtainingAndRunningFastDownward)
-and [running](https://www.fast-downward.org/PlannerUsage) the planner. The
-[plugin documentation](https://jendrikseipp.github.io/scorpion) shows
-which plugins are available (heuristics, search algorithms, etc.) and how
-to use them.
+documentation about [compiling](BUILD.md) and
+[running](https://www.fast-downward.org/PlannerUsage) the planner. The [plugin
+documentation](https://jendrikseipp.github.io/scorpion) shows which plugins are
+available (heuristics, search algorithms, etc.) and how to use them.
 
 
 ### Recommended configuration
@@ -91,12 +88,13 @@ It accepts the same arguments as the `fast-downward.py` script (see above).
     # Then run recommended configuration (available via "scorpion" alias).
     ./scorpion.sif --transform-task preprocess-h2 --alias scorpion PROBLEM_FILE
 
-### IPC 2018 version
+### IPC versions
 
-If you prefer to run the Scorpion version from IPC 2018 (which uses an
-older Fast Downward version and different abstractions), we recommend
-using the [Scorpion IPC
-repo](https://bitbucket.org/ipc2018-classical/team44/src/ipc-2018-seq-opt/).
+If you prefer to run the Scorpion versions from the IPC 2018 or 2023 (which are
+based on an older Fast Downward version and use different abstractions), we
+recommend using the
+[Scorpion 2018](https://bitbucket.org/ipc2018-classical/team44/src/ipc-2018-seq-opt/) or
+[Scorpion 2023](https://github.com/ipc2023-classical/planner25) repos.
 
 
 ## Differences between Scorpion and Fast Downward
@@ -193,28 +191,28 @@ Example using A* search and saturated cost partitioning over BJOLP
 landmarks:
 
     --evaluator
-      "lmc=lmcount(lm_merged([lm_rhw(), lm_hm(m=1)]),
-      admissible=true, cost_partitioning=suboptimal, greedy=true,
+      "lmc=landmark_cost_partitioning(lm_merged([lm_rhw(), lm_hm(m=1)]),
+      cost_partitioning=suboptimal, greedy=true,
       reuse_costs=true, scoring_function=max_heuristic_per_stolen_costs)"
     --search
       "astar(lmc, lazy_evaluator=lmc)"
 
-Different cost partitioning algorithms (all need `admissible=true`):
+Different cost partitioning algorithms for landmark heuristics:
 
 - Optimal cost partitioning (part of vanilla Fast Downward):
-  `lmcount(..., cost_partitioning=optimal)`
+  `landmark_cost_partitioning(..., cost_partitioning=optimal)`
 - Canonical heuristic:
-  `lmcount(..., cost_partitioning=canonical)`
+  `landmark_cost_partitioning(..., cost_partitioning=canonical)`
 - Post-hoc optimization:
-  `lmcount(..., cost_partitioning=pho)`
+  `landmark_cost_partitioning(..., cost_partitioning=pho)`
 - Uniform cost partitioning:
-  `lmcount(..., cost_partitioning=suboptimal, greedy=false, reuse_costs=false)`
+  `landmark_cost_partitioning(..., cost_partitioning=suboptimal, greedy=false, reuse_costs=false)`
 - Opportunistic uniform cost partitioning (part of vanilla Fast Downward):
-  `lmcount(..., cost_partitioning=suboptimal, greedy=false, reuse_costs=true, scoring_function=min_stolen_costs)`
+  `landmark_cost_partitioning(..., cost_partitioning=suboptimal, greedy=false, reuse_costs=true, scoring_function=min_stolen_costs)`
 - Greedy zero-one cost partitioning:
-  `lmcount(..., cost_partitioning=suboptimal, greedy=true, reuse_costs=false, scoring_function=max_heuristic)`
+  `landmark_cost_partitioning(..., cost_partitioning=suboptimal, greedy=true, reuse_costs=false, scoring_function=max_heuristic)`
 - Saturated cost partitioning:
-  `lmcount(..., cost_partitioning=suboptimal, greedy=true, reuse_costs=true, scoring_function=max_heuristic_per_stolen_costs)`
+  `landmark_cost_partitioning(..., cost_partitioning=suboptimal, greedy=true, reuse_costs=true, scoring_function=max_heuristic_per_stolen_costs)`
 
 
 ## New search engines
@@ -237,7 +235,7 @@ Different cost partitioning algorithms (all need `admissible=true`):
 
 Fast Downward is a domain-independent classical planning system.
 
-Copyright 2003-2022 Fast Downward contributors (see below).
+Copyright 2003-2023 Fast Downward contributors (see below).
 
 For further information:
 - Fast Downward website: <https://www.fast-downward.org>
@@ -245,48 +243,65 @@ For further information:
 - Fast Downward mailing list: <https://groups.google.com/forum/#!forum/fast-downward>
 - Fast Downward main repository: <https://github.com/aibasel/downward>
 
+## Scientific experiments
 
-## Tested software versions
+We recommend to use the [latest release](https://github.com/aibasel/downward/releases/latest) instead of the tip of the main branch.
+The [Downward Lab](https://lab.readthedocs.io/en/stable/) Python package helps running Fast Downward experiments.
+Our separate [benchmark repository](https://github.com/aibasel/downward-benchmarks) contains a collection of planning tasks.
+
+## Supported software versions
+
+The planner is mainly developed under Linux; and all of its features should work with no restrictions under this platform.
+The planner should compile and run correctly on macOS, but we cannot guarantee that it works as well as under Linux.
+The same comment applies for Windows, where additionally some diagnostic features (e.g., reporting peak memory usage when the planner is terminated by a signal) are not supported.
+Setting time and memory limits and running portfolios is not supported under Windows either.
 
 This version of Fast Downward has been tested with the following software versions:
 
 | OS           | Python | C++ compiler                                                     | CMake |
 | ------------ | ------ | ---------------------------------------------------------------- | ----- |
 | Ubuntu 22.04 | 3.10   | GCC 11, GCC 12, Clang 14                                         | 3.22  |
-| Ubuntu 20.04 | 3.8    | GCC 9, GCC 10, Clang 10, Clang 11                                | 3.16  |
+| Ubuntu 20.04 | 3.8    | GCC 10, Clang 12                                                 | 3.16  |
 | macOS 12     | 3.10   | AppleClang 14                                                    | 3.24  |
 | macOS 11     | 3.8    | AppleClang 13                                                    | 3.24  |
 | Windows 10   | 3.8    | Visual Studio Enterprise 2019 (MSVC 19.29) and 2022 (MSVC 19.31) | 3.22  |
 
-We test LP support with CPLEX 12.9, SoPlex 3.1.1 and Osi 0.107.9.
-On Ubuntu, we test both CPLEX and SoPlex. On Windows, we currently
-only test CPLEX, and on macOS, we do not test LP solvers (yet).
+We test LP support with CPLEX 22.1.1 and SoPlex 6.0.3+. On Ubuntu we
+test both CPLEX and SoPlex. On Windows we currently only test CPLEX,
+and on macOS we do not test LP solvers (yet).
+
+## Build instructions
+
+See [BUILD.md](BUILD.md).
 
 
 ## Contributors
 
 The following list includes all people that actively contributed to
-Fast Downward, i.e. all people that appear in some commits in Fast
+Fast Downward, i.e., all people that appear in some commits in Fast
 Downward's history (see below for a history on how Fast Downward
 emerged) or people that influenced the development of such commits.
 Currently, this list is sorted by the last year the person has been
 active, and in case of ties, by the earliest year the person started
 contributing, and finally by last name.
 
-- 2003-2022 Malte Helmert
-- 2008-2016, 2018-2022 Gabriele Roeger
-- 2010-2022 Jendrik Seipp
-- 2010-2011, 2013-2022 Silvan Sievers
-- 2012-2022 Florian Pommerening
-- 2013, 2015-2022 Salomé Eriksson
-- 2015, 2021-2022 Thomas Keller
-- 2018-2022 Patrick Ferber
-- 2021-2022 Clemens Büchner
+- 2003-2023 Malte Helmert
+- 2008-2016, 2018-2023 Gabriele Roeger
+- 2010-2023 Jendrik Seipp
+- 2010-2011, 2013-2023 Silvan Sievers
+- 2012-2023 Florian Pommerening
+- 2013, 2015-2023 Salomé Eriksson
+- 2015, 2021-2023 Thomas Keller
+- 2018-2023 Patrick Ferber
+- 2018-2020, 2023 Augusto B. Corrêa
+- 2021-2023 Clemens Büchner
+- 2022-2023 Remo Christen
+- 2023 Simon Dold
+- 2023 Claudia S. Grundke
+- 2023 Emanuele Tirendi
 - 2021-2022 Dominik Drexler
-- 2022 Remo Christen
 - 2016-2020 Cedric Geissmann
 - 2017-2020 Guillem Francès
-- 2018-2020 Augusto B. Corrêa
 - 2020 Rik de Graaff
 - 2015-2019 Manuel Heusner
 - 2017 Daniel Killenberger
@@ -328,13 +343,6 @@ branches are Malte Helmert, Gabi Röger and Silvia Richter.
 
 
 ## License
-
-The following directory is not part of Fast Downward as covered by
-this license:
-
-- ./src/search/ext
-
-For the rest, the following license applies:
 
 ```
 Fast Downward is free software: you can redistribute it and/or modify

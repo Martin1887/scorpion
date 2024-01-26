@@ -5,7 +5,7 @@
 #include "../task_proxy.h"
 
 #include "../algorithms/priority_queues.h"
-#include "../pdbs/match_tree.h"
+#include "../pdbs/slim_match_tree.h"
 #include "../task_utils/task_properties.h"
 #include "../utils/collections.h"
 #include "../utils/logging.h"
@@ -137,12 +137,12 @@ static OperatorGroups group_equivalent_operators(
         grouped_operator_ids[make_pair(move(preconditions), move(effects))].push_back(op.get_id());
     }
     OperatorGroups groups;
-    for (auto &entry : grouped_operator_ids) {
-        auto &pre_eff = entry.first;
+    for (auto &[pre_eff, operator_ids] : grouped_operator_ids) {
         OperatorGroup group;
-        group.preconditions = move(pre_eff.first);
-        group.effects = move(pre_eff.second);
-        group.operator_ids = move(entry.second);
+        // Can't copy the facts because map keys are const.
+        group.preconditions = pre_eff.first;
+        group.effects = pre_eff.second;
+        group.operator_ids = move(operator_ids);
         assert(utils::is_sorted_unique(group.operator_ids));
         groups.push_back(move(group));
     }
@@ -281,7 +281,7 @@ Projection::Projection(
         pattern_domain_sizes.push_back(variables[pattern_var].get_domain_size());
     }
 
-    match_tree_backward = utils::make_unique_ptr<pdbs::MatchTree>(
+    match_tree_backward = utils::make_unique_ptr<pdbs::SlimMatchTree>(
         task_proxy, pattern, hash_multipliers);
 
     OperatorGroups operator_groups;
