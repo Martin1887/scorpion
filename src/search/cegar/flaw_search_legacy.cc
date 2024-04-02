@@ -163,7 +163,7 @@ SplitProperties FlawSearch::get_split_legacy_closest_to_goal(
 }
 
 unique_ptr<LegacyFlaw> FlawSearch::get_flaw_legacy_forward(const Solution &solution) {
-    vector<LegacyFlaw> flaws = get_forward_flaws(solution, false, false);
+    vector<LegacyFlaw> flaws = get_forward_flaws(solution, false, InAbstractionFlawSearchKind::FALSE);
     if (flaws.empty()) {
         return nullptr;
     } else {
@@ -172,7 +172,7 @@ unique_ptr<LegacyFlaw> FlawSearch::get_flaw_legacy_forward(const Solution &solut
 }
 
 unique_ptr<LegacyFlaw> FlawSearch::get_flaw_legacy_backward(const Solution &solution) {
-    vector<LegacyFlaw> flaws = get_backward_flaws(solution, false, false);
+    vector<LegacyFlaw> flaws = get_backward_flaws(solution, false, InAbstractionFlawSearchKind::FALSE);
     if (flaws.empty()) {
         return nullptr;
     } else {

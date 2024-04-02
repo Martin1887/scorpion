@@ -688,17 +688,23 @@ SplitProperties FlawSearch::get_split_and_direction(const Solution &solution,
     case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_CLOSEST_TO_GOAL:
         return get_split_legacy_closest_to_goal(solution, true);
     case PickFlawedAbstractState::SEQUENCE:
-        return get_sequence_splits(solution, false, true, false);
+        return get_sequence_splits(solution, InAbstractionFlawSearchKind::FALSE, true, false);
     case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION:
-        return get_sequence_splits(solution, true, true, false);
+        return get_sequence_splits(solution, InAbstractionFlawSearchKind::TRUE, true, false);
     case PickFlawedAbstractState::SEQUENCE_BACKWARD:
-        return get_sequence_splits(solution, false, false, true);
+        return get_sequence_splits(solution, InAbstractionFlawSearchKind::FALSE, false, true);
     case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BACKWARD:
-        return get_sequence_splits(solution, true, false, true);
+        return get_sequence_splits(solution, InAbstractionFlawSearchKind::TRUE, false, true);
     case PickFlawedAbstractState::SEQUENCE_BIDIRECTIONAL:
-        return get_sequence_splits(solution, false, true, true);
+        return get_sequence_splits(solution, InAbstractionFlawSearchKind::FALSE, true, true);
     case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BIDIRECTIONAL:
-        return get_sequence_splits(solution, true, true, true);
+        return get_sequence_splits(solution, InAbstractionFlawSearchKind::TRUE, true, true);
+    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION:
+        return get_sequence_splits(solution, InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION, true, false);
+    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION_BACKWARD:
+        return get_sequence_splits(solution, InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION, false, true);
+    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION_BIDIRECTIONAL:
+        return get_sequence_splits(solution, InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION, true, true);
     default:
         return get_split(cegar_timer);
     }

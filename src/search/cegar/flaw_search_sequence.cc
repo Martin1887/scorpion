@@ -289,19 +289,42 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
 
 vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                                                  const bool in_sequence,
-                                                 const bool only_in_abstraction) {
+                                                 const InAbstractionFlawSearchKind only_in_abstraction) {
     vector<LegacyFlaw> flaws{};
     state_registry = utils::make_unique_ptr<StateRegistry>(task_proxy);
     bool debug = log.is_at_least_debug();
     if (debug)
         log << "Check solution:" << endl;
 
+    int start_abstract_state_index = 0;
     const AbstractState *abstract_state = &abstraction.get_initial_state();
-    AbstractState flaw_search_state = only_in_abstraction ?
-        AbstractState(abstraction.get_initial_state())
-        :
-        AbstractState(get_domain_sizes(task_proxy),
-                      task_properties::get_fact_pairs(state_registry->get_initial_state()));
+    AbstractState flaw_search_state = AbstractState(abstraction.get_initial_state());
+    switch (only_in_abstraction) {
+    case InAbstractionFlawSearchKind::TRUE:
+        // Already correct values.
+        break;
+    case InAbstractionFlawSearchKind::FALSE:
+        flaw_search_state = AbstractState(get_domain_sizes(task_proxy),
+                                          task_properties::get_fact_pairs(state_registry->get_initial_state()));
+        break;
+    case InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION:
+        // In goal state and in the last state before goal no possible flaw
+        // exists, so get the previous state, or the initial state if 2 or
+        // fewer states.
+        if (solution.size() >= 3) {
+            flaw_search_state = AbstractState(abstraction.get_state(solution.at(solution.size() - 3).target_id));
+            abstract_state = &abstraction.get_state(solution.at(solution.size() - 3).target_id);
+            start_abstract_state_index = solution.size() - 2;
+        } else if (solution.size() == 2) {
+            // Already correct values.
+            start_abstract_state_index = 0;
+        } else {
+            flaw_search_state = AbstractState(get_domain_sizes(task_proxy),
+                                              task_properties::get_fact_pairs(state_registry->get_initial_state()));
+            start_abstract_state_index = -1;
+        }
+        break;
+    }
     assert(abstract_state->intersects(flaw_search_state));
 
     if (debug) {
@@ -313,74 +336,102 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
         }
     }
 
-    for (const Transition &step : solution) {
-        OperatorProxy op = task_proxy.get_operators()[step.op_id];
-        const AbstractState *next_abstract_state = &abstraction.get_state(step.target_id);
-        if (flaw_search_state.is_applicable(op)) {
-            if (debug)
-                log << "  Move to " << *next_abstract_state << " with "
-                    << op.get_name() << endl;
-            AbstractState next_flaw_search_state(-1, -1, flaw_search_state.progress(op));
-            if (!next_abstract_state->intersects(next_flaw_search_state)) {
+    int solution_size = (int)solution.size();
+    do {
+        for (int i = max(start_abstract_state_index, 0); i < solution_size; i++) {
+            Transition step = solution.at(i);
+            OperatorProxy op = task_proxy.get_operators()[step.op_id];
+            const AbstractState *next_abstract_state = &abstraction.get_state(step.target_id);
+            if (flaw_search_state.is_applicable(op)) {
+                if (debug)
+                    log << "  Move to " << *next_abstract_state << " with "
+                        << op.get_name() << endl;
+                AbstractState next_flaw_search_state(-1, -1, flaw_search_state.progress(op));
+                if (!next_abstract_state->intersects(next_flaw_search_state)) {
+                    if (debug) {
+                        log << "  Paths deviate." << endl;
+                        log << "  Flaw-search state: " << next_flaw_search_state << endl;
+                    }
+                    flaws.push_back(LegacyFlaw(move(flaw_search_state), abstract_state->get_id(), false));
+                    if (!in_sequence ||
+                        split_selector.sequence_pick == PickSplit::FIRST_FLAW) {
+                        return flaws;
+                    } else {
+                        next_flaw_search_state = AbstractState(-1, -1, next_flaw_search_state.undeviate(*next_abstract_state));
+                        if (debug) {
+                            log << "  Undeviated state: " << next_flaw_search_state << endl;
+                            log << "  Abstract state: " << *next_abstract_state << endl;
+                        }
+                    }
+                }
+                abstract_state = next_abstract_state;
+                flaw_search_state = move(next_flaw_search_state);
+            } else {
                 if (debug) {
-                    log << "  Paths deviate." << endl;
-                    log << "  Flaw-search state: " << next_flaw_search_state << endl;
+                    log << "  Operator not applicable: " << op.get_name() << endl;
+                    log << "  Operator preconditions: " << endl;
+                    for (FactProxy precond : op.get_preconditions()) {
+                        log << "    " << precond.get_pair() << endl;
+                    }
+                    log << "  Abstract state: " << *abstract_state << endl;
+                    log << "  Flaw-search state: " << flaw_search_state << endl;
                 }
                 flaws.push_back(LegacyFlaw(move(flaw_search_state), abstract_state->get_id(), false));
-                if (!in_sequence) {
+                if (!in_sequence ||
+                    split_selector.sequence_pick == PickSplit::FIRST_FLAW) {
                     return flaws;
                 } else {
-                    next_flaw_search_state = AbstractState(-1, -1, next_flaw_search_state.undeviate(*next_abstract_state));
-                    if (debug) {
-                        log << "  Undeviated state: " << next_flaw_search_state << endl;
-                        log << "  Abstract state: " << *next_abstract_state << endl;
+                    abstract_state = &abstraction.get_state(step.target_id);
+                    // Apply the operator as if it were applicable (and undeviate if needed).
+                    flaw_search_state = AbstractState(-1, -1, flaws.back().flaw_search_state.progress(op));
+                    if (!abstract_state->intersects(flaw_search_state)) {
+                        if (debug) {
+                            log << "  The state " << flaw_search_state << " does not intersects" << endl;
+                            log << "  Abstract state: " << *abstract_state << endl;
+                        }
+                        flaw_search_state = AbstractState(-1, -1, flaw_search_state.undeviate(*abstract_state));
+                        if (debug)
+                            log << "  Undeviated state: " << flaw_search_state << endl;
                     }
                 }
             }
-            abstract_state = next_abstract_state;
-            flaw_search_state = move(next_flaw_search_state);
-        } else {
-            if (debug)
-                log << "  Operator not applicable: " << op.get_name() << endl;
-            flaws.push_back(LegacyFlaw(move(flaw_search_state), abstract_state->get_id(), false));
-            if (!in_sequence ||
-                split_selector.sequence_pick == PickSplit::FIRST_FLAW) {
-                return flaws;
+        }
+        assert(abstraction.get_goals().count(abstract_state->get_id()));
+        if (only_in_abstraction != InAbstractionFlawSearchKind::TRUE) {
+            if (!flaw_search_state.includes(task_properties::get_fact_pairs(task_proxy.get_goals()))) {
+                // This may happen if goals are not separated from the initial state
+                // before getting splits (bidirectional strategies so far),
+                // and it needs a special function to do it because goal state
+                // has no optimal transitions.
+                if (debug)
+                    log << "  Goal test failed." << endl;
+                flaws.push_back(LegacyFlaw(move(flaw_search_state), abstract_state->get_id(), true));
+            }
+        }
+        if (only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION && flaws.empty()) {
+            if (start_abstract_state_index < 0) {
+                break;
+            } else if (start_abstract_state_index == 0) {
+                flaw_search_state = AbstractState(get_domain_sizes(task_proxy),
+                                                  task_properties::get_fact_pairs(state_registry->get_initial_state()));
+                abstract_state = &abstraction.get_initial_state();
+            } else if (start_abstract_state_index == 1) {
+                flaw_search_state = AbstractState(abstraction.get_initial_state());
+                abstract_state = &abstraction.get_initial_state();
             } else {
-                abstract_state = &abstraction.get_state(step.target_id);
-                // Apply the operator as if it were applicable (and undeviate if needed).
-                flaw_search_state = AbstractState(-1, -1, flaws.back().flaw_search_state.progress(op));
-                if (!abstract_state->intersects(flaw_search_state)) {
-                    if (debug) {
-                        log << "  The state " << flaw_search_state << " does not intersects" << endl;
-                        log << "  Abstract state: " << *abstract_state << endl;
-                    }
-                    flaw_search_state = AbstractState(-1, -1, flaw_search_state.undeviate(*abstract_state));
-                    if (debug)
-                        log << "  Undeviated state: " << flaw_search_state << endl;
-                }
+                flaw_search_state = AbstractState(abstraction.get_state(solution.at(start_abstract_state_index - 2).target_id));
+                abstract_state = &abstraction.get_state(solution.at(start_abstract_state_index - 2).target_id);
             }
         }
-    }
-    assert(abstraction.get_goals().count(abstract_state->get_id()));
-    if (!only_in_abstraction) {
-        if (!flaw_search_state.includes(task_properties::get_fact_pairs(task_proxy.get_goals()))) {
-            // This may happen if goals are not separated from the initial state
-            // before getting splits (bidirectional strategies so far),
-            // and it needs a special function to do it because goal state
-            // has no optimal transitions.
-            if (debug)
-                log << "  Goal test failed." << endl;
-            flaws.push_back(LegacyFlaw(move(flaw_search_state), abstract_state->get_id(), true));
-        }
-    }
+        start_abstract_state_index--;
+    } while (only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION && flaws.empty());
 
     return flaws;
 }
 
 vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                                                   const bool in_sequence,
-                                                  const bool only_in_abstraction) {
+                                                  const InAbstractionFlawSearchKind only_in_abstraction) {
     vector<LegacyFlaw> flaws{};
     bool debug = log.is_at_least_debug();
     if (debug) {
@@ -407,7 +458,7 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
     // that usually is an abstract state
     GoalsProxy goals = task_proxy.get_goals();
     vector<FactPair> goals_facts = task_properties::get_fact_pairs(task_proxy.get_goals());
-    AbstractState flaw_search_state = only_in_abstraction ?
+    AbstractState flaw_search_state = only_in_abstraction != InAbstractionFlawSearchKind::FALSE ?
         AbstractState(-1, -1, abstract_state->get_cartesian_set())
         :
         AbstractState(get_domain_sizes(task_proxy), move(goals_facts));
@@ -444,7 +495,10 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                     log << "  Flaw-search state: " << next_flaw_search_state << endl;
                 }
                 flaws.push_back(LegacyFlaw(move(flaw_search_state), abstract_state->get_id(), false));
-                if (!in_sequence) {
+                if (!in_sequence ||
+                    only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION ||
+                    split_selector.sequence_pick == PickSplit::FIRST_FLAW ||
+                    split_selector.sequence_pick == PickSplit::CLOSEST_TO_GOAL_FLAW) {
                     return flaws;
                 } else {
                     next_flaw_search_state = AbstractState(-1, -1, next_flaw_search_state.undeviate(*next_abstract_state));
@@ -465,6 +519,7 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                 log << "  Operator not backward applicable: " << op.get_name() << endl;
             flaws.push_back(LegacyFlaw(move(flaw_search_state), abstract_state->get_id(), false));
             if (!in_sequence ||
+                only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION ||
                 split_selector.sequence_pick == PickSplit::FIRST_FLAW ||
                 split_selector.sequence_pick == PickSplit::CLOSEST_TO_GOAL_FLAW) {
                 return flaws;
@@ -489,19 +544,27 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
         }
     }
     assert(initial_abstract_state->get_id() == abstract_state->get_id());
-    if (!flaw_search_state.includes(task_proxy.get_initial_state())) {
-        // This only happens if the initial abstarct state is not refined
-        // before starting the refinement steps.
-        if (debug)
-            log << "  Initial state test failed." << endl;
-        flaws.push_back(LegacyFlaw(move(flaw_search_state), abstract_state->get_id(), true));
+    if (only_in_abstraction != InAbstractionFlawSearchKind::TRUE) {
+        if (!flaw_search_state.includes(task_proxy.get_initial_state())) {
+            // This only happens if the initial abstract state is not refined
+            // before starting the refinement steps.
+            if (debug)
+                log << "  Initial state test failed." << endl;
+            flaws.push_back(LegacyFlaw(move(flaw_search_state), abstract_state->get_id(), true));
+        }
+    }
+
+    // It could happen that flaws are not found because starting in the goals
+    // abstract state, so start from the goals.
+    if (only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION && flaws.empty()) {
+        flaws = get_backward_flaws(solution, true, InAbstractionFlawSearchKind::FALSE);
     }
 
     return flaws;
 }
 
 SplitProperties FlawSearch::get_sequence_splits(const Solution &solution,
-                                                const bool only_in_abstraction,
+                                                const InAbstractionFlawSearchKind only_in_abstraction,
                                                 const bool forward,
                                                 const bool backward) {
     assert(forward || backward);
@@ -509,9 +572,15 @@ SplitProperties FlawSearch::get_sequence_splits(const Solution &solution,
     vector<LegacyFlaw> backward_flaws{};
     if (forward) {
         forward_flaws = get_forward_flaws(solution, true, only_in_abstraction);
+        if (only_in_abstraction == InAbstractionFlawSearchKind::TRUE && forward_flaws.empty()) {
+            forward_flaws = get_forward_flaws(solution, true, InAbstractionFlawSearchKind::FALSE);
+        }
     }
     if (backward) {
         backward_flaws = get_backward_flaws(solution, true, only_in_abstraction);
+        if (only_in_abstraction == InAbstractionFlawSearchKind::TRUE && backward_flaws.empty()) {
+            backward_flaws = get_backward_flaws(solution, true, InAbstractionFlawSearchKind::FALSE);
+        }
     }
 
     return pick_sequence_split(move(forward_flaws), move(backward_flaws), solution, rng);
