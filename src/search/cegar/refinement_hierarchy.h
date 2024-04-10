@@ -2,6 +2,7 @@
 #define CEGAR_REFINEMENT_HIERARCHY_H
 
 #include "abstraction.h"
+#include "shortest_paths.h"
 #include "types.h"
 
 #include <cassert>
@@ -35,6 +36,35 @@ class RefinementHierarchy {
     NodeID add_node(int state_id);
     NodeID get_node_id(const State &state) const;
 
+    // This class is only used to retrieve the number of useless nodes.
+    class LeftChildNode {
+public:
+        NodeID left_node_id;
+        NodeID sibling_id;
+        int dist;
+        int sibling_dist;
+        std::shared_ptr<LeftChildNode> parent;
+        bool is_child_of_right_node;
+
+        LeftChildNode(NodeID left_node_id,
+                      NodeID sibling_id,
+                      int dist,
+                      int sibling_dist,
+                      std::shared_ptr<LeftChildNode> parent,
+                      bool is_child_of_right_node = false)
+            : left_node_id(left_node_id),
+              sibling_id(sibling_id),
+              dist(dist),
+              sibling_dist(sibling_dist),
+              parent(parent),
+              is_child_of_right_node(is_child_of_right_node) {
+        }
+    };
+
+    // Get the bottom leaf nodes (where both siblings are leaf) with their distance.
+    std::vector<std::shared_ptr<LeftChildNode>> get_leaf_nodes(const std::unique_ptr<ShortestPaths> &shp,
+                                                               std::shared_ptr<LeftChildNode> struct_node = {}) const;
+
 public:
     explicit RefinementHierarchy(const std::shared_ptr<AbstractTask> &task);
 
@@ -54,6 +84,8 @@ public:
     int get_num_nodes() const {
         return nodes.size();
     }
+
+    int n_useless_refinements(const std::unique_ptr<ShortestPaths> &shp) const;
 };
 
 
@@ -92,6 +124,14 @@ public:
         if (val == value)
             return right_child;
         return left_child;
+    }
+
+    NodeID get_left_child() const {
+        return left_child;
+    }
+
+    NodeID get_right_child() const {
+        return right_child;
     }
 
     int get_state_id() const {

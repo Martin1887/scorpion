@@ -43,6 +43,7 @@ class CostSaturation {
     const int memory_padding_mb;
     const bool intersect_flaw_search_abstract_states;
     const bool print_h_distribution;
+    const bool print_useless_refinements;
     utils::RandomNumberGenerator &rng;
     utils::LogProxy &log;
     const cegar::DotGraphVerbosity dot_graph_verbosity;
@@ -80,6 +81,7 @@ public:
         int memory_padding_mb,
         bool intersect_flaw_search_abstract_states,
         bool print_h_distribution,
+        bool print_useless_refinements,
         utils::RandomNumberGenerator &rng,
         utils::LogProxy &log,
         DotGraphVerbosity dot_graph_verbosity);

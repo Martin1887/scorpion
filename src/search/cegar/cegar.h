@@ -2,6 +2,7 @@
 #define CEGAR_CEGAR_H
 
 #include "flaw_search.h"
+#include "refinement_hierarchy.h"
 #include "split_selector.h"
 #include "types.h"
 
@@ -91,6 +92,8 @@ public:
     CEGAR(const CEGAR &) = delete;
 
     std::unique_ptr<Abstraction> extract_abstraction();
+
+    void print_useless_refinements(const RefinementHierarchy &hier) const;
 };
 }
 
