@@ -332,7 +332,7 @@ void CEGAR::refinement_loop() {
         } else {
             forward_flawed_state_pos_plan_length_perc += split_prop.flawed_state_pos_plan_length_perc;
         }
-        double optimal_cost = get_optimal_plan_cost(*solution);
+        Cost optimal_cost = get_optimal_plan_cost(*solution);
         if (optimal_cost > previous_optimal_cost) {
             n_optimal_cost_increased++;
         }
@@ -421,8 +421,8 @@ void CEGAR::refinement_loop() {
     }
 }
 
-int CEGAR::get_optimal_plan_cost(const Solution &solution) const {
-    double cost = 0;
+Cost CEGAR::get_optimal_plan_cost(const Solution &solution) const {
+    Cost cost = 0;
     for (Transition trans : solution) {
         OperatorProxy op = task_proxy.get_operators()[trans.op_id];
         cost += op.get_cost();

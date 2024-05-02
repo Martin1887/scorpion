@@ -66,7 +66,7 @@ class CEGAR {
     // Build abstraction.
     void refinement_loop();
 
-    int get_optimal_plan_cost(const Solution &solution) const;
+    Cost get_optimal_plan_cost(const Solution &solution) const;
 
     void print_statistics() const;
 
