@@ -436,7 +436,7 @@ void CEGAR::print_statistics() const {
     flaw_search->print_statistics();
 }
 
-void CEGAR::print_useless_refinements(const RefinementHierarchy &hier) const {
-    log << "Useless refinements: " << hier.n_useless_refinements(shortest_paths) << endl;
+void CEGAR::print_useless_refinements(const RefinementHierarchy &hier, const vector<int> &goal_distances) const {
+    log << "Useless refinements: " << hier.n_useless_refinements(goal_distances) << endl;
 }
 }

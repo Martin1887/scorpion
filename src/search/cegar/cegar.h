@@ -93,7 +93,7 @@ public:
 
     std::unique_ptr<Abstraction> extract_abstraction();
 
-    void print_useless_refinements(const RefinementHierarchy &hier) const;
+    void print_useless_refinements(const RefinementHierarchy &hier, const std::vector<int> &goal_distances) const;
 };
 }
 

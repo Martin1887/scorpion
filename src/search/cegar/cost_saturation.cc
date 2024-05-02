@@ -261,7 +261,7 @@ void CostSaturation::build_abstractions(
 
         unique_ptr<RefinementHierarchy> refinement_hierarchy = abstraction->extract_refinement_hierarchy();
         if (print_useless_refinements) {
-            cegar.print_useless_refinements(*refinement_hierarchy);
+            cegar.print_useless_refinements(*refinement_hierarchy, goal_distances);
         }
 
         heuristic_functions.emplace_back(

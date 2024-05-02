@@ -62,7 +62,7 @@ public:
     };
 
     // Get the bottom leaf nodes (where both siblings are leaf) with their distance.
-    std::vector<std::shared_ptr<LeftChildNode>> get_leaf_nodes(const std::unique_ptr<ShortestPaths> &shp,
+    std::vector<std::shared_ptr<LeftChildNode>> get_leaf_nodes(const std::vector<int> &goal_distances,
                                                                std::shared_ptr<LeftChildNode> struct_node = {}) const;
 
 public:
@@ -85,7 +85,7 @@ public:
         return nodes.size();
     }
 
-    int n_useless_refinements(const std::unique_ptr<ShortestPaths> &shp) const;
+    int n_useless_refinements(const std::vector<int> &goal_distances) const;
 };
 
 

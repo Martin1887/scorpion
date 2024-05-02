@@ -87,7 +87,7 @@ int RefinementHierarchy::get_abstract_state_id(const State &state) const {
     }
 }
 
-vector<shared_ptr<RefinementHierarchy::LeftChildNode>> RefinementHierarchy::get_leaf_nodes(const unique_ptr<ShortestPaths> &shp,
+vector<shared_ptr<RefinementHierarchy::LeftChildNode>> RefinementHierarchy::get_leaf_nodes(const vector<int> &goal_distances,
                                                                                            shared_ptr<LeftChildNode> struct_node) const {
     if (!struct_node) {
         // The root node.
@@ -114,15 +114,15 @@ vector<shared_ptr<RefinementHierarchy::LeftChildNode>> RefinementHierarchy::get_
             shared_ptr<LeftChildNode> child_struct_node = make_shared<LeftChildNode>(bottom_left_child, right_child, -1, -1, struct_node, is_right_node);
             if (nodes[bottom_left_child].is_split() || nodes[right_child].is_split()) {
                 vector<shared_ptr<RefinementHierarchy::LeftChildNode>> leaves =
-                    get_leaf_nodes(shp, child_struct_node);
+                    get_leaf_nodes(goal_distances, child_struct_node);
                 current_leaves.insert(current_leaves.end(), leaves.begin(),
                                       leaves.end());
             }
             if (!nodes[bottom_left_child].is_split()) {
-                child_struct_node->dist = shp->get_64bit_goal_distance(nodes[bottom_left_child].get_state_id());
+                child_struct_node->dist = goal_distances[nodes[bottom_left_child].get_state_id()];
             }
             if (!nodes[right_child].is_split()) {
-                child_struct_node->sibling_dist = shp->get_64bit_goal_distance(nodes[right_child].get_state_id());
+                child_struct_node->sibling_dist = goal_distances[nodes[right_child].get_state_id()];
             }
             // The 2 nodes are leaf.
             if (!nodes[bottom_left_child].is_split() && !nodes[right_child].is_split()) {
@@ -134,8 +134,8 @@ vector<shared_ptr<RefinementHierarchy::LeftChildNode>> RefinementHierarchy::get_
     return current_leaves;
 }
 
-int RefinementHierarchy::n_useless_refinements(const unique_ptr<ShortestPaths> &shp) const {
-    vector<shared_ptr<RefinementHierarchy::LeftChildNode>> open_list = get_leaf_nodes(shp);
+int RefinementHierarchy::n_useless_refinements(const vector<int> &goal_distances) const {
+    vector<shared_ptr<RefinementHierarchy::LeftChildNode>> open_list = get_leaf_nodes(goal_distances);
 
     int useless_ref = 0;
     // width-first search of siblings with the same distance to goal.
