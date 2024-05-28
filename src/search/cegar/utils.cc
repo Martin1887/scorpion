@@ -129,7 +129,8 @@ static void add_pick_split_strategies(options::OptionParser &parser) {
     vector<string> strategies =
     {"RANDOM", "MIN_UNWANTED", "MAX_UNWANTED", "MIN_REFINED", "MAX_REFINED",
      "MIN_HADD", "MAX_HADD", "MIN_CG", "MAX_CG", "MAX_COVER",
-     "HIGHEST_COST_OPERATOR", "LOWEST_COST_OPERATOR"};
+     "HIGHEST_COST_OPERATOR", "LOWEST_COST_OPERATOR",
+     "RANDOM_VARS_ORDER"};
     vector<string> sequence_strategies(strategies);
     sequence_strategies.push_back("FIRST_FLAW");
     sequence_strategies.push_back("LAST_FLAW");

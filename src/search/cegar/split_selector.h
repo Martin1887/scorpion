@@ -43,6 +43,8 @@ enum class PickSplit {
     // New strategies specially designed for sequence flaws.
     HIGHEST_COST_OPERATOR,
     LOWEST_COST_OPERATOR,
+    // Random order of variables, with a different seed at each execution of the planner.
+    RANDOM_VARS_ORDER,
     FIRST_FLAW,
     LAST_FLAW,
     // The first one in regression, the latest one in progression.
@@ -118,6 +120,7 @@ class SplitSelector {
     const std::shared_ptr<AbstractTask> task;
     const TaskProxy task_proxy;
     const bool debug;
+    std::vector<int> vars_order;
     std::unique_ptr<additive_heuristic::AdditiveHeuristic> additive_heuristic;
 
     const PickSplit first_pick;

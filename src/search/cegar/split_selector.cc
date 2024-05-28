@@ -75,6 +75,13 @@ SplitSelector::SplitSelector(
         additive_heuristic->compute_heuristic_for_cegar(
             task_proxy.get_initial_state());
     }
+    vars_order = vector<int>(task->get_num_variables());
+    // Fill vars_order with numbers from 0 to num_variables -1 to shuffle it aftwerards.
+    std::iota(std::begin(vars_order), std::end(vars_order), 0);
+    // This uses /dev/urandom en Linux, so the numbers are different at each execution.
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(vars_order.begin(), vars_order.end(), g);
 }
 
 // Define here to avoid include in header.
@@ -171,6 +178,9 @@ double SplitSelector::rate_split(
         } else {
             rating = -split.op_cost;
         }
+        break;
+    case PickSplit::RANDOM_VARS_ORDER:
+        rating = vars_order[var_id];
         break;
     default:
         cerr << "Invalid pick strategy for rate_split(): "
