@@ -86,6 +86,21 @@ enum class PickFlawedAbstractState {
     // (without taking into account init state nor goals) splitting wanted values
     // in the forward direction and unwanted values in the backward direction.
     SEQUENCE_IN_ABSTRACTION_BIDIRECTIONAL,
+    // Sequence flaws in the forward direction iteratively in abstraction from
+    // the goals, starting at the initial state when no one is found.
+    SEQUENCE_ITERATIVE_IN_ABSTRACTION,
+    // Sequence flaws in the backward direction iteratively in abstraction from
+    // the goals, starting at the initial state when no one is found.
+    SEQUENCE_ITERATIVE_IN_ABSTRACTION_BACKWARD,
+    // Sequence flaws in both directions iteratively in abstraction from
+    // the goals, starting at the initial state when no one is found.
+    SEQUENCE_ITERATIVE_IN_ABSTRACTION_BIDIRECTIONAL,
+};
+
+enum class InAbstractionFlawSearchKind {
+    FALSE,
+    TRUE,
+    ITERATIVE_IN_REGRESSION,
 };
 
 using OptimalTransitions = phmap::flat_hash_map<int, std::vector<int>>;
@@ -228,10 +243,10 @@ class FlawSearch {
 
     std::vector<LegacyFlaw> get_forward_flaws(const Solution &solution,
                                               const bool in_sequence,
-                                              const bool only_in_abstraction);
+                                              const InAbstractionFlawSearchKind only_in_abstraction);
     std::vector<LegacyFlaw> get_backward_flaws(const Solution &solution,
                                                const bool in_sequence,
-                                               const bool only_in_abstraction);
+                                               const InAbstractionFlawSearchKind only_in_abstraction);
 
     // Return concrete state id and abstract state id where create the split.
     std::unique_ptr<LegacyFlaw> get_flaw_legacy_forward(const Solution &solution);
@@ -304,7 +319,7 @@ public:
                                             const utils::CountdownTimer &cegar_timer,
                                             const bool half_limits_reached);
     SplitProperties get_sequence_splits(const Solution &solution,
-                                        const bool only_in_abstraction,
+                                        const InAbstractionFlawSearchKind only_in_abstraction,
                                         const bool forward,
                                         const bool backward);
     bool refine_init_state() const;

@@ -248,6 +248,11 @@ void add_common_cegar_options(plugins::Feature &feature) {
         "print_h_distribution",
         "print h distribution in the concrete space",
         "false");
+
+    feature.add_option<bool>(
+        "print_useless_refinements",
+        "print useless refinements at the end of the abstraction",
+        "false");
 }
 
 static plugins::TypedEnumPlugin<DotGraphVerbosity> _enum_plugin({

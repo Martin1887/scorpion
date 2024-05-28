@@ -41,6 +41,7 @@ static vector<CartesianHeuristicFunction> generate_heuristic_functions(
         opts.get<int>("memory_padding"),
         opts.get<bool>("intersect_flaw_search_abstract_states"),
         opts.get<bool>("print_h_distribution"),
+        opts.get<bool>("print_useless_refinements"),
         *rng,
         log,
         opts.get<DotGraphVerbosity>("dot_graph_verbosity"));

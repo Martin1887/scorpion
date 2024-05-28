@@ -165,7 +165,7 @@ void CEGAR::refinement_loop() {
     double backward_flawed_states_plan_length_perone = 0;
     double forward_flawed_state_pos_plan_length_perc = 0;
     double backward_flawed_state_pos_plan_length_perc = 0;
-    int previous_optimal_cost = 0;
+    Cost previous_optimal_cost = 0;
     int n_optimal_cost_increased = 0;
     /*
       For landmark tasks we have to map all states in which the
@@ -332,7 +332,7 @@ void CEGAR::refinement_loop() {
         } else {
             forward_flawed_state_pos_plan_length_perc += split_prop.flawed_state_pos_plan_length_perc;
         }
-        int optimal_cost = get_optimal_plan_cost(*solution);
+        Cost optimal_cost = get_optimal_plan_cost(*solution);
         if (optimal_cost > previous_optimal_cost) {
             n_optimal_cost_increased++;
         }
@@ -421,8 +421,8 @@ void CEGAR::refinement_loop() {
     }
 }
 
-int CEGAR::get_optimal_plan_cost(const Solution &solution) const {
-    int cost = 0;
+Cost CEGAR::get_optimal_plan_cost(const Solution &solution) const {
+    Cost cost = 0;
     for (Transition trans : solution) {
         OperatorProxy op = task_proxy.get_operators()[trans.op_id];
         cost += op.get_cost();
@@ -434,5 +434,9 @@ int CEGAR::get_optimal_plan_cost(const Solution &solution) const {
 void CEGAR::print_statistics() const {
     abstraction->print_statistics();
     flaw_search->print_statistics();
+}
+
+void CEGAR::print_useless_refinements(const RefinementHierarchy &hier, const vector<int> &goal_distances) const {
+    log << "Useless refinements: " << hier.n_useless_refinements(goal_distances) << endl;
 }
 }

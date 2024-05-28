@@ -372,7 +372,8 @@ static plugins::TypedEnumPlugin<PickSplit> _enum_plugin({
         {"max_cg",
          "order by decreasing position in partial ordering of causal graph"},
         {"max_cover",
-         "compute split that covers the maximum number of flaws for several concrete states."}
+         "compute split that covers the maximum number of flaws for several concrete states."},
+        {"highest_cost_operator", "the operator with the highest cost"},
     });
 static plugins::TypedEnumPlugin<PickSequenceFlaw> _enum_plugin_sequence({
         {"random",

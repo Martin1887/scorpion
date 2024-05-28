@@ -87,6 +87,7 @@ CostSaturation::CostSaturation(
     int memory_padding_mb,
     bool intersect_flaw_search_abstract_states,
     bool print_h_distribution,
+    bool print_useless_refinements,
     utils::RandomNumberGenerator &rng,
     utils::LogProxy &log,
     DotGraphVerbosity dot_graph_verbosity)
@@ -105,6 +106,7 @@ CostSaturation::CostSaturation(
       memory_padding_mb(memory_padding_mb),
       intersect_flaw_search_abstract_states(intersect_flaw_search_abstract_states),
       print_h_distribution(print_h_distribution),
+      print_useless_refinements(print_useless_refinements),
       rng(rng),
       log(log),
       dot_graph_verbosity(dot_graph_verbosity),
@@ -257,8 +259,13 @@ void CostSaturation::build_abstractions(
             << goal_distances[abstraction->get_initial_state().get_id()]
             << endl << endl;
 
+        unique_ptr<RefinementHierarchy> refinement_hierarchy = abstraction->extract_refinement_hierarchy();
+        if (print_useless_refinements) {
+            cegar.print_useless_refinements(*refinement_hierarchy, goal_distances);
+        }
+
         heuristic_functions.emplace_back(
-            abstraction->extract_refinement_hierarchy(),
+            move(refinement_hierarchy),
             move(goal_distances));
         --rem_subtasks;
 

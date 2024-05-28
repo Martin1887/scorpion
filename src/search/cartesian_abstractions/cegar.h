@@ -2,6 +2,7 @@
 #define CARTESIAN_ABSTRACTIONS_CEGAR_H
 
 #include "flaw_search.h"
+#include "refinement_hierarchy.h"
 #include "split_selector.h"
 #include "types.h"
 
@@ -65,7 +66,7 @@ class CEGAR {
     // Build abstraction.
     void refinement_loop();
 
-    int get_optimal_plan_cost(const Solution &solution) const;
+    Cost get_optimal_plan_cost(const Solution &solution) const;
 
     void print_statistics() const;
 
@@ -91,6 +92,8 @@ public:
     CEGAR(const CEGAR &) = delete;
 
     std::unique_ptr<Abstraction> extract_abstraction();
+
+    void print_useless_refinements(const RefinementHierarchy &hier, const std::vector<int> &goal_distances) const;
 };
 }
 
