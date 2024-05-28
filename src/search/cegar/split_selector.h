@@ -42,6 +42,7 @@ enum class PickSplit {
     MAX_COVER,
     // New strategies specially designed for sequence flaws.
     HIGHEST_COST_OPERATOR,
+    LOWEST_COST_OPERATOR,
     FIRST_FLAW,
     LAST_FLAW,
     // The first one in regression, the latest one in progression.

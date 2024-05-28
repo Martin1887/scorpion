@@ -157,11 +157,19 @@ double SplitSelector::rate_split(
         rating = var_id;
         break;
     case PickSplit::HIGHEST_COST_OPERATOR:
-        // prefer splitting goal/initial state to 0-cost operators
+        // Prefer splitting goal/initial states to 0-cost operators.
         if (split.op_cost == -1) {
             rating = 0.5;
         } else {
             rating = split.op_cost;
+        }
+        break;
+    case PickSplit::LOWEST_COST_OPERATOR:
+        // Prefer operators over initial/goal states.
+        if (split.op_cost == 1) {
+            rating = -INF;
+        } else {
+            rating = -split.op_cost;
         }
         break;
     default:
