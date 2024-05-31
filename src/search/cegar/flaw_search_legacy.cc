@@ -1,3 +1,4 @@
+#include "cegar.h"
 #include "flaw_search.h"
 
 #include "abstraction.h"
@@ -82,26 +83,31 @@ void FlawSearch::get_deviation_splits(
 }
 
 unique_ptr<Split> FlawSearch::get_split_from_flaw(const LegacyFlaw &flaw,
+                                                  Cost solution_cost,
                                                   const bool backward,
                                                   const bool split_unwanted_values) {
     if (backward) {
         if (flaw.split_last_state) {
             return create_backward_split_from_init_state({flaw.flaw_search_state},
                                                          flaw.abstract_state_id,
+                                                         solution_cost,
                                                          split_unwanted_values);
         } else {
             return create_backward_split({flaw.flaw_search_state},
                                          flaw.abstract_state_id,
+                                         solution_cost,
                                          split_unwanted_values);
         }
     } else {
         if (flaw.split_last_state) {
             return create_split_from_goal_state({flaw.flaw_search_state},
                                                 flaw.abstract_state_id,
+                                                solution_cost,
                                                 split_unwanted_values);
         } else {
             return create_split({flaw.flaw_search_state},
                                 flaw.abstract_state_id,
+                                solution_cost,
                                 split_unwanted_values);
         }
     }
@@ -114,17 +120,18 @@ SplitProperties FlawSearch::get_split_legacy(const Solution &solution,
         log << "Abstraction: " << endl;
         abstraction.dump();
     }
+    Cost solution_cost = get_optimal_plan_cost(solution, task_proxy);
     unique_ptr<pair<StateID, int>> split_pair;
     if (backward) {
         unique_ptr<LegacyFlaw> backward_flaw = get_flaw_legacy_backward(solution);
         if (backward_flaw) {
-            return SplitProperties(get_split_from_flaw(*backward_flaw, true, split_unwanted_values),
+            return SplitProperties(get_split_from_flaw(*backward_flaw, solution_cost, true, split_unwanted_values),
                                    get_plan_perc(backward_flaw->abstract_state_id, solution), true, 0, 1);
         }
     } else {
         unique_ptr<LegacyFlaw> forward_flaw = get_flaw_legacy_forward(solution);
         if (forward_flaw) {
-            return SplitProperties(get_split_from_flaw(*forward_flaw, false, split_unwanted_values),
+            return SplitProperties(get_split_from_flaw(*forward_flaw, solution_cost, false, split_unwanted_values),
                                    get_plan_perc(forward_flaw->abstract_state_id, solution), false, 1, 0);
         }
     }
@@ -139,6 +146,7 @@ SplitProperties FlawSearch::get_split_legacy_closest_to_goal(
         log << "Abstraction: " << endl;
         abstraction.dump();
     }
+    Cost solution_cost = get_optimal_plan_cost(solution, task_proxy);
 
     unique_ptr<LegacyFlaw> forward_flaw = get_flaw_legacy_forward(solution);
     unique_ptr<LegacyFlaw> backward_flaw = get_flaw_legacy_backward(solution);
@@ -154,10 +162,10 @@ SplitProperties FlawSearch::get_split_legacy_closest_to_goal(
     }
 
     if (backward_chosen) {
-        return SplitProperties(get_split_from_flaw(*backward_flaw, true, split_unwanted_values),
+        return SplitProperties(get_split_from_flaw(*backward_flaw, solution_cost, true, split_unwanted_values),
                                get_plan_perc(backward_flaw->abstract_state_id, solution), true);
     } else {
-        return SplitProperties(get_split_from_flaw(*forward_flaw, false, split_unwanted_values),
+        return SplitProperties(get_split_from_flaw(*forward_flaw, solution_cost, false, split_unwanted_values),
                                get_plan_perc(forward_flaw->abstract_state_id, solution), false);
     }
 }

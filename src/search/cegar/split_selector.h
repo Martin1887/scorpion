@@ -6,6 +6,8 @@
 #include "../task_proxy.h"
 
 #include "../utils/logging.h"
+#include "abstraction.h"
+#include "shortest_paths.h"
 
 #include <memory>
 #include <optional.hh>
@@ -45,6 +47,10 @@ enum class PickSplit {
     LOWEST_COST_OPERATOR,
     // Random order of variables, with a different seed at each execution of the planner.
     RANDOM_VARS_ORDER,
+    // The goal distance of a child is increased after simulating the refinement.
+    GOAL_DISTANCE_INCREASED,
+    // The cost of the optimal abstract plan is increased after simulating the refinement.
+    OPTIMAL_PLAN_COST_INCREASED,
     FIRST_FLAW,
     LAST_FLAW,
     // The first one in regression, the latest one in progression.
@@ -119,6 +125,9 @@ class SplitSelector {
 
     const std::shared_ptr<AbstractTask> task;
     const TaskProxy task_proxy;
+    ShortestPaths &shortest_paths;
+    const Abstraction &abstraction;
+    std::shared_ptr<TransitionSystem> &simulated_transition_system;
     const bool debug;
     std::vector<int> vars_order;
     std::unique_ptr<additive_heuristic::AdditiveHeuristic> additive_heuristic;
@@ -134,20 +143,25 @@ class SplitSelector {
     int get_min_hadd_value(int var_id, const std::vector<int> &values) const;
     int get_max_hadd_value(int var_id, const std::vector<int> &values) const;
 
-    double rate_split(const AbstractState &state, const Split &split, PickSplit pick) const;
+    double rate_split(const AbstractState &state, const Split &split, PickSplit pick, Cost abstract_optimal_plan_cost) const;
     std::vector<Split> compute_max_cover_splits(
         std::vector<std::vector<Split>> &&splits) const;
     Split select_from_best_splits(
         const AbstractState &abstract_state,
         std::vector<Split> &&splits,
+        Cost optimal_abstract_plan_cost,
         utils::RandomNumberGenerator &rng) const;
     std::vector<Split> reduce_to_best_splits(
         const AbstractState &abstract_state,
-        std::vector<std::vector<Split>> &&splits) const;
+        std::vector<std::vector<Split>> &&splits,
+        Cost optimal_abstract_plan_cost) const;
 
 public:
     SplitSelector(
         const std::shared_ptr<AbstractTask> &task,
+        ShortestPaths &shortest_paths,
+        const Abstraction &abstraction,
+        std::shared_ptr<TransitionSystem> &simulated_transition_system,
         PickSplit pick,
         PickSplit tiebreak_pick,
         PickSplit sequence_pick,
@@ -158,6 +172,7 @@ public:
     Split pick_split(
         const AbstractState &abstract_state,
         std::vector<std::vector<Split>> &&splits,
+        Cost abstract_optimal_plan_cost,
         utils::RandomNumberGenerator &rng) const;
 };
 }

@@ -2,6 +2,7 @@
 
 #include "abstraction.h"
 #include "abstract_state.h"
+#include "cegar.h"
 #include "flaw.h"
 #include "shortest_paths.h"
 #include "split_selector.h"
@@ -227,7 +228,7 @@ vector<int> FlawSearch::get_unaffected_variables(
 
 // TODO: Add comment about split considering multiple transitions.
 unique_ptr<Split> FlawSearch::create_split(
-    const vector<StateID> &state_ids, int abstract_state_id, bool split_unwanted_values) {
+    const vector<StateID> &state_ids, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
@@ -339,13 +340,13 @@ unique_ptr<Split> FlawSearch::create_split(
     }
 
     pick_split_timer.resume();
-    Split split = split_selector.pick_split(abstract_state, move(splits), rng);
+    Split split = split_selector.pick_split(abstract_state, move(splits), solution_cost, rng);
     pick_split_timer.stop();
     return utils::make_unique_ptr<Split>(move(split));
 }
 
 unique_ptr<Split> FlawSearch::create_split_from_goal_state(
-    const vector<StateID> &state_ids, int abstract_state_id, bool split_unwanted_values) {
+    const vector<StateID> &state_ids, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
@@ -412,7 +413,7 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
     }
 
     pick_split_timer.resume();
-    Split split = split_selector.pick_split(abstract_state, move(splits), rng);
+    Split split = split_selector.pick_split(abstract_state, move(splits), solution_cost, rng);
     pick_split_timer.stop();
     return utils::make_unique_ptr<Split>(move(split));
 }
@@ -472,7 +473,7 @@ SearchStatus FlawSearch::search_for_flaws(const utils::CountdownTimer &cegar_tim
     return search_status;
 }
 
-unique_ptr<Split> FlawSearch::get_single_split(const utils::CountdownTimer &cegar_timer) {
+unique_ptr<Split> FlawSearch::get_single_split(const utils::CountdownTimer &cegar_timer, Cost solution_cost) {
     auto search_status = search_for_flaws(cegar_timer);
 
     // Memory padding
@@ -496,7 +497,7 @@ unique_ptr<Split> FlawSearch::get_single_split(const utils::CountdownTimer &cega
             log << "Path (without last operator): " << operator_names << endl;
         }
 
-        return create_split({state_id}, flawed_state.abs_id, false);
+        return create_split({state_id}, flawed_state.abs_id, solution_cost, false);
     }
     assert(search_status == SOLVED);
     return nullptr;
@@ -524,7 +525,7 @@ FlawedState FlawSearch::get_flawed_state_with_min_h() {
 }
 
 unique_ptr<Split>
-FlawSearch::get_min_h_batch_split(const utils::CountdownTimer &cegar_timer) {
+FlawSearch::get_min_h_batch_split(const utils::CountdownTimer &cegar_timer, Cost solution_cost) {
     assert(pick_flawed_abstract_state == PickFlawedAbstractState::BATCH_MIN_H);
     if (last_refined_flawed_state != FlawedState::no_state) {
         // Recycle flaws of the last refined abstract state.
@@ -562,7 +563,7 @@ FlawSearch::get_min_h_batch_split(const utils::CountdownTimer &cegar_timer) {
         }
 
         unique_ptr<Split> split;
-        split = create_split(flawed_state.concrete_states, flawed_state.abs_id, false);
+        split = create_split(flawed_state.concrete_states, flawed_state.abs_id, solution_cost, false);
 
         if (!utils::extra_memory_padding_is_reserved()) {
             return nullptr;
@@ -573,7 +574,7 @@ FlawSearch::get_min_h_batch_split(const utils::CountdownTimer &cegar_timer) {
         } else {
             last_refined_flawed_state = FlawedState::no_state;
             // We selected an abstract state without any flaws, so we try again.
-            return get_min_h_batch_split(cegar_timer);
+            return get_min_h_batch_split(cegar_timer, solution_cost);
         }
 
         return split;
@@ -586,7 +587,8 @@ FlawSearch::get_min_h_batch_split(const utils::CountdownTimer &cegar_timer) {
 FlawSearch::FlawSearch(
     const shared_ptr<AbstractTask> &task,
     const Abstraction &abstraction,
-    const ShortestPaths &shortest_paths,
+    ShortestPaths &shortest_paths,
+    shared_ptr<TransitionSystem> &simulated_transition_system,
     utils::RandomNumberGenerator &rng,
     PickFlawedAbstractState pick_flawed_abstract_state,
     PickSplit pick_split,
@@ -601,7 +603,7 @@ FlawSearch::FlawSearch(
     domain_sizes(get_domain_sizes(task_proxy)),
     abstraction(abstraction),
     shortest_paths(shortest_paths),
-    split_selector(task, pick_split, tiebreak_split, sequence_split, sequence_tiebreak_split, log.is_at_least_debug()),
+    split_selector(task, shortest_paths, abstraction, simulated_transition_system, pick_split, tiebreak_split, sequence_split, sequence_tiebreak_split, log.is_at_least_debug()),
     rng(rng),
     pick_flawed_abstract_state(pick_flawed_abstract_state),
     max_concrete_states_per_abstract_state(max_concrete_states_per_abstract_state),
@@ -626,7 +628,7 @@ FlawSearch::FlawSearch(
     }
 }
 
-SplitProperties FlawSearch::get_split(const utils::CountdownTimer &cegar_timer) {
+SplitProperties FlawSearch::get_split(const utils::CountdownTimer &cegar_timer, Cost solution_cost) {
     unique_ptr<Split> split;
     int found_flaws = 0;
 
@@ -635,14 +637,14 @@ SplitProperties FlawSearch::get_split(const utils::CountdownTimer &cegar_timer) 
     case PickFlawedAbstractState::RANDOM:
     case PickFlawedAbstractState::MIN_H:
     case PickFlawedAbstractState::MAX_H:
-        split = get_single_split(cegar_timer);
+        split = get_single_split(cegar_timer, solution_cost);
         if (split) {
             found_flaws = 1;
         }
         break;
     case PickFlawedAbstractState::BATCH_MIN_H:
         // TODO: get the number of found flaws with batch split
-        split = get_min_h_batch_split(cegar_timer);
+        split = get_min_h_batch_split(cegar_timer, solution_cost);
         if (split) {
             found_flaws = 1;
         }
@@ -706,7 +708,7 @@ SplitProperties FlawSearch::get_split_and_direction(const Solution &solution,
     case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION_BIDIRECTIONAL:
         return get_sequence_splits(solution, InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION, true, true);
     default:
-        return get_split(cegar_timer);
+        return get_split(cegar_timer, get_optimal_plan_cost(solution, task_proxy));
     }
 }
 

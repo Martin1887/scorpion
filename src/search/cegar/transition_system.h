@@ -49,7 +49,8 @@ class TransitionSystem {
         int v_id, const AbstractState &v1, const AbstractState &v2, int var);
     void rewire_loops(
         const Loops &old_loops,
-        const AbstractState &v1, const AbstractState &v2, int var);
+        const AbstractState &v1, const AbstractState &v2, int var,
+        const bool simulated = false);
 
 public:
     explicit TransitionSystem(const OperatorsProxy &ops);
@@ -57,11 +58,18 @@ public:
     // Update transition system after v has been split for var into v1 and v2.
     void rewire(
         const AbstractStates &states, int v_id,
-        const AbstractState &v1, const AbstractState &v2, int var);
+        const AbstractState &v1, const AbstractState &v2, int var,
+        const bool simulated = false);
 
     const std::vector<Transitions> &get_incoming_transitions() const;
     const std::vector<Transitions> &get_outgoing_transitions() const;
     const std::vector<Loops> &get_loops() const;
+
+    // Force a set of transitions, used to update another transition system
+    // used for simulations.
+    void force_new_transitions(const std::vector<Transitions> &new_incoming,
+                               const std::vector<Transitions> &new_outgoing,
+                               const std::vector<Loops> &new_loops);
 
     const std::vector<FactPair> &get_preconditions(int op_id) const;
 

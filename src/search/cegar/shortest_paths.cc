@@ -138,18 +138,30 @@ void ShortestPaths::recompute_backward(
     }
 }
 
-void ShortestPaths::mark_dirty(int state, bool backward) {
+void ShortestPaths::mark_dirty(int state, bool backward, bool simulated) {
     if (debug) {
         log << "Mark " << state << " as dirty" << endl;
     }
     if (backward) {
-        init_distances[state] = DIRTY;
-        // Previous shortest path is invalid now.
-        reverse_shortest_path[state] = Transition();
+        if (simulated) {
+            simulated_init_distances[state] = DIRTY;
+            // Previous shortest path is invalid now.
+            simulated_reverse_shortest_path[state] = Transition();
+        } else {
+            init_distances[state] = DIRTY;
+            // Previous shortest path is invalid now.
+            reverse_shortest_path[state] = Transition();
+        }
     } else {
-        goal_distances[state] = DIRTY;
-        // Previous shortest path is invalid now.
-        shortest_path[state] = Transition();
+        if (simulated) {
+            simulated_goal_distances[state] = DIRTY;
+            // Previous shortest path is invalid now.
+            simulated_shortest_path[state] = Transition();
+        } else {
+            goal_distances[state] = DIRTY;
+            // Previous shortest path is invalid now.
+            shortest_path[state] = Transition();
+        }
     }
     assert(!count(dirty_states.begin(), dirty_states.end(), state));
     dirty_states.push_back(state);
@@ -160,21 +172,34 @@ void ShortestPaths::update_incrementally(
     const vector<Transitions> &out,
     int v, int v1, int v2,
     const std::unordered_set<int> &goals,
-    const int initial_state) {
+    const int initial_state,
+    const bool simulated) {
     assert(in.size() == out.size());
     int num_states = in.size();
 
-    shortest_path.resize(num_states);
-    reverse_shortest_path.resize(num_states);
-    goal_distances.resize(num_states, 0);
-    init_distances.resize(num_states, 0);
+    if (simulated) {
+        // Copy distances and shortest_paths into the simulated ones.
+        simulated_shortest_path = shortest_path;
+        simulated_reverse_shortest_path = reverse_shortest_path;
+        simulated_goal_distances = goal_distances;
+        simulated_init_distances = init_distances;
+        simulated_shortest_path.resize(num_states);
+        simulated_reverse_shortest_path.resize(num_states);
+        simulated_goal_distances.resize(num_states, 0);
+        simulated_init_distances.resize(num_states, 0);
+    } else {
+        shortest_path.resize(num_states);
+        reverse_shortest_path.resize(num_states);
+        goal_distances.resize(num_states, 0);
+        init_distances.resize(num_states, 0);
+    }
 
     dirty_candidate.resize(num_states, false);
     dirty_states.clear();
-    update_incrementally_in_direction(in, out, v, v1, v2, goals, initial_state, false);
+    update_incrementally_in_direction(in, out, v, v1, v2, goals, initial_state, false, simulated);
     dirty_candidate.resize(num_states, false);
     dirty_states.clear();
-    update_incrementally_in_direction(in, out, v, v1, v2, goals, initial_state, true);
+    update_incrementally_in_direction(in, out, v, v1, v2, goals, initial_state, true, simulated);
 }
 
 void ShortestPaths::update_incrementally_in_direction(
@@ -183,15 +208,28 @@ void ShortestPaths::update_incrementally_in_direction(
     int v, int v1, int v2,
     const std::unordered_set<int> &goals,
     const int initial_state,
-    bool backward) {
-    vector<Cost> *distances = &goal_distances;
-    Transitions *virtual_shortest_path = &shortest_path;
+    const bool backward,
+    const bool simulated) {
+    vector<Cost> *distances;
+    Transitions *virtual_shortest_path;
+    if (simulated) {
+        distances = &simulated_goal_distances;
+        virtual_shortest_path = &simulated_shortest_path;
+    } else {
+        distances = &goal_distances;
+        virtual_shortest_path = &shortest_path;
+    }
     const vector<Transitions> *virtual_in = &in;
     const vector<Transitions> *virtual_out = &out;
     string target_dist = "Goal ";
     if (backward) {
-        distances = &init_distances;
-        virtual_shortest_path = &reverse_shortest_path;
+        if (simulated) {
+            distances = &simulated_init_distances;
+            virtual_shortest_path = &simulated_reverse_shortest_path;
+        } else {
+            distances = &init_distances;
+            virtual_shortest_path = &reverse_shortest_path;
+        }
         virtual_in = &out;
         virtual_out = &in;
         target_dist = "Init ";
@@ -203,10 +241,17 @@ void ShortestPaths::update_incrementally_in_direction(
             log << " in backward direction";
         }
         log << endl;
-        log << "Goal distances: " << goal_distances << endl;
-        log << "Init distances: " << init_distances << endl;
-        log << "Shortest paths: " << shortest_path << endl;
-        log << "Reverse shortest paths: " << reverse_shortest_path << endl;
+        if (simulated) {
+            log << "Goal distances: " << simulated_goal_distances << endl;
+            log << "Init distances: " << simulated_init_distances << endl;
+            log << "Shortest paths: " << simulated_shortest_path << endl;
+            log << "Reverse shortest paths: " << simulated_reverse_shortest_path << endl;
+        } else {
+            log << "Goal distances: " << goal_distances << endl;
+            log << "Init distances: " << init_distances << endl;
+            log << "Shortest paths: " << shortest_path << endl;
+            log << "Reverse shortest paths: " << reverse_shortest_path << endl;
+        }
         log << "Goals: " << endl;
         for (auto goal : goals) {
             log << goal << endl;
@@ -231,10 +276,17 @@ void ShortestPaths::update_incrementally_in_direction(
     }
 
     if (debug) {
-        log << "Goal distances: " << goal_distances << endl;
-        log << "Init distances: " << init_distances << endl;
-        log << "Shortest paths: " << shortest_path << endl;
-        log << "Reverse shortest paths: " << reverse_shortest_path << endl;
+        if (simulated) {
+            log << "Goal distances: " << simulated_goal_distances << endl;
+            log << "Init distances: " << simulated_init_distances << endl;
+            log << "Shortest paths: " << simulated_shortest_path << endl;
+            log << "Reverse shortest paths: " << simulated_reverse_shortest_path << endl;
+        } else {
+            log << "Goal distances: " << goal_distances << endl;
+            log << "Init distances: " << init_distances << endl;
+            log << "Shortest paths: " << shortest_path << endl;
+            log << "Reverse shortest paths: " << reverse_shortest_path << endl;
+        }
     }
 
     /*
@@ -257,8 +309,8 @@ void ShortestPaths::update_incrementally_in_direction(
     */
     dirty_candidate[v1] = true;
     dirty_candidate[v2] = true;
-    candidate_queue.push(goal_distances[v1], v1);
-    candidate_queue.push(goal_distances[v2], v2);
+    candidate_queue.push((*distances)[v1], v1);
+    candidate_queue.push((*distances)[v2], v2);
 
     // So, after this all dirty states are marked.
     while (!candidate_queue.empty()) {
@@ -294,7 +346,7 @@ void ShortestPaths::update_incrementally_in_direction(
             }
         }
         if (!reconnected) {
-            mark_dirty(state, backward);
+            mark_dirty(state, backward, simulated);
             for (const Transition &t : (*virtual_in)[state]) {
                 int prev = t.target_id;
                 if (!dirty_candidate[prev] &&
@@ -310,8 +362,13 @@ void ShortestPaths::update_incrementally_in_direction(
 
 
     if (debug) {
-        log << "Goal distances: " << goal_distances << endl;
-        log << "Init distances: " << init_distances << endl;
+        if (simulated) {
+            log << "Goal distances: " << simulated_goal_distances << endl;
+            log << "Init distances: " << simulated_init_distances << endl;
+        } else {
+            log << "Goal distances: " << goal_distances << endl;
+            log << "Init distances: " << init_distances << endl;
+        }
         log << "Dirty states: " << dirty_states << endl;
     }
 
@@ -395,9 +452,18 @@ void ShortestPaths::update_incrementally_in_direction(
 }
 
 unique_ptr<Solution> ShortestPaths::extract_solution(
-    int init_id, const Goals &goals) {
+    int init_id, const Goals &goals, const bool simulated) {
+    Transitions *shortest_path_ptr;
+    vector<Cost> *goal_distances_ptr;
+    if (simulated) {
+        goal_distances_ptr = &simulated_goal_distances;
+        shortest_path_ptr = &simulated_shortest_path;
+    } else {
+        goal_distances_ptr = &goal_distances;
+        shortest_path_ptr = &shortest_path;
+    }
     // h* = \infty iff goal is unreachable from this state.
-    if (goal_distances[init_id] == INF_COSTS) {
+    if (goal_distances_ptr->at(init_id) == INF_COSTS) {
         return nullptr;
     }
 
@@ -406,24 +472,28 @@ unique_ptr<Solution> ShortestPaths::extract_solution(
     // This happens at the beginning (when only the trivial state exists).
     // assert(!goals.count(current_state));
     while (!goals.count(current_state)) {
-        assert(utils::in_bounds(current_state, shortest_path));
-        const Transition &t = shortest_path[current_state];
+        assert(utils::in_bounds(current_state, *shortest_path_ptr));
+        const Transition &t = shortest_path_ptr->at(current_state);
         assert(t.op_id != UNDEFINED);
         assert(t.target_id != UNDEFINED);
         assert(t.target_id != current_state);
-        assert(goal_distances[t.target_id] <= goal_distances[current_state]);
+        assert(goal_distances_ptr->at(t.target_id) <= goal_distances_ptr->at(current_state));
         solution->push_back(t);
         current_state = t.target_id;
     }
     return solution;
 }
 
-Cost ShortestPaths::get_64bit_goal_distance(int abstract_state_id) const {
-    return goal_distances.at(abstract_state_id);
+Cost ShortestPaths::get_64bit_goal_distance(int abstract_state_id, const bool simulated) const {
+    if (simulated) {
+        return simulated_goal_distances.at(abstract_state_id);
+    } else {
+        return goal_distances.at(abstract_state_id);
+    }
 }
 
-int ShortestPaths::get_32bit_goal_distance(int abstract_state_id) const {
-    return convert_to_32_bit_cost(goal_distances.at(abstract_state_id));
+int ShortestPaths::get_32bit_goal_distance(int abstract_state_id, const bool simulated) const {
+    return convert_to_32_bit_cost(get_64bit_goal_distance(abstract_state_id, simulated));
 }
 
 bool ShortestPaths::is_optimal_transition(int start_id, int op_id, int target_id) const {

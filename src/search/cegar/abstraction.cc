@@ -80,11 +80,8 @@ void Abstraction::initialize_trivial_abstraction(const vector<int> &domain_sizes
     states.push_back(move(init_state));
 }
 
-pair<int, int> Abstraction::refine(
-    const AbstractState &state, int var, const vector<int> &wanted) {
-    if (log.is_at_least_debug())
-        log << "Refine " << state << " for " << var << "=" << wanted << endl;
-
+AbstractStateSplit Abstraction::split(
+    const AbstractState &state, int var, const std::vector<int> &wanted) const {
     int v_id = state.get_id();
     // Reuse state ID from obsolete parent to obtain consecutive IDs.
     int v1_id = v_id;
@@ -111,30 +108,42 @@ pair<int, int> Abstraction::refine(
 
     // Ensure that the initial state always has state ID 0.
     if ((v1_id == init_id &&
-        v2_cartesian_set.test(var, concrete_initial_state[var].get_value()))
+         v2_cartesian_set.test(var, concrete_initial_state[var].get_value()))
         || (v2_id == init_id &&
             v1_cartesian_set.test(var, concrete_initial_state[var].get_value()))) {
         swap(v1_id, v2_id);
     }
 
+    return AbstractStateSplit {v1_id, v2_id, v2_values, v1_cartesian_set, v2_cartesian_set};
+}
+
+pair<int, int> Abstraction::refine(
+    const AbstractState &state, int var, const vector<int> &wanted) {
+    if (log.is_at_least_debug())
+        log << "Refine " << state << " for " << var << "=" << wanted << endl;
+
+    int v_id = state.get_id();
+    auto split_result = split(state, var, wanted);
+
     // Update refinement hierarchy.
     pair<NodeID, NodeID> node_ids = refinement_hierarchy->split(
-        state.get_node_id(), var, v2_values, v1_id, v2_id);
+        state.get_node_id(), var,
+        split_result.v2_values, split_result.v1_id, split_result.v2_id);
 
     unique_ptr<AbstractState> v1 = utils::make_unique_ptr<AbstractState>(
-        v1_id, node_ids.first, move(v1_cartesian_set));
+        split_result.v1_id, node_ids.first, move(split_result.v1_cartesian_set));
     unique_ptr<AbstractState> v2 = utils::make_unique_ptr<AbstractState>(
-        v2_id, node_ids.second, move(v2_cartesian_set));
+        split_result.v2_id, node_ids.second, move(split_result.v2_cartesian_set));
     assert(state.includes(*v1));
     assert(state.includes(*v2));
 
     if (goals.count(v_id)) {
         goals.erase(v_id);
         if (v1->includes(goal_facts)) {
-            goals.insert(v1_id);
+            goals.insert(split_result.v1_id);
         }
         if (v2->includes(goal_facts)) {
-            goals.insert(v2_id);
+            goals.insert(split_result.v2_id);
         }
         if (log.is_at_least_debug()) {
             log << "Goal states: " << goals.size() << endl;
@@ -144,13 +153,60 @@ pair<int, int> Abstraction::refine(
     transition_system->rewire(states, v_id, *v1, *v2, var);
 
     states.emplace_back();
-    states[v1_id] = move(v1);
-    states[v2_id] = move(v2);
+    states[split_result.v1_id] = move(v1);
+    states[split_result.v2_id] = move(v2);
 
     assert(init_id == 0);
     assert(get_initial_state().includes(concrete_initial_state));
 
-    return make_pair(v1_id, v2_id);
+    return make_pair(split_result.v1_id, split_result.v2_id);
+}
+
+SimulatedRefinement Abstraction::simulate_refinement(
+    shared_ptr<TransitionSystem> &simulated_transition_system,
+    const AbstractState &state,
+    int var,
+    const std::vector<int> &wanted) const {
+    if (log.is_at_least_debug())
+        log << "Simulate refinement " << state << " for "
+            << var << "=" << wanted << endl;
+
+    int v_id = state.get_id();
+
+    auto split_result = split(state, var, wanted);
+
+    // Node ids are not used in simulated refinements.
+    unique_ptr<AbstractState> v1 = utils::make_unique_ptr<AbstractState>(
+        split_result.v1_id, split_result.v1_id, move(split_result.v1_cartesian_set));
+    unique_ptr<AbstractState> v2 = utils::make_unique_ptr<AbstractState>(
+        split_result.v2_id, split_result.v2_id, move(split_result.v2_cartesian_set));
+    assert(state.includes(*v1));
+    assert(state.includes(*v2));
+
+    simulated_transition_system->force_new_transitions(get_transition_system().get_incoming_transitions(),
+                                                       get_transition_system().get_outgoing_transitions(),
+                                                       get_transition_system().get_loops());
+    SimulatedRefinement ref(simulated_transition_system, goals, split_result.v1_id, split_result.v2_id);
+
+    if (ref.goals.count(v_id)) {
+        ref.goals.erase(v_id);
+        if (v1->includes(goal_facts)) {
+            ref.goals.insert(split_result.v1_id);
+        }
+        if (v2->includes(goal_facts)) {
+            ref.goals.insert(split_result.v2_id);
+        }
+        if (log.is_at_least_debug()) {
+            log << "Goal states: " << ref.goals.size() << endl;
+        }
+    }
+
+    ref.transition_system->rewire(states, v_id, *v1, *v2, var, true);
+
+    assert(init_id == 0);
+    assert(get_initial_state().includes(concrete_initial_state));
+
+    return ref;
 }
 
 void Abstraction::print_statistics() const {

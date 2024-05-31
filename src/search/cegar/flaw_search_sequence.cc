@@ -1,3 +1,4 @@
+#include "cegar.h"
 #include "flaw_search.h"
 
 #include "abstraction.h"
@@ -94,7 +95,7 @@ void FlawSearch::get_deviation_splits(
 }
 
 unique_ptr<Split> FlawSearch::create_split(
-    const vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values) {
+    const vector<AbstractState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
@@ -206,13 +207,13 @@ unique_ptr<Split> FlawSearch::create_split(
     }
 
     pick_split_timer.resume();
-    Split split = split_selector.pick_split(abstract_state, move(splits), rng);
+    Split split = split_selector.pick_split(abstract_state, move(splits), solution_cost, rng);
     pick_split_timer.stop();
     return utils::make_unique_ptr<Split>(move(split));
 }
 
 unique_ptr<Split> FlawSearch::create_split_from_goal_state(
-    const vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values) {
+    const vector<AbstractState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
@@ -282,7 +283,7 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
     }
 
     pick_split_timer.resume();
-    Split split = split_selector.pick_split(abstract_state, move(splits), rng);
+    Split split = split_selector.pick_split(abstract_state, move(splits), solution_cost, rng);
     pick_split_timer.stop();
     return utils::make_unique_ptr<Split>(move(split));
 }
@@ -619,10 +620,11 @@ SplitProperties FlawSearch::select_from_sequence_flaws(
     if (forward_flaws.empty() && backward_flaws.empty()) {
         return SplitProperties(nullptr, 0, false, 0, 0);
     }
+    Cost solution_cost = get_optimal_plan_cost(solution, task_proxy);
     unique_ptr<Split> best_fw = forward_flaws.empty() ? nullptr
-        : select_flaw_and_pick_split(move(forward_flaws), false, rng);
+        : select_flaw_and_pick_split(move(forward_flaws), false, solution_cost, rng);
     unique_ptr<Split> best_bw = backward_flaws.empty() ? nullptr
-        : select_flaw_and_pick_split(move(backward_flaws), true, rng);
+        : select_flaw_and_pick_split(move(backward_flaws), true, solution_cost, rng);
 
     if (!best_fw) {
         return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution);
@@ -678,9 +680,10 @@ SplitProperties FlawSearch::select_from_sequence_flaws(
                                                 false);
             }
         default:
+            Cost solution_cost = get_optimal_plan_cost(solution, task_proxy);
             double diff_rate =
-                split_selector.rate_split(fw_abstract_state, *best_fw, split_selector.sequence_pick) -
-                split_selector.rate_split(bw_abstract_state, *best_bw, split_selector.sequence_pick);
+                split_selector.rate_split(fw_abstract_state, *best_fw, split_selector.sequence_pick, solution_cost) -
+                split_selector.rate_split(bw_abstract_state, *best_bw, split_selector.sequence_pick, solution_cost);
             if (abs(diff_rate) < EPSILON) {
                 // Break tie because they are equal.
                 return sequence_splits_tiebreak(move(best_fw),
@@ -708,9 +711,10 @@ SplitProperties FlawSearch::sequence_splits_tiebreak(unique_ptr<Split> best_fw,
                                                      int n_backward,
                                                      const Solution &solution,
                                                      bool invalidate_cache) {
+    Cost solution_cost = get_optimal_plan_cost(solution, task_proxy);
     double tiebreak_diff_rate =
-        split_selector.rate_split(fw_abstract_state, *best_fw, split_selector.sequence_tiebreak_pick) -
-        split_selector.rate_split(bw_abstract_state, *best_bw, split_selector.sequence_tiebreak_pick);
+        split_selector.rate_split(fw_abstract_state, *best_fw, split_selector.sequence_tiebreak_pick, solution_cost) -
+        split_selector.rate_split(bw_abstract_state, *best_bw, split_selector.sequence_tiebreak_pick, solution_cost);
     if (abs(tiebreak_diff_rate) < EPSILON) {
         // Preference for backward flaw.
         return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution, invalidate_cache);
@@ -736,38 +740,39 @@ SplitProperties FlawSearch::return_best_sequence_split(unique_ptr<Split> best,
 unique_ptr<Split> FlawSearch::select_flaw_and_pick_split(
     vector<LegacyFlaw> &&flaws,
     bool backward_direction,
+    Cost solution_cost,
     utils::RandomNumberGenerator &rng) {
     assert(!flaws.empty());
     if (flaws.size() == 1) {
-        return get_split_from_flaw(move(flaws[0]), backward_direction, backward_direction);
+        return get_split_from_flaw(move(flaws[0]), solution_cost, backward_direction, backward_direction);
     } else {
         unique_ptr<Split> selected_split = nullptr;
         switch (split_selector.sequence_pick) {
         case PickSplit::RANDOM:
-            return get_split_from_flaw(move(*rng.choose(flaws)), backward_direction, backward_direction);
+            return get_split_from_flaw(move(*rng.choose(flaws)), solution_cost, backward_direction, backward_direction);
         case PickSplit::FIRST_FLAW:
-            return get_split_from_flaw(move(flaws[0]), backward_direction, backward_direction);
+            return get_split_from_flaw(move(flaws[0]), solution_cost, backward_direction, backward_direction);
         case PickSplit::LAST_FLAW:
-            return get_split_from_flaw(move(flaws.back()), backward_direction, backward_direction);
+            return get_split_from_flaw(move(flaws.back()), solution_cost, backward_direction, backward_direction);
         case PickSplit::CLOSEST_TO_GOAL_FLAW:
             if (backward_direction) {
-                return get_split_from_flaw(move(flaws[0]), backward_direction, backward_direction);
+                return get_split_from_flaw(move(flaws[0]), solution_cost, backward_direction, backward_direction);
             } else {
-                return get_split_from_flaw(move(flaws.back()), backward_direction, backward_direction);
+                return get_split_from_flaw(move(flaws.back()), solution_cost, backward_direction, backward_direction);
             }
         default:
             double max_rating = numeric_limits<double>::lowest();
             double max_tiebreak_rating = numeric_limits<double>::lowest();
             for (LegacyFlaw &fl : flaws) {
-                unique_ptr<Split> split = splits_cache_get(move(fl), backward_direction, backward_direction);
+                unique_ptr<Split> split = splits_cache_get(move(fl), solution_cost, backward_direction, backward_direction);
                 const AbstractState &abs = abstraction.get_state(split->abstract_state_id);
-                double rating = split_selector.rate_split(abs, *split, split_selector.sequence_pick);
+                double rating = split_selector.rate_split(abs, *split, split_selector.sequence_pick, solution_cost);
                 if (rating > max_rating) {
                     max_rating = rating;
-                    max_tiebreak_rating = split_selector.rate_split(abs, *split, split_selector.sequence_tiebreak_pick);
+                    max_tiebreak_rating = split_selector.rate_split(abs, *split, split_selector.sequence_tiebreak_pick, solution_cost);
                     selected_split = move(split);
                 } else if (max_rating - rating < EPSILON) {
-                    double tiebreak_rating = split_selector.rate_split(abs, *split, split_selector.sequence_tiebreak_pick);
+                    double tiebreak_rating = split_selector.rate_split(abs, *split, split_selector.sequence_tiebreak_pick, solution_cost);
                     if (tiebreak_rating > max_tiebreak_rating) {
                         max_rating = rating;
                         max_tiebreak_rating = tiebreak_rating;
