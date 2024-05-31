@@ -224,6 +224,17 @@ double SplitSelector::rate_split(
         rating = get_optimal_plan_cost(solution, task_proxy) - optimal_abstract_plan_cost;
         break;
     }
+    case PickSplit::BALANCE_REFINED_CLOSEST_GOAL:
+    {
+        int int_init_dist = shortest_paths.get_64bit_goal_distance(0);
+        double init_dist = int_init_dist == 0 ? 1.0 : (double)int_init_dist;
+        // Refinedness is negative between 0 and -1.
+        // The initial state is always 0 and to normalize between 0 and 1
+        // its distance is used as the maximum of the optimal abstract plan.
+        rating = get_refinedness(state, var_id) -
+            ((double)shortest_paths.get_64bit_goal_distance(state.get_id()) / init_dist);
+        break;
+    }
     default:
         cerr << "Invalid pick strategy for rate_split(): "
              << static_cast<int>(pick) << endl;

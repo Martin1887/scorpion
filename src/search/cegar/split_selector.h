@@ -51,6 +51,8 @@ enum class PickSplit {
     GOAL_DISTANCE_INCREASED,
     // The cost of the optimal abstract plan is increased after simulating the refinement.
     OPTIMAL_PLAN_COST_INCREASED,
+    // Balance between most refined and closest to goal with the same weight.
+    BALANCE_REFINED_CLOSEST_GOAL,
     FIRST_FLAW,
     LAST_FLAW,
     // The first one in regression, the latest one in progression.
