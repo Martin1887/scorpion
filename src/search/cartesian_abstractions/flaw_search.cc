@@ -781,6 +781,32 @@ static plugins::TypedEnumPlugin<PickFlawedAbstractState> _enum_plugin({
         {"first_on_shortest_path",
          "Follow the arbitrary solution in the shortest path tree (no flaw search). "
          "Consider first encountered flawed abstract state and a random concrete state."},
+        {"first_on_shortest_path_unwanted_values",
+         "Legacy code: follow the arbitrary solution in shortest path tree (no flaw search)"
+         "splitting the unwanted values."
+         "Consider first encountered flawed abstract state + a random concrete state."},
+        {"first_on_shortest_path_backward",
+         "Follow the arbitrary solution in shortest path in backward direction"
+         "(from the goal) splitting the unwanted values."},
+        {"first_on_shortest_path_backward_wanted_values",
+         "Follow the arbitrary solution in shortest path in backward direction"
+         "from the goal) splitting the wanted values."},
+        {"first_on_shortest_path_backward_wanted_values_refining_init_state",
+         "Follow the arbitrary solution in shortest path in backward direction"
+         "(from the goal) splitting the wanted values refining the init state"
+         "before refinement steps."},
+        {"first_on_shortest_path_bidirectional_interleaved",
+         "Follow the arbitrary solution in shortest path in backward and forward"
+         "directions interleaving them."},
+        {"first_on_shortest_path_bidirectional_backward_forward",
+         "Follow the arbitrary solution in shortest path in backward direction the"
+         "first half of the time/states/transitions and in the forward direction the other one."},
+        {"first_on_shortest_path_bidirectional_forward_backward",
+         "Follow the arbitrary solution in shortest path in forward direction the"
+         "first half of the time/states/transitions and in the backward direction the other one."},
+        {"FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_CLOSEST_TO_GOAL",
+         "Follow the arbitrary solution in shortest path in the direction where"
+         "the found flaw is closer to the goal."},
         {"random",
          "Collect all flawed abstract states and then consider a random abstract state "
          "and a random concrete state."},
