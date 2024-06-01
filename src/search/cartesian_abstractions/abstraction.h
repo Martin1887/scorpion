@@ -1,6 +1,8 @@
 #ifndef CARTESIAN_ABSTRACTIONS_ABSTRACTION_H
 #define CARTESIAN_ABSTRACTIONS_ABSTRACTION_H
 
+#include "cartesian_set.h"
+#include "transition_system.h"
 #include "types.h"
 
 #include "../task_proxy.h"
@@ -18,6 +20,31 @@ namespace cartesian_abstractions {
 class AbstractState;
 class RefinementHierarchy;
 class TransitionSystem;
+
+struct AbstractStateSplit {
+    int v1_id;
+    int v2_id;
+    std::vector<int> v2_values;
+    CartesianSet v1_cartesian_set;
+    CartesianSet v2_cartesian_set;
+};
+
+class SimulatedRefinement {
+public:
+    std::shared_ptr<TransitionSystem> transition_system;
+    Goals goals;
+    const int v1_id;
+    const int v2_id;
+    SimulatedRefinement(const std::shared_ptr<TransitionSystem> tr,
+                        const Goals goals,
+                        const int v1_id,
+                        const int v2_id)
+        : transition_system(tr),
+          goals(goals),
+          v1_id(v1_id),
+          v2_id(v2_id) {
+    }
+};
 
 /*
   Store the set of AbstractStates, use AbstractSearch to find abstract
@@ -46,6 +73,9 @@ class Abstraction {
 
     void initialize_trivial_abstraction(const std::vector<int> &domain_sizes);
 
+    AbstractStateSplit split(
+        const AbstractState &state, int var, const std::vector<int> &wanted) const;
+
 public:
     Abstraction(const std::shared_ptr<AbstractTask> &task, utils::LogProxy &log);
     ~Abstraction();
@@ -66,6 +96,11 @@ public:
     // Split state into two child states.
     std::pair<int, int> refine(
         const AbstractState &state, int var, const std::vector<int> &wanted);
+    SimulatedRefinement simulate_refinement(
+        std::shared_ptr<TransitionSystem> &simulated_transition_system,
+        const AbstractState &state,
+        int var,
+        const std::vector<int> &wanted) const;
 
     void print_statistics() const;
 

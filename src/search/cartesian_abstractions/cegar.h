@@ -38,6 +38,9 @@ class CEGAR {
     const PickFlawedAbstractState pick_flawed_abstract_state;
 
     std::unique_ptr<Abstraction> abstraction;
+    // Transition system used for simulations, from which only transitions are
+    // updated improving massively the performance.
+    std::shared_ptr<TransitionSystem> simulated_transition_system;
     std::unique_ptr<ShortestPaths> shortest_paths;
     std::unique_ptr<FlawSearch> flaw_search;
 
@@ -66,8 +69,6 @@ class CEGAR {
     // Build abstraction.
     void refinement_loop();
 
-    Cost get_optimal_plan_cost(const Solution &solution) const;
-
     void print_statistics() const;
 
 public:
@@ -95,6 +96,8 @@ public:
 
     void print_useless_refinements(const RefinementHierarchy &hier, const std::vector<int> &goal_distances) const;
 };
+
+Cost get_optimal_plan_cost(const Solution &solution, TaskProxy task_proxy);
 }
 
 #endif

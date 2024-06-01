@@ -123,6 +123,14 @@ void TransitionSystem::add_loop(int state_id, int op_id) {
     ++num_loops;
 }
 
+void TransitionSystem::force_new_transitions(const std::vector<Transitions> &new_incoming,
+                                             const std::vector<Transitions> &new_outgoing,
+                                             const std::vector<Loops> &new_loops) {
+    incoming = new_incoming;
+    outgoing = new_outgoing;
+    loops = new_loops;
+}
+
 void TransitionSystem::rewire_incoming_transitions(
     const Transitions &old_incoming, const AbstractStates &states, int v_id,
     const AbstractState &v1, const AbstractState &v2, int var) {
@@ -220,7 +228,8 @@ void TransitionSystem::rewire_outgoing_transitions(
 }
 
 void TransitionSystem::rewire_loops(
-    const Loops &old_loops, const AbstractState &v1, const AbstractState &v2, int var) {
+    const Loops &old_loops, const AbstractState &v1, const AbstractState &v2, int var,
+    const bool simulated) {
     /* State v has been split into v1 and v2. Now for all self-loops
        v->v we need to add one or two of the transitions v1->v1, v1->v2,
        v2->v1 and v2->v2. */
@@ -233,16 +242,22 @@ void TransitionSystem::rewire_loops(
             // op has no precondition on var --> it must start in v1 and v2.
             if (post == UNDEFINED) {
                 // op has no effect on var --> it must end in v1 and v2.
-                add_loop(v1_id, op_id);
-                add_loop(v2_id, op_id);
+                if (!simulated) {
+                    add_loop(v1_id, op_id);
+                    add_loop(v2_id, op_id);
+                }
             } else if (v2.contains(var, post)) {
                 // op must end in v2.
                 add_transition(v1_id, op_id, v2_id);
-                add_loop(v2_id, op_id);
+                if (!simulated) {
+                    add_loop(v2_id, op_id);
+                }
             } else {
                 // op must end in v1.
                 assert(v1.contains(var, post));
-                add_loop(v1_id, op_id);
+                if (!simulated) {
+                    add_loop(v1_id, op_id);
+                }
                 add_transition(v2_id, op_id, v1_id);
             }
         } else if (v1.contains(var, pre)) {
@@ -250,7 +265,9 @@ void TransitionSystem::rewire_loops(
             assert(post != UNDEFINED);
             if (v1.contains(var, post)) {
                 // op must end in v1.
-                add_loop(v1_id, op_id);
+                if (!simulated) {
+                    add_loop(v1_id, op_id);
+                }
             } else {
                 // op must end in v2.
                 assert(v2.contains(var, post));
@@ -263,7 +280,7 @@ void TransitionSystem::rewire_loops(
             if (v1.contains(var, post)) {
                 // op must end in v1.
                 add_transition(v2_id, op_id, v1_id);
-            } else {
+            } else if (!simulated) {
                 // op must end in v2.
                 assert(v2.contains(var, post));
                 add_loop(v2_id, op_id);
@@ -275,7 +292,8 @@ void TransitionSystem::rewire_loops(
 
 void TransitionSystem::rewire(
     const AbstractStates &states, int v_id,
-    const AbstractState &v1, const AbstractState &v2, int var) {
+    const AbstractState &v1, const AbstractState &v2, int var,
+    const bool simulated) {
     // Retrieve old transitions and make space for new transitions.
     Transitions old_incoming = move(incoming[v_id]);
     Transitions old_outgoing = move(outgoing[v_id]);
@@ -291,7 +309,9 @@ void TransitionSystem::rewire(
     // Remove old transitions and add new transitions.
     rewire_incoming_transitions(old_incoming, states, v_id, v1, v2, var);
     rewire_outgoing_transitions(old_outgoing, states, v_id, v1, v2, var);
-    rewire_loops(old_loops, v1, v2, var);
+    // For a simulated rewire, loops can be omitted because they will not be
+    // used in future iterations.
+    rewire_loops(old_loops, v1, v2, var, simulated);
 }
 
 const vector<Transitions> &TransitionSystem::get_incoming_transitions() const {

@@ -44,6 +44,7 @@ CEGAR::CEGAR(
       max_non_looping_transitions(max_non_looping_transitions),
       pick_flawed_abstract_state(pick_flawed_abstract_state),
       abstraction(utils::make_unique_ptr<Abstraction>(task, log)),
+      simulated_transition_system(make_shared<TransitionSystem>(task_proxy.get_operators())),
       timer(max_time),
       max_time(max_time),
       log(log),
@@ -52,7 +53,7 @@ CEGAR::CEGAR(
     shortest_paths = utils::make_unique_ptr<ShortestPaths>(
         task_properties::get_operator_costs(task_proxy), log);
     flaw_search = utils::make_unique_ptr<FlawSearch>(
-        task, *abstraction, *shortest_paths, rng,
+        task, *abstraction, *shortest_paths, simulated_transition_system, rng,
         pick_flawed_abstract_state, pick_split, tiebreak_split,
         sequence_split, sequence_tiebreak_split,
         max_concrete_states_per_abstract_state, max_state_expansions,
@@ -332,7 +333,7 @@ void CEGAR::refinement_loop() {
         } else {
             forward_flawed_state_pos_plan_length_perc += split_prop.flawed_state_pos_plan_length_perc;
         }
-        Cost optimal_cost = get_optimal_plan_cost(*solution);
+        Cost optimal_cost = get_optimal_plan_cost(*solution, task_proxy);
         if (optimal_cost > previous_optimal_cost) {
             n_optimal_cost_increased++;
         }
@@ -421,7 +422,7 @@ void CEGAR::refinement_loop() {
     }
 }
 
-Cost CEGAR::get_optimal_plan_cost(const Solution &solution) const {
+Cost get_optimal_plan_cost(const Solution &solution, TaskProxy task_proxy) {
     Cost cost = 0;
     for (Transition trans : solution) {
         OperatorProxy op = task_proxy.get_operators()[trans.op_id];

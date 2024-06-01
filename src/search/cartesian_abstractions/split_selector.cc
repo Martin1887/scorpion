@@ -1,6 +1,8 @@
 #include "split_selector.h"
 
 #include "abstract_state.h"
+#include "abstraction.h"
+#include "cegar.h"
 #include "flaw.h"
 #include "flaw_search.h"
 #include "utils.h"
@@ -81,6 +83,9 @@ PickSplit sequence_to_split(const PickSequenceFlaw pick) {
 
 SplitSelector::SplitSelector(
     const shared_ptr<AbstractTask> &task,
+    ShortestPaths &shortest_paths,
+    const Abstraction &abstraction,
+    shared_ptr<TransitionSystem> &simulated_transition_system,
     PickSplit pick,
     PickSplit tiebreak_pick,
     PickSequenceFlaw sequence_pick,
@@ -88,6 +93,9 @@ SplitSelector::SplitSelector(
     bool debug)
     : task(task),
       task_proxy(*task),
+      shortest_paths(shortest_paths),
+      abstraction(abstraction),
+      simulated_transition_system(simulated_transition_system),
       debug(debug),
       first_pick(pick),
       tiebreak_pick(tiebreak_pick),
@@ -102,6 +110,13 @@ SplitSelector::SplitSelector(
         additive_heuristic->compute_heuristic_for_cegar(
             task_proxy.get_initial_state());
     }
+    vars_order = vector<int>(task->get_num_variables());
+    // Fill vars_order with numbers from 0 to num_variables -1 to shuffle it aftwerards.
+    std::iota(std::begin(vars_order), std::end(vars_order), 0);
+    // This uses /dev/urandom en Linux, so the numbers are different at each execution.
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(vars_order.begin(), vars_order.end(), g);
 }
 
 // Define here to avoid include in header.
@@ -155,7 +170,7 @@ int SplitSelector::get_max_hadd_value(int var_id, const vector<int> &values) con
 }
 
 double SplitSelector::rate_split(
-    const AbstractState &state, const Split &split, PickSplit pick) const {
+    const AbstractState &state, const Split &split, PickSplit pick, Cost optimal_abstract_plan_cost) const {
     int var_id = split.var_id;
     double rating;
     switch (pick) {
@@ -184,13 +199,69 @@ double SplitSelector::rate_split(
         rating = var_id;
         break;
     case PickSplit::HIGHEST_COST_OPERATOR:
-        // prefer splitting goal/initial state to 0-cost operators
+        // Prefer splitting goal/initial states to 0-cost operators.
         if (split.op_cost == -1) {
             rating = 0.5;
         } else {
             rating = split.op_cost;
         }
         break;
+    case PickSplit::LOWEST_COST_OPERATOR:
+        // Prefer operators over initial/goal states.
+        if (split.op_cost == 1) {
+            rating = -INF;
+        } else {
+            rating = -split.op_cost;
+        }
+        break;
+    case PickSplit::RANDOM_VARS_ORDER:
+        rating = vars_order[var_id];
+        break;
+    case PickSplit::GOAL_DISTANCE_INCREASED:
+    {
+        int state_id = state.get_id();
+        Cost current_dist = shortest_paths.get_64bit_goal_distance(state_id);
+        SimulatedRefinement ref =
+            abstraction.simulate_refinement(simulated_transition_system, state, var_id, split.values);
+        shortest_paths.update_incrementally(ref.transition_system->get_incoming_transitions(),
+                                            ref.transition_system->get_outgoing_transitions(),
+                                            state_id,
+                                            ref.v1_id,
+                                            ref.v2_id,
+                                            ref.goals,
+                                            0,
+                                            true);
+        rating = shortest_paths.get_64bit_goal_distance(state_id, true) - current_dist;
+        break;
+    }
+    case PickSplit::OPTIMAL_PLAN_COST_INCREASED:
+    {
+        int state_id = state.get_id();
+        SimulatedRefinement ref =
+            abstraction.simulate_refinement(simulated_transition_system, state, var_id, split.values);
+        shortest_paths.update_incrementally(ref.transition_system->get_incoming_transitions(),
+                                            ref.transition_system->get_outgoing_transitions(),
+                                            state_id,
+                                            ref.v1_id,
+                                            ref.v2_id,
+                                            ref.goals,
+                                            0,
+                                            true);
+        Solution solution = *shortest_paths.extract_solution(0, ref.goals, true);
+        rating = get_optimal_plan_cost(solution, task_proxy) - optimal_abstract_plan_cost;
+        break;
+    }
+    case PickSplit::BALANCE_REFINED_CLOSEST_GOAL:
+    {
+        int int_init_dist = shortest_paths.get_64bit_goal_distance(0);
+        double init_dist = int_init_dist == 0 ? 1.0 : (double)int_init_dist;
+        // Refinedness is negative between 0 and -1.
+        // The initial state is always 0 and to normalize between 0 and 1
+        // its distance is used as the maximum of the optimal abstract plan.
+        rating = get_refinedness(state, var_id) -
+            ((double)shortest_paths.get_64bit_goal_distance(state.get_id()) / init_dist);
+        break;
+    }
     default:
         cerr << "Invalid pick strategy for rate_split(): "
              << static_cast<int>(pick) << endl;
@@ -266,7 +337,8 @@ vector<Split> SplitSelector::compute_max_cover_splits(
 
 vector<Split> SplitSelector::reduce_to_best_splits(
     const AbstractState &abstract_state,
-    vector<vector<Split>> &&splits) const {
+    vector<vector<Split>> &&splits,
+    Cost optimal_abstract_plan_cost) const {
     if (first_pick == PickSplit::MAX_COVER) {
         return compute_max_cover_splits(move(splits));
     }
@@ -276,7 +348,7 @@ vector<Split> SplitSelector::reduce_to_best_splits(
     for (auto &var_splits : splits) {
         if (!var_splits.empty()) {
             for (Split &split : var_splits) {
-                double rating = rate_split(abstract_state, split, first_pick);
+                double rating = rate_split(abstract_state, split, first_pick, optimal_abstract_plan_cost);
                 if (rating > max_rating) {
                     best_splits.clear();
                     best_splits.push_back(move(split));
@@ -294,6 +366,7 @@ vector<Split> SplitSelector::reduce_to_best_splits(
 Split SplitSelector::select_from_best_splits(
     const AbstractState &abstract_state,
     vector<Split> &&splits,
+    Cost optimal_abstract_plan_cost,
     utils::RandomNumberGenerator &rng) const {
     assert(!splits.empty());
     if (splits.size() == 1) {
@@ -304,7 +377,7 @@ Split SplitSelector::select_from_best_splits(
     double max_rating = numeric_limits<double>::lowest();
     Split *selected_split = nullptr;
     for (Split &split : splits) {
-        double rating = rate_split(abstract_state, split, tiebreak_pick);
+        double rating = rate_split(abstract_state, split, tiebreak_pick, optimal_abstract_plan_cost);
         if (rating > max_rating) {
             selected_split = &split;
             max_rating = rating;
@@ -317,6 +390,7 @@ Split SplitSelector::select_from_best_splits(
 Split SplitSelector::pick_split(
     const AbstractState &abstract_state,
     vector<vector<Split>> &&splits,
+    Cost optimal_abstract_plan_cost,
     utils::RandomNumberGenerator &rng) const {
     if (first_pick == PickSplit::RANDOM) {
         vector<int> vars_with_splits;
@@ -330,12 +404,12 @@ Split SplitSelector::pick_split(
         return move(*rng.choose(splits[random_var]));
     }
 
-    vector<Split> best_splits = reduce_to_best_splits(abstract_state, move(splits));
+    vector<Split> best_splits = reduce_to_best_splits(abstract_state, move(splits), optimal_abstract_plan_cost);
     assert(!best_splits.empty());
     if (debug) {
         utils::g_log << "Best splits: " << best_splits << endl;
     }
-    Split selected_split = select_from_best_splits(abstract_state, move(best_splits), rng);
+    Split selected_split = select_from_best_splits(abstract_state, move(best_splits), optimal_abstract_plan_cost, rng);
     if (debug) {
         utils::g_log << "Selected split: " << selected_split << endl;
     }
@@ -374,6 +448,14 @@ static plugins::TypedEnumPlugin<PickSplit> _enum_plugin({
         {"max_cover",
          "compute split that covers the maximum number of flaws for several concrete states."},
         {"highest_cost_operator", "the operator with the highest cost"},
+        {"lowest_cost_operator", "the operator with the lowest cost"},
+        {"random_vars_order", "random order of variables"},
+        {"goal_distance_increased",
+         "amount in which the distance to goal is increased after the refinement."},
+        {"optimal_plan_cost_increased",
+         "amount in which the cost of the optimal plan is increased after the refinement."},
+        {"balance_refined_closest_goal",
+         "max_refined and distance of the state before refinement to goal with the same weight."}
     });
 static plugins::TypedEnumPlugin<PickSequenceFlaw> _enum_plugin_sequence({
         {"random",
@@ -407,6 +489,14 @@ static plugins::TypedEnumPlugin<PickSequenceFlaw> _enum_plugin_sequence({
         {"max_cover",
          "compute split that covers the maximum number of flaws for several concrete states."},
         {"highest_cost_operator", "the operator with the highest cost"},
+        {"lowest_cost_operator", "the operator with the lowest cost"},
+        {"random_vars_order", "random order of variables"},
+        {"goal_distance_increased",
+         "amount in which the distance to goal is increased after the refinement."},
+        {"optimal_plan_cost_increased",
+         "amount in which the cost of the optimal plan is increased after the refinement."},
+        {"balance_refined_closest_goal",
+         "max_refined and distance of the state before refinement to goal with the same weight."},
         {"first_flaw", "the first flaw found"},
         {"last_flaw", "the last flaw found"},
         {"closest_to_goal_flaw", "the flaw closest to the goal state"}

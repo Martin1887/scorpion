@@ -140,7 +140,7 @@ class FlawSearch {
     TaskProxy task_proxy;
     const std::vector<int> domain_sizes;
     const Abstraction &abstraction;
-    const ShortestPaths &shortest_paths;
+    ShortestPaths &shortest_paths;
     const SplitSelector split_selector;
     utils::RandomNumberGenerator &rng;
     const PickFlawedAbstractState pick_flawed_abstract_state;
@@ -224,22 +224,22 @@ class FlawSearch {
     SearchStatus search_for_flaws(const utils::CountdownTimer &cegar_timer);
 
     std::unique_ptr<Split> create_split(
-        const std::vector<StateID> &state_ids, int abstract_state_id, bool split_unwanted_values);
+        const std::vector<StateID> &state_ids, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
     std::unique_ptr<Split> create_split_from_goal_state(
-        const std::vector<StateID> &state_ids, int abstract_state_id, bool split_unwanted_values);
+        const std::vector<StateID> &state_ids, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
 
     std::unique_ptr<Split> create_split(
-        const std::vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values);
+        const std::vector<AbstractState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
     std::unique_ptr<Split> create_split_from_goal_state(
-        const std::vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values);
+        const std::vector<AbstractState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
     std::unique_ptr<Split> create_backward_split(
-        const std::vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values);
+        const std::vector<AbstractState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
     std::unique_ptr<Split> create_backward_split_from_init_state(
-        const std::vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values);
+        const std::vector<AbstractState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
 
     FlawedState get_flawed_state_with_min_h();
-    std::unique_ptr<Split> get_single_split(const utils::CountdownTimer &cegar_timer);
-    std::unique_ptr<Split> get_min_h_batch_split(const utils::CountdownTimer &cegar_timer);
+    std::unique_ptr<Split> get_single_split(const utils::CountdownTimer &cegar_timer, Cost solution_cost);
+    std::unique_ptr<Split> get_min_h_batch_split(const utils::CountdownTimer &cegar_timer, Cost solution_cost);
 
     std::vector<LegacyFlaw> get_forward_flaws(const Solution &solution,
                                               const bool in_sequence,
@@ -256,6 +256,7 @@ class FlawSearch {
     std::unique_ptr<Split> select_flaw_and_pick_split(
         std::vector<LegacyFlaw> &&flaws,
         bool backward_direction,
+        Cost solution_cost,
         utils::RandomNumberGenerator &rng);
     SplitProperties select_from_sequence_flaws(
         std::vector<LegacyFlaw> &&forward_flaws,
@@ -282,15 +283,19 @@ class FlawSearch {
                                                const Solution &solution,
                                                bool invalidate_cache = true);
 
-    std::unique_ptr<Split> splits_cache_get(LegacyFlaw f, bool backward_direction, bool split_unwanted_values);
+    std::unique_ptr<Split> splits_cache_get(LegacyFlaw f,
+                                            Cost solution_cost,
+                                            bool backward_direction,
+                                            bool split_unwanted_values);
 
     void splits_cache_invalidate(int abstract_state_id);
 
     std::unique_ptr<Split> get_split_from_flaw(const LegacyFlaw &flaw,
+                                               Cost solution_cost,
                                                const bool backward,
                                                const bool split_unwanted_values);
 
-    SplitProperties get_split(const utils::CountdownTimer &cegar_timer);
+    SplitProperties get_split(const utils::CountdownTimer &cegar_timer, Cost solution_cost);
     SplitProperties get_split_legacy(const Solution &solution,
                                      const bool backward = false,
                                      const bool split_unwanted_values = false);
@@ -303,7 +308,8 @@ public:
     FlawSearch(
         const std::shared_ptr<AbstractTask> &task,
         const Abstraction &abstraction,
-        const ShortestPaths &shortest_paths,
+        ShortestPaths &shortest_paths,
+        std::shared_ptr<TransitionSystem> &simulated_transition_system,
         utils::RandomNumberGenerator &rng,
         PickFlawedAbstractState pick_flawed_abstract_state,
         PickSplit pick_split,

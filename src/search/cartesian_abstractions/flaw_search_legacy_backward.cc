@@ -95,7 +95,7 @@ void FlawSearch::get_deviation_backward_splits(
 }
 
 unique_ptr<Split> FlawSearch::create_backward_split(
-    const vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values) {
+    const vector<AbstractState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
@@ -253,13 +253,13 @@ unique_ptr<Split> FlawSearch::create_backward_split(
     }
 
     pick_split_timer.resume();
-    Split split = split_selector.pick_split(abstract_state, move(splits), rng);
+    Split split = split_selector.pick_split(abstract_state, move(splits), solution_cost, rng);
     pick_split_timer.stop();
     return utils::make_unique_ptr<Split>(move(split));
 }
 
 unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
-    const vector<AbstractState> &states, int abstract_state_id, bool split_unwanted_values) {
+    const vector<AbstractState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
@@ -333,7 +333,7 @@ unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
     }
 
     pick_split_timer.resume();
-    Split split = split_selector.pick_split(abstract_state, move(splits), rng);
+    Split split = split_selector.pick_split(abstract_state, move(splits), solution_cost, rng);
     pick_split_timer.stop();
     return utils::make_unique_ptr<Split>(move(split));
 }
