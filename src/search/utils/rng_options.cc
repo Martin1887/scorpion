@@ -11,10 +11,11 @@ void add_rng_options(plugins::Feature &feature) {
     feature.add_option<int>(
         "random_seed",
         "Set to -1 (default) to use the global random number generator. "
+        "Set to -2 to use a random seed based on the current time. "
         "Set to any other value to use a local random number generator with "
         "the given seed.",
         "-1",
-        plugins::Bounds("-1", "infinity"));
+        plugins::Bounds("-2", "infinity"));
 }
 
 shared_ptr<RandomNumberGenerator> parse_rng_from_options(
@@ -25,6 +26,8 @@ shared_ptr<RandomNumberGenerator> parse_rng_from_options(
         static shared_ptr<utils::RandomNumberGenerator> rng =
             make_shared<utils::RandomNumberGenerator>(2011);
         return rng;
+    } else if (seed == -2) {
+        return make_shared<utils::RandomNumberGenerator>();
     } else {
         return make_shared<RandomNumberGenerator>(seed);
     }
