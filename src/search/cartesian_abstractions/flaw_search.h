@@ -129,14 +129,7 @@ struct LegacyFlaw {
     }
 };
 
-class SplitsCache {
-public:
-    SplitsCache();
-};
-
 class FlawSearch {
-    friend class SplitsCache;
-
     TaskProxy task_proxy;
     const std::vector<int> domain_sizes;
     const Abstraction &abstraction;
