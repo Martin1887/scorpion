@@ -95,6 +95,18 @@ enum class PickFlawedAbstractState {
     // Sequence flaws in both directions iteratively in abstraction from
     // the goals, starting at the initial state when no one is found.
     SEQUENCE_ITERATIVE_IN_ABSTRACTION_BIDIRECTIONAL,
+    // Sequence in batch (all progression sequence flaws are refined
+    // before the next flaw search).
+    SEQUENCE_BATCH,
+    // Sequence in batch backward (all regression sequence flaws are refined
+    // before the next flaw search).
+    SEQUENCE_BATCH_BACKWARD,
+    // Sequence in abstraction in batch (all progression sequence flaws are refined
+    // before the next flaw search).
+    SEQUENCE_IN_ABSTRACTION_BATCH,
+    // Sequence in abstraction in batch backward (all regression sequence flaws are refined
+    // before the next flaw search).
+    SEQUENCE_IN_ABSTRACTION_BATCH_BACKWARD,
 };
 
 enum class InAbstractionFlawSearchKind {
@@ -154,6 +166,10 @@ class FlawSearch {
     std::unique_ptr<PerStateInformation<int>> cached_abstract_state_ids;
 
     // Flaw data
+    // Flaws obtained in the last flaws search. These flaws are all in the
+    // same direction because interferences would exist if flaws in different
+    // directions were mixed.
+    std::deque<LegacyFlaw> sequence_flaws_queue;
     FlawedState last_refined_flawed_state;
     Cost best_flaw_h;
     FlawedStates flawed_states;
@@ -320,7 +336,8 @@ public:
     SplitProperties get_sequence_splits(const Solution &solution,
                                         const InAbstractionFlawSearchKind only_in_abstraction,
                                         const bool forward,
-                                        const bool backward);
+                                        const bool backward,
+                                        const bool in_batch = false);
     bool refine_init_state() const;
     bool refine_goals() const;
 

@@ -567,24 +567,49 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
 SplitProperties FlawSearch::get_sequence_splits(const Solution &solution,
                                                 const InAbstractionFlawSearchKind only_in_abstraction,
                                                 const bool forward,
-                                                const bool backward) {
+                                                const bool backward,
+                                                const bool in_batch) {
     assert(forward || backward);
     vector<LegacyFlaw> forward_flaws{};
     vector<LegacyFlaw> backward_flaws{};
-    if (forward) {
-        forward_flaws = get_forward_flaws(solution, true, only_in_abstraction);
-        if (only_in_abstraction == InAbstractionFlawSearchKind::TRUE && forward_flaws.empty()) {
-            forward_flaws = get_forward_flaws(solution, true, InAbstractionFlawSearchKind::FALSE);
+    if (!in_batch || sequence_flaws_queue.empty()) {
+        if (forward) {
+            forward_flaws = get_forward_flaws(solution, true, only_in_abstraction);
+            if (only_in_abstraction == InAbstractionFlawSearchKind::TRUE && forward_flaws.empty()) {
+                forward_flaws = get_forward_flaws(solution, true, InAbstractionFlawSearchKind::FALSE);
+            }
+        }
+        if (backward) {
+            backward_flaws = get_backward_flaws(solution, true, only_in_abstraction);
+            if (only_in_abstraction == InAbstractionFlawSearchKind::TRUE && backward_flaws.empty()) {
+                backward_flaws = get_backward_flaws(solution, true, InAbstractionFlawSearchKind::FALSE);
+            }
         }
     }
-    if (backward) {
-        backward_flaws = get_backward_flaws(solution, true, only_in_abstraction);
-        if (only_in_abstraction == InAbstractionFlawSearchKind::TRUE && backward_flaws.empty()) {
-            backward_flaws = get_backward_flaws(solution, true, InAbstractionFlawSearchKind::FALSE);
+    if (in_batch) {
+        if (sequence_flaws_queue.empty()) {
+            // Move backward_flaws into forward_flaws for a more performant
+            // operatiion and then move it into sequence_flaws_stack.
+            forward_flaws.insert(forward_flaws.end(),
+                                 make_move_iterator(backward_flaws.begin()),
+                                 make_move_iterator(backward_flaws.end()));
+            sequence_flaws_queue.insert(sequence_flaws_queue.end(),
+                                        make_move_iterator(forward_flaws.begin()),
+                                        make_move_iterator(forward_flaws.end()));
         }
+        // Currently only forward or backward are possible for batched splits,
+        // another attribute would be needed for getting the direction in
+        // bidirectional batched splits.
+        vector<LegacyFlaw> flaws = vector<LegacyFlaw>{move(sequence_flaws_queue.front())};
+        sequence_flaws_queue.pop_front();
+        if (forward) {
+            return pick_sequence_split(move(flaws), vector<LegacyFlaw>{}, solution, rng);
+        } else {
+            return pick_sequence_split(vector<LegacyFlaw>{}, move(flaws), solution, rng);
+        }
+    } else {
+        return pick_sequence_split(move(forward_flaws), move(backward_flaws), solution, rng);
     }
-
-    return pick_sequence_split(move(forward_flaws), move(backward_flaws), solution, rng);
 }
 
 SplitProperties FlawSearch::pick_sequence_split(

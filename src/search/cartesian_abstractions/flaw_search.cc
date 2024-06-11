@@ -602,6 +602,7 @@ FlawSearch::FlawSearch(
     intersect_flaw_search_abstract_states(intersect_flaw_search_abstract_states),
     log(log),
     silent_log(utils::get_silent_log()),
+    sequence_flaws_queue(),
     last_refined_flawed_state(FlawedState::no_state),
     best_flaw_h((pick_flawed_abstract_state == PickFlawedAbstractState::MAX_H) ? 0 : INF),
     splits_cache(),
@@ -698,6 +699,14 @@ SplitProperties FlawSearch::get_split_and_direction(const Solution &solution,
         return get_sequence_splits(solution, InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION, false, true);
     case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION_BIDIRECTIONAL:
         return get_sequence_splits(solution, InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION, true, true);
+    case PickFlawedAbstractState::SEQUENCE_BATCH:
+        return get_sequence_splits(solution, InAbstractionFlawSearchKind::FALSE, true, false, true);
+    case PickFlawedAbstractState::SEQUENCE_BATCH_BACKWARD:
+        return get_sequence_splits(solution, InAbstractionFlawSearchKind::FALSE, false, true, true);
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BATCH:
+        return get_sequence_splits(solution, InAbstractionFlawSearchKind::TRUE, true, false, true);
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BATCH_BACKWARD:
+        return get_sequence_splits(solution, InAbstractionFlawSearchKind::TRUE, false, true, true);
     default:
         return get_split(cegar_timer, get_optimal_plan_cost(solution, task_proxy));
     }
@@ -837,5 +846,13 @@ static plugins::TypedEnumPlugin<PickFlawedAbstractState> _enum_plugin({
          "Sequence flaws in the backward direction iteratively in abstraction from the goals, starting at the initial state when no one is found."},
         {"sequence_iterative_in_abstraction_bidirectional",
          "Sequence flaws in both directions iteratively in abstraction from the goals, starting at the initial state when no one is found."},
+        {"sequence_batch",
+         "Sequence progression flaws refining all flaws before the next flaws search."},
+        {"sequence_batch_backward",
+         "Sequence regression flaws refining all flaws before the next flaws search."},
+        {"sequence_in_abstraction_batch",
+         "Sequence in abstraction progression flaws refining all flaws before the next flaws search."},
+        {"sequence_in_abstraction_batch_backward",
+         "Sequence in abstraction regression flaws refining all flaws before the next flaws search."},
     });
 }
