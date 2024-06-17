@@ -74,6 +74,16 @@ PickSplit sequence_to_split(const PickSequenceFlaw pick) {
         return PickSplit::MAX_CG;
     case PickSequenceFlaw::HIGHEST_COST_OPERATOR:
         return PickSplit::HIGHEST_COST_OPERATOR;
+    case PickSequenceFlaw::LOWEST_COST_OPERATOR:
+        return PickSplit::LOWEST_COST_OPERATOR;
+    case PickSequenceFlaw::RANDOM_VARS_ORDER:
+        return PickSplit::RANDOM_VARS_ORDER;
+    case PickSequenceFlaw::GOAL_DISTANCE_INCREASED:
+        return PickSplit::GOAL_DISTANCE_INCREASED;
+    case PickSequenceFlaw::OPTIMAL_PLAN_COST_INCREASED:
+        return PickSplit::OPTIMAL_PLAN_COST_INCREASED;
+    case PickSequenceFlaw::BALANCE_REFINED_CLOSEST_GOAL:
+        return PickSplit::BALANCE_REFINED_CLOSEST_GOAL;
     default:
         cerr << "Invalid pick strategy for PickSplit conversion: "
              << static_cast<int>(pick) << endl;
@@ -231,7 +241,8 @@ double SplitSelector::rate_split(
                                             ref.goals,
                                             0,
                                             true);
-        rating = shortest_paths.get_64bit_goal_distance(state_id, true) - current_dist;
+        rating = max(shortest_paths.get_64bit_goal_distance(ref.v1_id, true),
+                     shortest_paths.get_64bit_goal_distance(ref.v2_id, true)) - current_dist;
         break;
     }
     case PickSplit::OPTIMAL_PLAN_COST_INCREASED:
