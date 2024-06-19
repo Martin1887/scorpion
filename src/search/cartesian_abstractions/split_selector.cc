@@ -56,6 +56,8 @@ bool Split::combine_with(Split &&other) {
 
 PickSplit sequence_to_split(const PickSequenceFlaw pick) {
     switch (pick) {
+    case PickSequenceFlaw::RANDOM:
+        return PickSplit::RANDOM;
     case PickSequenceFlaw::MIN_UNWANTED:
         return PickSplit::MIN_UNWANTED;
     case PickSequenceFlaw::MAX_UNWANTED:
