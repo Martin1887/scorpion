@@ -600,8 +600,11 @@ SplitProperties FlawSearch::get_sequence_splits(const Solution &solution,
         // Currently only forward or backward are possible for batched splits,
         // another attribute would be needed for getting the direction in
         // bidirectional batched splits.
-        vector<LegacyFlaw> flaws = vector<LegacyFlaw>{move(sequence_flaws_queue.front())};
-        sequence_flaws_queue.pop_front();
+        vector<LegacyFlaw> flaws = vector<LegacyFlaw>();
+        if (!sequence_flaws_queue.empty()) {
+            flaws = vector<LegacyFlaw>{move(sequence_flaws_queue.front())};
+            sequence_flaws_queue.pop_front();
+        }
         if (forward) {
             return pick_sequence_split(move(flaws), vector<LegacyFlaw>{}, solution, rng);
         } else {
