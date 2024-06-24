@@ -81,7 +81,7 @@ static void order_facts(
     }
 }
 
-static Facts filter_and_order_facts(
+Facts filter_and_order_facts(
     const shared_ptr<AbstractTask> &task,
     FactOrder fact_order,
     Facts &facts,

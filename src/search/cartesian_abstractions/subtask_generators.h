@@ -32,6 +32,13 @@ enum class FactOrder {
 };
 
 
+Facts filter_and_order_facts(
+    const std::shared_ptr<AbstractTask> &task,
+    FactOrder fact_order,
+    Facts &facts,
+    utils::RandomNumberGenerator &rng,
+    utils::LogProxy &log);
+
 /*
   Create focused subtasks.
 */

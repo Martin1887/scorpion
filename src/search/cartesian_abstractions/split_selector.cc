@@ -5,6 +5,7 @@
 #include "cegar.h"
 #include "flaw.h"
 #include "flaw_search.h"
+#include "subtask_generators.h"
 #include "utils.h"
 
 #include "../heuristics/additive_heuristic.h"
@@ -80,6 +81,8 @@ PickSplit sequence_to_split(const PickSequenceFlaw pick) {
         return PickSplit::LOWEST_COST_OPERATOR;
     case PickSequenceFlaw::RANDOM_VARS_ORDER:
         return PickSplit::RANDOM_VARS_ORDER;
+    case PickSequenceFlaw::LANDMARKS_VARS_ORDER:
+        return PickSplit::LANDMARKS_VARS_ORDER;
     case PickSequenceFlaw::GOAL_DISTANCE_INCREASED:
         return PickSplit::GOAL_DISTANCE_INCREASED;
     case PickSequenceFlaw::OPTIMAL_PLAN_COST_INCREASED:
@@ -122,13 +125,50 @@ SplitSelector::SplitSelector(
         additive_heuristic->compute_heuristic_for_cegar(
             task_proxy.get_initial_state());
     }
-    vars_order = vector<int>(task->get_num_variables());
-    // Fill vars_order with numbers from 0 to num_variables -1 to shuffle it aftwerards.
-    std::iota(std::begin(vars_order), std::end(vars_order), 0);
-    // This uses /dev/urandom en Linux, so the numbers are different at each execution.
-    std::random_device rd;
-    std::mt19937 g(rd());
-    std::shuffle(vars_order.begin(), vars_order.end(), g);
+    if (first_pick == PickSplit::RANDOM_VARS_ORDER || tiebreak_pick == PickSplit::RANDOM_VARS_ORDER ||
+        sequence_pick == PickSequenceFlaw::RANDOM_VARS_ORDER ||
+        sequence_tiebreak_pick == PickSequenceFlaw::RANDOM_VARS_ORDER) {
+        vars_order = vector<int>(task->get_num_variables());
+        // Fill vars_order with numbers from 0 to num_variables -1 to shuffle it aftwerards.
+        std::iota(std::begin(vars_order), std::end(vars_order), 0);
+        // This uses /dev/urandom en Linux, so the numbers are different at each execution.
+        std::random_device rd;
+        std::mt19937 g(rd());
+        std::shuffle(vars_order.begin(), vars_order.end(), g);
+    }
+    if (first_pick == PickSplit::LANDMARKS_VARS_ORDER || tiebreak_pick == PickSplit::LANDMARKS_VARS_ORDER ||
+        sequence_pick == PickSequenceFlaw::LANDMARKS_VARS_ORDER ||
+        sequence_tiebreak_pick == PickSequenceFlaw::LANDMARKS_VARS_ORDER) {
+        utils::HashSet<int> remaining_vars{};
+        for (int i = 0; i < task->get_num_variables(); i++) {
+            remaining_vars.insert(i);
+        }
+        shared_ptr<landmarks::LandmarkGraph> landmark_graph =
+            get_landmark_graph(task);
+        vector<FactPair> landmark_facts = get_fact_landmarks(*landmark_graph);
+        // The rng is not used but needed for the function call.
+        utils::RandomNumberGenerator rng{};
+        utils::LogProxy log{make_shared<utils::Log>(utils::Verbosity::NORMAL)};
+        filter_and_order_facts(task, FactOrder::HADD_DOWN,
+                               landmark_facts,
+                               rng,
+                               log);
+        vars_order = vector<int>{};
+        for (FactPair landmark : landmark_facts) {
+            if (remaining_vars.contains(landmark.var)) {
+                remaining_vars.erase(landmark.var);
+                vars_order.push_back(landmark.var);
+            }
+        }
+        if (!remaining_vars.empty()) {
+            vector<int> maxcg_remaining_vars{};
+            maxcg_remaining_vars.insert(maxcg_remaining_vars.end(), remaining_vars.begin(), remaining_vars.end());
+            sort(maxcg_remaining_vars.begin(), maxcg_remaining_vars.end(), std::greater<int>());
+            for (int var : maxcg_remaining_vars) {
+                vars_order.push_back(var);
+            }
+        }
+    }
 }
 
 // Define here to avoid include in header.
@@ -227,6 +267,7 @@ double SplitSelector::rate_split(
         }
         break;
     case PickSplit::RANDOM_VARS_ORDER:
+    case PickSplit::LANDMARKS_VARS_ORDER:
         rating = vars_order[var_id];
         break;
     case PickSplit::GOAL_DISTANCE_INCREASED:
@@ -463,6 +504,7 @@ static plugins::TypedEnumPlugin<PickSplit> _enum_plugin({
         {"highest_cost_operator", "the operator with the highest cost"},
         {"lowest_cost_operator", "the operator with the lowest cost"},
         {"random_vars_order", "random order of variables"},
+        {"landmarks_vars_order", "landmarks order of variables"},
         {"goal_distance_increased",
          "amount in which the distance to goal is increased after the refinement."},
         {"optimal_plan_cost_increased",
@@ -504,6 +546,7 @@ static plugins::TypedEnumPlugin<PickSequenceFlaw> _enum_plugin_sequence({
         {"highest_cost_operator", "the operator with the highest cost"},
         {"lowest_cost_operator", "the operator with the lowest cost"},
         {"random_vars_order", "random order of variables"},
+        {"landmarks_vars_order", "landmarks order of variables"},
         {"goal_distance_increased",
          "amount in which the distance to goal is increased after the refinement."},
         {"optimal_plan_cost_increased",

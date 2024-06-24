@@ -8,6 +8,8 @@
 #include "../utils/logging.h"
 #include "abstraction.h"
 #include "shortest_paths.h"
+#include "subtask_generators.h"
+#include "utils_landmarks.h"
 
 #include <memory>
 #include <vector>
@@ -45,6 +47,9 @@ enum class PickSplit {
     LOWEST_COST_OPERATOR,
     // Random order of variables, with a different seed at each execution of the planner.
     RANDOM_VARS_ORDER,
+    // Landmark order of variables, sorted by h^{add}, taking the first occurrence
+    // of the variable on any fact landmark.
+    LANDMARKS_VARS_ORDER,
     // The goal distance of a child is increased after simulating the refinement.
     GOAL_DISTANCE_INCREASED,
     // The cost of the optimal abstract plan is increased after simulating the refinement.
@@ -75,6 +80,9 @@ enum class PickSequenceFlaw {
     LOWEST_COST_OPERATOR,
     // Random order of variables, with a different seed at each execution of the planner.
     RANDOM_VARS_ORDER,
+    // Landmark order of variables, sorted by h^{add}, taking the first occurrence
+    // of the variable on any fact landmark.
+    LANDMARKS_VARS_ORDER,
     // The goal distance of a child is increased after simulating the refinement.
     GOAL_DISTANCE_INCREASED,
     // The cost of the optimal abstract plan is increased after simulating the refinement.
