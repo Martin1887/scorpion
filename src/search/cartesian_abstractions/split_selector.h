@@ -170,6 +170,7 @@ class SplitSelector {
     const Abstraction &abstraction;
     std::shared_ptr<TransitionSystem> &simulated_transition_system;
     const bool debug;
+    // Order of variables, where the most priority variables are first.
     std::vector<int> vars_order;
     std::unique_ptr<additive_heuristic::AdditiveHeuristic> additive_heuristic;
 

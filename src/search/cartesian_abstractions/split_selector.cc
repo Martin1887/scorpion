@@ -22,6 +22,18 @@
 using namespace std;
 
 namespace cartesian_abstractions {
+static vector<int> invert_vector(vector<int> source) {
+    // It is assumed that the values of the vector are from 0 to n-1.
+    vector<int> inverted = vector<int>(source.size());
+    int i = 0;
+    for (int val : source) {
+        inverted[val] = i;
+        i++;
+    }
+
+    return inverted;
+}
+
 bool Split::combine_with(Split &&other) {
     assert(var_id == other.var_id);
     if (*this == other) {
@@ -128,13 +140,14 @@ SplitSelector::SplitSelector(
     if (first_pick == PickSplit::RANDOM_VARS_ORDER || tiebreak_pick == PickSplit::RANDOM_VARS_ORDER ||
         sequence_pick == PickSequenceFlaw::RANDOM_VARS_ORDER ||
         sequence_tiebreak_pick == PickSequenceFlaw::RANDOM_VARS_ORDER) {
-        vars_order = vector<int>(task->get_num_variables());
+        vector<int> sortered_vars = vector<int>(task->get_num_variables());
         // Fill vars_order with numbers from 0 to num_variables -1 to shuffle it aftwerards.
-        std::iota(std::begin(vars_order), std::end(vars_order), 0);
+        std::iota(std::begin(sortered_vars), std::end(sortered_vars), 0);
         // This uses /dev/urandom en Linux, so the numbers are different at each execution.
         std::random_device rd;
         std::mt19937 g(rd());
-        std::shuffle(vars_order.begin(), vars_order.end(), g);
+        std::shuffle(sortered_vars.begin(), sortered_vars.end(), g);
+        vars_order = invert_vector(sortered_vars);
     }
     if (first_pick == PickSplit::LANDMARKS_VARS_ORDER || tiebreak_pick == PickSplit::LANDMARKS_VARS_ORDER ||
         sequence_pick == PickSequenceFlaw::LANDMARKS_VARS_ORDER ||
@@ -153,7 +166,7 @@ SplitSelector::SplitSelector(
                                landmark_facts,
                                rng,
                                log);
-        vars_order = vector<int>{};
+        vector<int> sortered_vars = vector<int>{};
         for (FactPair landmark : landmark_facts) {
             if (remaining_vars.contains(landmark.var)) {
                 remaining_vars.erase(landmark.var);
@@ -165,9 +178,10 @@ SplitSelector::SplitSelector(
             maxcg_remaining_vars.insert(maxcg_remaining_vars.end(), remaining_vars.begin(), remaining_vars.end());
             sort(maxcg_remaining_vars.begin(), maxcg_remaining_vars.end(), std::greater<int>());
             for (int var : maxcg_remaining_vars) {
-                vars_order.push_back(var);
+                sortered_vars.push_back(var);
             }
         }
+        vars_order = invert_vector(sortered_vars);
     }
 }
 
@@ -268,7 +282,7 @@ double SplitSelector::rate_split(
         break;
     case PickSplit::RANDOM_VARS_ORDER:
     case PickSplit::LANDMARKS_VARS_ORDER:
-        rating = vars_order[var_id];
+        rating = -vars_order[var_id];
         break;
     case PickSplit::GOAL_DISTANCE_INCREASED:
     {
