@@ -68,53 +68,6 @@ bool Split::combine_with(Split &&other) {
     }
 }
 
-PickSplit sequence_to_split(const PickSequenceFlaw pick) {
-    switch (pick) {
-    case PickSequenceFlaw::RANDOM:
-        return PickSplit::RANDOM;
-    case PickSequenceFlaw::MIN_UNWANTED:
-        return PickSplit::MIN_UNWANTED;
-    case PickSequenceFlaw::MAX_UNWANTED:
-        return PickSplit::MAX_UNWANTED;
-    case PickSequenceFlaw::MIN_REFINED:
-        return PickSplit::MIN_REFINED;
-    case PickSequenceFlaw::MAX_REFINED:
-        return PickSplit::MAX_REFINED;
-    case PickSequenceFlaw::MIN_HADD:
-        return PickSplit::MIN_HADD;
-    case PickSequenceFlaw::MAX_HADD:
-        return PickSplit::MAX_HADD;
-    case PickSequenceFlaw::MIN_CG:
-        return PickSplit::MIN_CG;
-    case PickSequenceFlaw::MAX_CG:
-        return PickSplit::MAX_CG;
-    case PickSequenceFlaw::HIGHEST_COST_OPERATOR:
-        return PickSplit::HIGHEST_COST_OPERATOR;
-    case PickSequenceFlaw::LOWEST_COST_OPERATOR:
-        return PickSplit::LOWEST_COST_OPERATOR;
-    case PickSequenceFlaw::RANDOM_VARS_ORDER:
-        return PickSplit::RANDOM_VARS_ORDER;
-    case PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_DOWN:
-        return PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN;
-    case PickSequenceFlaw::MAX_POTENTIAL_VARS_ORDER:
-        return PickSplit::MAX_POTENTIAL_VARS_ORDER;
-    case PickSequenceFlaw::MIN_POTENTIAL_VARS_ORDER:
-        return PickSplit::MIN_POTENTIAL_VARS_ORDER;
-    case PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_UP:
-        return PickSplit::LANDMARKS_VARS_ORDER_HADD_UP;
-    case PickSequenceFlaw::GOAL_DISTANCE_INCREASED:
-        return PickSplit::GOAL_DISTANCE_INCREASED;
-    case PickSequenceFlaw::OPTIMAL_PLAN_COST_INCREASED:
-        return PickSplit::OPTIMAL_PLAN_COST_INCREASED;
-    case PickSequenceFlaw::BALANCE_REFINED_CLOSEST_GOAL:
-        return PickSplit::BALANCE_REFINED_CLOSEST_GOAL;
-    default:
-        cerr << "Invalid pick strategy for PickSplit conversion: "
-             << static_cast<int>(pick) << endl;
-        utils::exit_with(utils::ExitCode::SEARCH_INPUT_ERROR);
-    }
-}
-
 SplitSelector::SplitSelector(
     const shared_ptr<AbstractTask> &task,
     ShortestPaths &shortest_paths,
@@ -137,17 +90,13 @@ SplitSelector::SplitSelector(
       sequence_pick(sequence_pick),
       sequence_tiebreak_pick(sequence_tiebreak_pick) {
     if (first_pick == PickSplit::MIN_HADD || first_pick == PickSplit::MAX_HADD ||
-        tiebreak_pick == PickSplit::MIN_HADD || tiebreak_pick == PickSplit::MAX_HADD ||
-        sequence_pick == PickSequenceFlaw::MIN_HADD || sequence_pick == PickSequenceFlaw::MAX_HADD ||
-        sequence_tiebreak_pick == PickSequenceFlaw::MIN_HADD ||
-        sequence_tiebreak_pick == PickSequenceFlaw::MAX_HADD) {
+        tiebreak_pick == PickSplit::MIN_HADD || tiebreak_pick == PickSplit::MAX_HADD) {
         additive_heuristic = create_additive_heuristic(task);
         additive_heuristic->compute_heuristic_for_cegar(
             task_proxy.get_initial_state());
     }
-    if (first_pick == PickSplit::RANDOM_VARS_ORDER || tiebreak_pick == PickSplit::RANDOM_VARS_ORDER ||
-        sequence_pick == PickSequenceFlaw::RANDOM_VARS_ORDER ||
-        sequence_tiebreak_pick == PickSequenceFlaw::RANDOM_VARS_ORDER) {
+    if (first_pick == PickSplit::RANDOM_VARS_ORDER ||
+        tiebreak_pick == PickSplit::RANDOM_VARS_ORDER) {
         vector<int> sortered_vars = vector<int>(task->get_num_variables());
         // Fill vars_order with numbers from 0 to num_variables -1 to shuffle it aftwerards.
         std::iota(std::begin(sortered_vars), std::end(sortered_vars), 0);
@@ -157,39 +106,35 @@ SplitSelector::SplitSelector(
         std::shuffle(sortered_vars.begin(), sortered_vars.end(), g);
         vars_order = invert_vector(sortered_vars);
     }
-    if (first_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN || tiebreak_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN ||
-        sequence_pick == PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_DOWN ||
-        sequence_tiebreak_pick == PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_DOWN ||
-        first_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_UP || tiebreak_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_UP ||
-        sequence_pick == PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_UP ||
-        sequence_tiebreak_pick == PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_UP) {
+    if (first_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN ||
+        tiebreak_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN ||
+        first_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_UP ||
+        tiebreak_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_UP) {
         bool descending_order = first_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN ||
-            tiebreak_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN ||
-            sequence_pick == PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_DOWN ||
-            sequence_tiebreak_pick == PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_DOWN;
+            tiebreak_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN;
         utils::HashSet<int> remaining_vars{};
         for (int i = 0; i < task->get_num_variables(); i++) {
             remaining_vars.insert(i);
         }
         shared_ptr<landmarks::LandmarkGraph> landmark_graph =
             get_landmark_graph(task);
-        vector<FactPair> landmark_facts = get_fact_landmarks(*landmark_graph);
+        vector<FactPair> fact_landmarks = get_fact_landmarks(*landmark_graph);
         // The rng is not used but needed for the function call.
         utils::RandomNumberGenerator rng{};
         utils::LogProxy log{make_shared<utils::Log>(utils::Verbosity::NORMAL)};
         if (descending_order) {
             filter_and_order_facts(task, FactOrder::HADD_DOWN,
-                                   landmark_facts,
+                                   fact_landmarks,
                                    rng,
                                    log);
         } else {
             filter_and_order_facts(task, FactOrder::HADD_UP,
-                                   landmark_facts,
+                                   fact_landmarks,
                                    rng,
                                    log);
         }
         vector<int> sortered_vars = vector<int>{};
-        for (FactPair landmark : landmark_facts) {
+        for (FactPair landmark : fact_landmarks) {
             if (remaining_vars.contains(landmark.var)) {
                 remaining_vars.erase(landmark.var);
                 sortered_vars.push_back(landmark.var);
@@ -209,16 +154,12 @@ SplitSelector::SplitSelector(
         }
         vars_order = invert_vector(sortered_vars);
     }
-    if (first_pick == PickSplit::MAX_POTENTIAL_VARS_ORDER || tiebreak_pick == PickSplit::MAX_POTENTIAL_VARS_ORDER ||
-        sequence_pick == PickSequenceFlaw::MAX_POTENTIAL_VARS_ORDER ||
-        sequence_tiebreak_pick == PickSequenceFlaw::MAX_POTENTIAL_VARS_ORDER ||
-        first_pick == PickSplit::MIN_POTENTIAL_VARS_ORDER || tiebreak_pick == PickSplit::MIN_POTENTIAL_VARS_ORDER ||
-        sequence_pick == PickSequenceFlaw::MIN_POTENTIAL_VARS_ORDER ||
-        sequence_tiebreak_pick == PickSequenceFlaw::MIN_POTENTIAL_VARS_ORDER) {
+    if (first_pick == PickSplit::MAX_POTENTIAL_VARS_ORDER ||
+        tiebreak_pick == PickSplit::MAX_POTENTIAL_VARS_ORDER ||
+        first_pick == PickSplit::MIN_POTENTIAL_VARS_ORDER ||
+        tiebreak_pick == PickSplit::MIN_POTENTIAL_VARS_ORDER) {
         bool descending_order = first_pick == PickSplit::MAX_POTENTIAL_VARS_ORDER ||
-            tiebreak_pick == PickSplit::MAX_POTENTIAL_VARS_ORDER ||
-            sequence_pick == PickSequenceFlaw::MAX_POTENTIAL_VARS_ORDER ||
-            sequence_tiebreak_pick == PickSequenceFlaw::MAX_POTENTIAL_VARS_ORDER;
+            tiebreak_pick == PickSplit::MAX_POTENTIAL_VARS_ORDER;
 
         potentials::PotentialOptimizer optimizer(
             task, lp_solver, 1e8);
@@ -595,49 +536,8 @@ static plugins::TypedEnumPlugin<PickSplit> _enum_plugin({
          "max_refined and distance of the state before refinement to goal with the same weight."}
     });
 static plugins::TypedEnumPlugin<PickSequenceFlaw> _enum_plugin_sequence({
-        {"random",
-         "select a random variable (among all eligible variables)"},
-        {"min_unwanted",
-         "select an eligible variable which has the least unwanted values "
-         "(number of values of v that land in the abstract state whose "
-         "h-value will probably be raised) in the flaw state"},
-        {"max_unwanted",
-         "select an eligible variable which has the most unwanted values "
-         "(number of values of v that land in the abstract state whose "
-         "h-value will probably be raised) in the flaw state"},
-        {"min_refined",
-         "select an eligible variable which is the least refined "
-         "(-1 * (remaining_values(v) / original_domain_size(v))) "
-         "in the flaw state"},
-        {"max_refined",
-         "select an eligible variable which is the most refined "
-         "(-1 * (remaining_values(v) / original_domain_size(v))) "
-         "in the flaw state"},
-        {"min_hadd",
-         "select an eligible variable with minimal h^add(s_0) value "
-         "over all facts that need to be removed from the flaw state"},
-        {"max_hadd",
-         "select an eligible variable with maximal h^add(s_0) value "
-         "over all facts that need to be removed from the flaw state"},
-        {"min_cg",
-         "order by increasing position in partial ordering of causal graph"},
-        {"max_cg",
-         "order by decreasing position in partial ordering of causal graph"},
-        {"max_cover",
-         "compute split that covers the maximum number of flaws for several concrete states."},
-        {"highest_cost_operator", "the operator with the highest cost"},
-        {"lowest_cost_operator", "the operator with the lowest cost"},
-        {"random_vars_order", "random order of variables"},
-        {"landmarks_vars_order_hadd_down", "landmarks order of variables sorted by h^{add} in descending order"},
-        {"landmarks_vars_order_hadd_up", "landmarks order of variables sorted by h^{add} in ascending order"},
-        {"max_potential_vars_order", "max potential order of variables (the max of all facts is used for each variable)"},
-        {"min_potential_vars_order", "min potential order of variables (the max of all facts is used for each variable)"},
-        {"goal_distance_increased",
-         "amount in which the distance to goal is increased after the refinement."},
-        {"optimal_plan_cost_increased",
-         "amount in which the cost of the optimal plan is increased after the refinement."},
-        {"balance_refined_closest_goal",
-         "max_refined and distance of the state before refinement to goal with the same weight."},
+        {"best_split", "select the best split among all flawed states"},
+        {"random", "select a random flawed state"},
         {"first_flaw", "the first flaw found"},
         {"last_flaw", "the last flaw found"},
         {"closest_to_goal_flaw", "the flaw closest to the goal state"}

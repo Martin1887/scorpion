@@ -65,47 +65,17 @@ enum class PickSplit {
 
 // Strategies for selecting a sequence flaw.
 // Being able to extend `PickSplit` would be great, but it is not possible.
+// Therefore, the best alternative is to limit the sequence flaw to be the
+// same as the split or the special ones instead of duplicating all `PickSplit`
+// variants.
 enum class PickSequenceFlaw {
+    BEST_SPLIT,
     RANDOM,
-    // Number of values that land in the state whose h-value is probably raised.
-    MIN_UNWANTED,
-    MAX_UNWANTED,
-    // Refinement: - (remaining_values / original_domain_size)
-    MIN_REFINED,
-    MAX_REFINED,
-    // Compare the h^add(s_0) values of the facts.
-    MIN_HADD,
-    MAX_HADD,
-    // Position in partial ordering of causal graph.
-    MIN_CG,
-    MAX_CG,
-    // Compute split that covers the maximum number of flaws for several concrete states.
-    MAX_COVER,
-    HIGHEST_COST_OPERATOR,
-    LOWEST_COST_OPERATOR,
-    // Random order of variables, with a different seed at each execution of the planner.
-    RANDOM_VARS_ORDER,
-    // Landmark order of variables, sorted by h^{add}, taking the first occurrence
-    // of the variable on any fact landmark.
-    LANDMARKS_VARS_ORDER_HADD_DOWN,
-    LANDMARKS_VARS_ORDER_HADD_UP,
-    MAX_POTENTIAL_VARS_ORDER,
-    MIN_POTENTIAL_VARS_ORDER,
-    // The goal distance of a child is increased after simulating the refinement.
-    GOAL_DISTANCE_INCREASED,
-    // The cost of the optimal abstract plan is increased after simulating the refinement.
-    OPTIMAL_PLAN_COST_INCREASED,
-    // Balance between most refined and closest to goal with the same weight.
-    BALANCE_REFINED_CLOSEST_GOAL,
-    // Sequence flaw strategies.
     FIRST_FLAW,
     LAST_FLAW,
     // The first one in regression, the latest one in progression.
     CLOSEST_TO_GOAL_FLAW,
 };
-
-PickSplit sequence_to_split(const PickSequenceFlaw pick);
-
 
 struct Split {
     int count;

@@ -710,8 +710,8 @@ SplitProperties FlawSearch::select_from_sequence_flaws(
         default:
             Cost solution_cost = get_optimal_plan_cost(solution, task_proxy);
             double diff_rate =
-                split_selector.rate_split(fw_abstract_state, *best_fw, sequence_to_split(split_selector.sequence_pick), solution_cost) -
-                split_selector.rate_split(bw_abstract_state, *best_bw, sequence_to_split(split_selector.sequence_pick), solution_cost);
+                split_selector.rate_split(fw_abstract_state, *best_fw, split_selector.first_pick, solution_cost) -
+                split_selector.rate_split(bw_abstract_state, *best_bw, split_selector.first_pick, solution_cost);
             if (abs(diff_rate) < EPSILON) {
                 // Break tie because they are equal.
                 return sequence_splits_tiebreak(move(best_fw),
@@ -741,8 +741,8 @@ SplitProperties FlawSearch::sequence_splits_tiebreak(unique_ptr<Split> best_fw,
                                                      bool invalidate_cache) {
     Cost solution_cost = get_optimal_plan_cost(solution, task_proxy);
     double tiebreak_diff_rate =
-        split_selector.rate_split(fw_abstract_state, *best_fw, sequence_to_split(split_selector.sequence_tiebreak_pick), solution_cost) -
-        split_selector.rate_split(bw_abstract_state, *best_bw, sequence_to_split(split_selector.sequence_tiebreak_pick), solution_cost);
+        split_selector.rate_split(fw_abstract_state, *best_fw, split_selector.tiebreak_pick, solution_cost) -
+        split_selector.rate_split(bw_abstract_state, *best_bw, split_selector.tiebreak_pick, solution_cost);
     if (abs(tiebreak_diff_rate) < EPSILON) {
         // Preference for backward flaw.
         return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution, invalidate_cache);
@@ -794,13 +794,13 @@ unique_ptr<Split> FlawSearch::select_flaw_and_pick_split(
             for (LegacyFlaw &fl : flaws) {
                 unique_ptr<Split> split = splits_cache_get(move(fl), solution_cost, backward_direction, backward_direction);
                 const AbstractState &abs = abstraction.get_state(split->abstract_state_id);
-                double rating = split_selector.rate_split(abs, *split, sequence_to_split(split_selector.sequence_pick), solution_cost);
+                double rating = split_selector.rate_split(abs, *split, split_selector.first_pick, solution_cost);
                 if (rating > max_rating) {
                     max_rating = rating;
-                    max_tiebreak_rating = split_selector.rate_split(abs, *split, sequence_to_split(split_selector.sequence_tiebreak_pick), solution_cost);
+                    max_tiebreak_rating = split_selector.rate_split(abs, *split, split_selector.tiebreak_pick, solution_cost);
                     selected_split = move(split);
                 } else if (max_rating - rating < EPSILON) {
-                    double tiebreak_rating = split_selector.rate_split(abs, *split, sequence_to_split(split_selector.sequence_tiebreak_pick), solution_cost);
+                    double tiebreak_rating = split_selector.rate_split(abs, *split, split_selector.tiebreak_pick, solution_cost);
                     if (tiebreak_rating > max_tiebreak_rating) {
                         max_rating = rating;
                         max_tiebreak_rating = tiebreak_rating;

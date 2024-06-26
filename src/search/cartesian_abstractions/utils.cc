@@ -126,7 +126,7 @@ static void add_pick_split_strategies(plugins::Feature &feature) {
     feature.add_option<PickSequenceFlaw>(
         "sequence_tiebreak_split",
         "split-selection strategy for breaking ties when choosing among flaws in different states",
-        "max_refined");
+        "best_split");
 }
 
 static void add_memory_padding_option(plugins::Feature &feature) {
