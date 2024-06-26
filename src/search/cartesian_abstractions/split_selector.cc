@@ -93,8 +93,10 @@ PickSplit sequence_to_split(const PickSequenceFlaw pick) {
         return PickSplit::LOWEST_COST_OPERATOR;
     case PickSequenceFlaw::RANDOM_VARS_ORDER:
         return PickSplit::RANDOM_VARS_ORDER;
-    case PickSequenceFlaw::LANDMARKS_VARS_ORDER:
-        return PickSplit::LANDMARKS_VARS_ORDER;
+    case PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_DOWN:
+        return PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN;
+    case PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_UP:
+        return PickSplit::LANDMARKS_VARS_ORDER_HADD_UP;
     case PickSequenceFlaw::GOAL_DISTANCE_INCREASED:
         return PickSplit::GOAL_DISTANCE_INCREASED;
     case PickSequenceFlaw::OPTIMAL_PLAN_COST_INCREASED:
@@ -149,9 +151,16 @@ SplitSelector::SplitSelector(
         std::shuffle(sortered_vars.begin(), sortered_vars.end(), g);
         vars_order = invert_vector(sortered_vars);
     }
-    if (first_pick == PickSplit::LANDMARKS_VARS_ORDER || tiebreak_pick == PickSplit::LANDMARKS_VARS_ORDER ||
-        sequence_pick == PickSequenceFlaw::LANDMARKS_VARS_ORDER ||
-        sequence_tiebreak_pick == PickSequenceFlaw::LANDMARKS_VARS_ORDER) {
+    if (first_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN || tiebreak_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN ||
+        sequence_pick == PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_DOWN ||
+        sequence_tiebreak_pick == PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_DOWN ||
+        first_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_UP || tiebreak_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_UP ||
+        sequence_pick == PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_UP ||
+        sequence_tiebreak_pick == PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_UP) {
+        bool descending_order = first_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN ||
+            tiebreak_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN ||
+            sequence_pick == PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_DOWN ||
+            sequence_tiebreak_pick == PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_DOWN;
         utils::HashSet<int> remaining_vars{};
         for (int i = 0; i < task->get_num_variables(); i++) {
             remaining_vars.insert(i);
@@ -162,22 +171,33 @@ SplitSelector::SplitSelector(
         // The rng is not used but needed for the function call.
         utils::RandomNumberGenerator rng{};
         utils::LogProxy log{make_shared<utils::Log>(utils::Verbosity::NORMAL)};
-        filter_and_order_facts(task, FactOrder::HADD_DOWN,
-                               landmark_facts,
-                               rng,
-                               log);
+        if (descending_order) {
+            filter_and_order_facts(task, FactOrder::HADD_DOWN,
+                                   landmark_facts,
+                                   rng,
+                                   log);
+        } else {
+            filter_and_order_facts(task, FactOrder::HADD_UP,
+                                   landmark_facts,
+                                   rng,
+                                   log);
+        }
         vector<int> sortered_vars = vector<int>{};
         for (FactPair landmark : landmark_facts) {
             if (remaining_vars.contains(landmark.var)) {
                 remaining_vars.erase(landmark.var);
-                vars_order.push_back(landmark.var);
+                sortered_vars.push_back(landmark.var);
             }
         }
+        vector<int> cg_ordered_remaining_vars{};
         if (!remaining_vars.empty()) {
-            vector<int> maxcg_remaining_vars{};
-            maxcg_remaining_vars.insert(maxcg_remaining_vars.end(), remaining_vars.begin(), remaining_vars.end());
-            sort(maxcg_remaining_vars.begin(), maxcg_remaining_vars.end(), std::greater<int>());
-            for (int var : maxcg_remaining_vars) {
+            cg_ordered_remaining_vars.insert(cg_ordered_remaining_vars.end(), remaining_vars.begin(), remaining_vars.end());
+            if (descending_order) {
+                sort(cg_ordered_remaining_vars.begin(), cg_ordered_remaining_vars.end(), std::greater<int>());
+            } else {
+                sort(cg_ordered_remaining_vars.begin(), cg_ordered_remaining_vars.end());
+            }
+            for (int var : cg_ordered_remaining_vars) {
                 sortered_vars.push_back(var);
             }
         }
@@ -281,7 +301,8 @@ double SplitSelector::rate_split(
         }
         break;
     case PickSplit::RANDOM_VARS_ORDER:
-    case PickSplit::LANDMARKS_VARS_ORDER:
+    case PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN:
+    case PickSplit::LANDMARKS_VARS_ORDER_HADD_UP:
         rating = -vars_order[var_id];
         break;
     case PickSplit::GOAL_DISTANCE_INCREASED:
@@ -518,7 +539,8 @@ static plugins::TypedEnumPlugin<PickSplit> _enum_plugin({
         {"highest_cost_operator", "the operator with the highest cost"},
         {"lowest_cost_operator", "the operator with the lowest cost"},
         {"random_vars_order", "random order of variables"},
-        {"landmarks_vars_order", "landmarks order of variables"},
+        {"landmarks_vars_order_hadd_down", "landmarks order of variables sorted by h^{add} in descending order"},
+        {"landmarks_vars_order_hadd_up", "landmarks order of variables sorted by h^{add} in ascending order"},
         {"goal_distance_increased",
          "amount in which the distance to goal is increased after the refinement."},
         {"optimal_plan_cost_increased",
@@ -560,7 +582,8 @@ static plugins::TypedEnumPlugin<PickSequenceFlaw> _enum_plugin_sequence({
         {"highest_cost_operator", "the operator with the highest cost"},
         {"lowest_cost_operator", "the operator with the lowest cost"},
         {"random_vars_order", "random order of variables"},
-        {"landmarks_vars_order", "landmarks order of variables"},
+        {"landmarks_vars_order_hadd_down", "landmarks order of variables sorted by h^{add} in descending order"},
+        {"landmarks_vars_order_hadd_up", "landmarks order of variables sorted by h^{add} in ascending order"},
         {"goal_distance_increased",
          "amount in which the distance to goal is increased after the refinement."},
         {"optimal_plan_cost_increased",

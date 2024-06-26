@@ -49,7 +49,8 @@ enum class PickSplit {
     RANDOM_VARS_ORDER,
     // Landmark order of variables, sorted by h^{add}, taking the first occurrence
     // of the variable on any fact landmark.
-    LANDMARKS_VARS_ORDER,
+    LANDMARKS_VARS_ORDER_HADD_DOWN,
+    LANDMARKS_VARS_ORDER_HADD_UP,
     // The goal distance of a child is increased after simulating the refinement.
     GOAL_DISTANCE_INCREASED,
     // The cost of the optimal abstract plan is increased after simulating the refinement.
@@ -82,7 +83,8 @@ enum class PickSequenceFlaw {
     RANDOM_VARS_ORDER,
     // Landmark order of variables, sorted by h^{add}, taking the first occurrence
     // of the variable on any fact landmark.
-    LANDMARKS_VARS_ORDER,
+    LANDMARKS_VARS_ORDER_HADD_DOWN,
+    LANDMARKS_VARS_ORDER_HADD_UP,
     // The goal distance of a child is increased after simulating the refinement.
     GOAL_DISTANCE_INCREASED,
     // The cost of the optimal abstract plan is increased after simulating the refinement.
