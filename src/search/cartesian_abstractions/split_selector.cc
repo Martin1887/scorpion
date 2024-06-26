@@ -9,7 +9,8 @@
 #include "utils.h"
 
 #include "../heuristics/additive_heuristic.h"
-
+#include "../lp/lp_solver.h"
+#include "../potentials/potential_optimizer.h"
 #include "../plugins/plugin.h"
 #include "../utils/logging.h"
 #include "../utils/memory.h"
@@ -95,6 +96,10 @@ PickSplit sequence_to_split(const PickSequenceFlaw pick) {
         return PickSplit::RANDOM_VARS_ORDER;
     case PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_DOWN:
         return PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN;
+    case PickSequenceFlaw::MAX_POTENTIAL_VARS_ORDER:
+        return PickSplit::MAX_POTENTIAL_VARS_ORDER;
+    case PickSequenceFlaw::MIN_POTENTIAL_VARS_ORDER:
+        return PickSplit::MIN_POTENTIAL_VARS_ORDER;
     case PickSequenceFlaw::LANDMARKS_VARS_ORDER_HADD_UP:
         return PickSplit::LANDMARKS_VARS_ORDER_HADD_UP;
     case PickSequenceFlaw::GOAL_DISTANCE_INCREASED:
@@ -119,6 +124,7 @@ SplitSelector::SplitSelector(
     PickSplit tiebreak_pick,
     PickSequenceFlaw sequence_pick,
     PickSequenceFlaw sequence_tiebreak_pick,
+    lp::LPSolverType lp_solver,
     bool debug)
     : task(task),
       task_proxy(*task),
@@ -202,6 +208,42 @@ SplitSelector::SplitSelector(
             }
         }
         vars_order = invert_vector(sortered_vars);
+    }
+    if (first_pick == PickSplit::MAX_POTENTIAL_VARS_ORDER || tiebreak_pick == PickSplit::MAX_POTENTIAL_VARS_ORDER ||
+        sequence_pick == PickSequenceFlaw::MAX_POTENTIAL_VARS_ORDER ||
+        sequence_tiebreak_pick == PickSequenceFlaw::MAX_POTENTIAL_VARS_ORDER ||
+        first_pick == PickSplit::MIN_POTENTIAL_VARS_ORDER || tiebreak_pick == PickSplit::MIN_POTENTIAL_VARS_ORDER ||
+        sequence_pick == PickSequenceFlaw::MIN_POTENTIAL_VARS_ORDER ||
+        sequence_tiebreak_pick == PickSequenceFlaw::MIN_POTENTIAL_VARS_ORDER) {
+        bool descending_order = first_pick == PickSplit::MAX_POTENTIAL_VARS_ORDER ||
+            tiebreak_pick == PickSplit::MAX_POTENTIAL_VARS_ORDER ||
+            sequence_pick == PickSequenceFlaw::MAX_POTENTIAL_VARS_ORDER ||
+            sequence_tiebreak_pick == PickSequenceFlaw::MAX_POTENTIAL_VARS_ORDER;
+
+        potentials::PotentialOptimizer optimizer(
+            task, lp_solver, 1e8);
+        optimizer.optimize_for_all_states();
+        std::vector<std::vector<double>> fact_potentials = optimizer.get_fact_potentials();
+        // Use the maximum fact potential for each variable.
+        vars_order = vector<int>{};
+        vector<pair<int, double>> vars_potential = vector<pair<int, double>>{};
+        for (int i = 0; i < task->get_num_variables(); i++) {
+            vars_potential.push_back(make_pair(i, *max_element(fact_potentials[i].begin(), fact_potentials[i].end())));
+        }
+
+        if (descending_order) {
+            sort(vars_potential.begin(), vars_potential.end(), [](pair<int, double> a, pair<int, double> b) {
+                     return a.second > b.second;
+                 });
+        } else {
+            sort(vars_potential.begin(), vars_potential.end(), [](pair<int, double> a, pair<int, double> b) {
+                     return a.second < b.second;
+                 });
+        }
+
+        for (auto pair : vars_potential) {
+            vars_order.push_back(pair.first);
+        }
     }
 }
 
@@ -303,6 +345,8 @@ double SplitSelector::rate_split(
     case PickSplit::RANDOM_VARS_ORDER:
     case PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN:
     case PickSplit::LANDMARKS_VARS_ORDER_HADD_UP:
+    case PickSplit::MAX_POTENTIAL_VARS_ORDER:
+    case PickSplit::MIN_POTENTIAL_VARS_ORDER:
         rating = -vars_order[var_id];
         break;
     case PickSplit::GOAL_DISTANCE_INCREASED:
@@ -541,6 +585,8 @@ static plugins::TypedEnumPlugin<PickSplit> _enum_plugin({
         {"random_vars_order", "random order of variables"},
         {"landmarks_vars_order_hadd_down", "landmarks order of variables sorted by h^{add} in descending order"},
         {"landmarks_vars_order_hadd_up", "landmarks order of variables sorted by h^{add} in ascending order"},
+        {"max_potential_vars_order", "max potential order of variables (the max of all facts is used for each variable)"},
+        {"min_potential_vars_order", "min potential order of variables (the max of all facts is used for each variable)"},
         {"goal_distance_increased",
          "amount in which the distance to goal is increased after the refinement."},
         {"optimal_plan_cost_increased",
@@ -584,6 +630,8 @@ static plugins::TypedEnumPlugin<PickSequenceFlaw> _enum_plugin_sequence({
         {"random_vars_order", "random order of variables"},
         {"landmarks_vars_order_hadd_down", "landmarks order of variables sorted by h^{add} in descending order"},
         {"landmarks_vars_order_hadd_up", "landmarks order of variables sorted by h^{add} in ascending order"},
+        {"max_potential_vars_order", "max potential order of variables (the max of all facts is used for each variable)"},
+        {"min_potential_vars_order", "min potential order of variables (the max of all facts is used for each variable)"},
         {"goal_distance_increased",
          "amount in which the distance to goal is increased after the refinement."},
         {"optimal_plan_cost_increased",

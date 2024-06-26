@@ -3,9 +3,10 @@
 
 #include "abstract_state.h"
 
+#include "../lp/lp_solver.h"
 #include "../task_proxy.h"
-
 #include "../utils/logging.h"
+
 #include "abstraction.h"
 #include "shortest_paths.h"
 #include "subtask_generators.h"
@@ -51,6 +52,9 @@ enum class PickSplit {
     // of the variable on any fact landmark.
     LANDMARKS_VARS_ORDER_HADD_DOWN,
     LANDMARKS_VARS_ORDER_HADD_UP,
+    // Potentials, the maximum fact potential is used for each variable.
+    MAX_POTENTIAL_VARS_ORDER,
+    MIN_POTENTIAL_VARS_ORDER,
     // The goal distance of a child is increased after simulating the refinement.
     GOAL_DISTANCE_INCREASED,
     // The cost of the optimal abstract plan is increased after simulating the refinement.
@@ -85,6 +89,8 @@ enum class PickSequenceFlaw {
     // of the variable on any fact landmark.
     LANDMARKS_VARS_ORDER_HADD_DOWN,
     LANDMARKS_VARS_ORDER_HADD_UP,
+    MAX_POTENTIAL_VARS_ORDER,
+    MIN_POTENTIAL_VARS_ORDER,
     // The goal distance of a child is increased after simulating the refinement.
     GOAL_DISTANCE_INCREASED,
     // The cost of the optimal abstract plan is increased after simulating the refinement.
@@ -210,6 +216,7 @@ public:
         PickSplit tiebreak_pick,
         PickSequenceFlaw sequence_pick,
         PickSequenceFlaw sequence_tiebreak_pick,
+        lp::LPSolverType lp_solver,
         bool debug);
     ~SplitSelector();
 

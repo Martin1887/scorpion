@@ -116,6 +116,7 @@ CartesianAbstractionGenerator::CartesianAbstractionGenerator(
           opts.get<int>("max_concrete_states_per_abstract_state")),
       max_state_expansions(opts.get<int>("max_state_expansions")),
       extra_memory_padding_mb(opts.get<int>("memory_padding")),
+      lp_solver(opts.get<lp::LPSolverType>("lpsolver")),
       rng(utils::parse_rng_from_options(opts)),
       dot_graph_verbosity(opts.get<cartesian_abstractions::DotGraphVerbosity>("dot_graph_verbosity")),
       num_states(0),
@@ -147,6 +148,7 @@ unique_ptr<cartesian_abstractions::Abstraction> CartesianAbstractionGenerator::b
         max_concrete_states_per_abstract_state,
         max_state_expansions,
         false,
+        lp_solver,
         *rng,
         log,
         dot_graph_verbosity);

@@ -58,6 +58,10 @@ class PotentialOptimizer {
 
 public:
     explicit PotentialOptimizer(const plugins::Options &opts);
+    explicit PotentialOptimizer(
+        std::shared_ptr<AbstractTask> task,
+        lp::LPSolverType lp_solver,
+        double max_potential);
     ~PotentialOptimizer() = default;
 
     std::shared_ptr<AbstractTask> get_task() const;
@@ -70,6 +74,7 @@ public:
     bool has_optimal_solution() const;
 
     std::unique_ptr<PotentialFunction> get_potential_function() const;
+    const std::vector<std::vector<double>> get_fact_potentials() const;
 };
 }
 

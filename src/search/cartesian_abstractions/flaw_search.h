@@ -328,6 +328,7 @@ public:
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
         bool intersect_flaw_search_abstract_states,
+        lp::LPSolverType lp_solver,
         const utils::LogProxy &log);
 
     SplitProperties get_split_and_direction(const Solution &solution,

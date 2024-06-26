@@ -3,6 +3,8 @@
 
 #include "abstraction_generator.h"
 
+#include "../lp/lp_solver.h"
+
 #include <memory>
 #include <vector>
 
@@ -38,6 +40,7 @@ class CartesianAbstractionGenerator : public AbstractionGenerator {
     const int max_concrete_states_per_abstract_state;
     const int max_state_expansions;
     const int extra_memory_padding_mb;
+    lp::LPSolverType lp_solver;
     const std::shared_ptr<utils::RandomNumberGenerator> rng;
     const cartesian_abstractions::DotGraphVerbosity dot_graph_verbosity;
 

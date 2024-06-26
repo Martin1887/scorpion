@@ -88,6 +88,7 @@ CostSaturation::CostSaturation(
     bool intersect_flaw_search_abstract_states,
     bool print_h_distribution,
     bool print_useless_refinements,
+    lp::LPSolverType lp_solver,
     utils::RandomNumberGenerator &rng,
     utils::LogProxy &log,
     DotGraphVerbosity dot_graph_verbosity)
@@ -107,6 +108,7 @@ CostSaturation::CostSaturation(
       intersect_flaw_search_abstract_states(intersect_flaw_search_abstract_states),
       print_h_distribution(print_h_distribution),
       print_useless_refinements(print_useless_refinements),
+      lp_solver(lp_solver),
       rng(rng),
       log(log),
       dot_graph_verbosity(dot_graph_verbosity),
@@ -223,6 +225,7 @@ void CostSaturation::build_abstractions(
             max_concrete_states_per_abstract_state,
             max_state_expansions,
             intersect_flaw_search_abstract_states,
+            lp_solver,
             rng,
             log,
             dot_graph_verbosity);

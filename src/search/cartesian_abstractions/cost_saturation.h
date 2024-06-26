@@ -44,6 +44,7 @@ class CostSaturation {
     const bool intersect_flaw_search_abstract_states;
     const bool print_h_distribution;
     const bool print_useless_refinements;
+    lp::LPSolverType lp_solver;
     utils::RandomNumberGenerator &rng;
     utils::LogProxy &log;
     const cartesian_abstractions::DotGraphVerbosity dot_graph_verbosity;
@@ -82,6 +83,7 @@ public:
         bool intersect_flaw_search_abstract_states,
         bool print_h_distribution,
         bool print_useless_refinements,
+        lp::LPSolverType lp_solver,
         utils::RandomNumberGenerator &rng,
         utils::LogProxy &log,
         DotGraphVerbosity dot_graph_verbosity);

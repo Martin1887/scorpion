@@ -7,6 +7,7 @@
 #include "transition.h"
 #include "transition_system.h"
 
+#include "../lp/lp_solver.h"
 #include "../plugins/plugin.h"
 #include "../heuristics/additive_heuristic.h"
 #include "../task_utils/task_properties.h"
@@ -253,6 +254,8 @@ void add_common_cegar_options(plugins::Feature &feature) {
         "print_useless_refinements",
         "print useless refinements at the end of the abstraction",
         "false");
+
+    lp::add_lp_solver_option_to_feature(feature);
 }
 
 static plugins::TypedEnumPlugin<DotGraphVerbosity> _enum_plugin({

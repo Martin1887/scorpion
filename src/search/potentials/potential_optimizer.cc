@@ -30,6 +30,20 @@ PotentialOptimizer::PotentialOptimizer(const plugins::Options &opts)
     initialize();
 }
 
+PotentialOptimizer::PotentialOptimizer(
+    std::shared_ptr<AbstractTask> task,
+    lp::LPSolverType lp_solver,
+    double max_potential)
+    : task(task),
+      task_proxy(*task),
+      lp_solver(lp_solver),
+      max_potential(max_potential),
+      num_lp_vars(0) {
+    task_properties::verify_no_axioms(task_proxy);
+    task_properties::verify_no_conditional_effects(task_proxy);
+    initialize();
+}
+
 void PotentialOptimizer::initialize() {
     VariablesProxy vars = task_proxy.get_variables();
     lp_var_ids.resize(vars.size());
@@ -206,5 +220,9 @@ void PotentialOptimizer::extract_lp_solution() {
 unique_ptr<PotentialFunction> PotentialOptimizer::get_potential_function() const {
     assert(has_optimal_solution());
     return utils::make_unique_ptr<PotentialFunction>(fact_potentials);
+}
+
+const vector<vector<double>> PotentialOptimizer::get_fact_potentials() const {
+    return fact_potentials;
 }
 }
