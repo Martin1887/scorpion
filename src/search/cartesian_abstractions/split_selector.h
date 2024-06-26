@@ -151,6 +151,10 @@ class SplitSelector {
     // Order of variables, where the most priority variables are first.
     utils::HashMap<PickSplit, std::vector<int>> vars_order;
     std::unique_ptr<additive_heuristic::AdditiveHeuristic> additive_heuristic;
+    std::vector<FactPair> unordered_fact_landmarks;
+    std::vector<FactPair> fact_landmarks_hadd_down;
+    std::vector<FactPair> fact_landmarks_hadd_up;
+    std::vector<std::vector<double>> fact_potentials;
 
     const PickSplit first_pick;
     const PickSplit tiebreak_pick;
