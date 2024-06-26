@@ -149,13 +149,15 @@ class SplitSelector {
     std::shared_ptr<TransitionSystem> &simulated_transition_system;
     const bool debug;
     // Order of variables, where the most priority variables are first.
-    std::vector<int> vars_order;
+    utils::HashMap<PickSplit, std::vector<int>> vars_order;
     std::unique_ptr<additive_heuristic::AdditiveHeuristic> additive_heuristic;
 
     const PickSplit first_pick;
     const PickSplit tiebreak_pick;
     const PickSequenceFlaw sequence_pick;
     const PickSequenceFlaw sequence_tiebreak_pick;
+
+    void compute_vars_order(const PickSplit pick, lp::LPSolverType lp_solver);
 
     int get_num_unwanted_values(const AbstractState &state, const Split &split) const;
     double get_refinedness(const AbstractState &state, int var_id) const;
@@ -198,4 +200,9 @@ public:
 };
 }
 
+namespace utils {
+inline void feed(HashState &hash_state, const cartesian_abstractions::PickSplit &val) {
+    feed(hash_state, static_cast<std::underlying_type_t<cartesian_abstractions::PickSplit>>(val));
+}
+}
 #endif

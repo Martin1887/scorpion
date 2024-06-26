@@ -85,6 +85,7 @@ SplitSelector::SplitSelector(
       abstraction(abstraction),
       simulated_transition_system(simulated_transition_system),
       debug(debug),
+      vars_order(),
       first_pick(pick),
       tiebreak_pick(tiebreak_pick),
       sequence_pick(sequence_pick),
@@ -95,101 +96,110 @@ SplitSelector::SplitSelector(
         additive_heuristic->compute_heuristic_for_cegar(
             task_proxy.get_initial_state());
     }
-    if (first_pick == PickSplit::RANDOM_VARS_ORDER ||
-        tiebreak_pick == PickSplit::RANDOM_VARS_ORDER) {
-        vector<int> sortered_vars = vector<int>(task->get_num_variables());
-        // Fill vars_order with numbers from 0 to num_variables -1 to shuffle it aftwerards.
-        std::iota(std::begin(sortered_vars), std::end(sortered_vars), 0);
-        // This uses /dev/urandom en Linux, so the numbers are different at each execution.
-        std::random_device rd;
-        std::mt19937 g(rd());
-        std::shuffle(sortered_vars.begin(), sortered_vars.end(), g);
-        vars_order = invert_vector(sortered_vars);
-    }
-    if (first_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN ||
-        tiebreak_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN ||
-        first_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_UP ||
-        tiebreak_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_UP) {
-        bool descending_order = first_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN ||
-            tiebreak_pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN;
-        utils::HashSet<int> remaining_vars{};
-        for (int i = 0; i < task->get_num_variables(); i++) {
-            remaining_vars.insert(i);
-        }
-        shared_ptr<landmarks::LandmarkGraph> landmark_graph =
-            get_landmark_graph(task);
-        vector<FactPair> fact_landmarks = get_fact_landmarks(*landmark_graph);
-        // The rng is not used but needed for the function call.
-        utils::RandomNumberGenerator rng{};
-        utils::LogProxy log{make_shared<utils::Log>(utils::Verbosity::NORMAL)};
-        if (descending_order) {
-            filter_and_order_facts(task, FactOrder::HADD_DOWN,
-                                   fact_landmarks,
-                                   rng,
-                                   log);
-        } else {
-            filter_and_order_facts(task, FactOrder::HADD_UP,
-                                   fact_landmarks,
-                                   rng,
-                                   log);
-        }
-        vector<int> sortered_vars = vector<int>{};
-        for (FactPair landmark : fact_landmarks) {
-            if (remaining_vars.contains(landmark.var)) {
-                remaining_vars.erase(landmark.var);
-                sortered_vars.push_back(landmark.var);
-            }
-        }
-        vector<int> cg_ordered_remaining_vars{};
-        if (!remaining_vars.empty()) {
-            cg_ordered_remaining_vars.insert(cg_ordered_remaining_vars.end(), remaining_vars.begin(), remaining_vars.end());
-            if (descending_order) {
-                sort(cg_ordered_remaining_vars.begin(), cg_ordered_remaining_vars.end(), std::greater<int>());
-            } else {
-                sort(cg_ordered_remaining_vars.begin(), cg_ordered_remaining_vars.end());
-            }
-            for (int var : cg_ordered_remaining_vars) {
-                sortered_vars.push_back(var);
-            }
-        }
-        vars_order = invert_vector(sortered_vars);
-    }
-    if (first_pick == PickSplit::MAX_POTENTIAL_VARS_ORDER ||
-        tiebreak_pick == PickSplit::MAX_POTENTIAL_VARS_ORDER ||
-        first_pick == PickSplit::MIN_POTENTIAL_VARS_ORDER ||
-        tiebreak_pick == PickSplit::MIN_POTENTIAL_VARS_ORDER) {
-        bool descending_order = first_pick == PickSplit::MAX_POTENTIAL_VARS_ORDER ||
-            tiebreak_pick == PickSplit::MAX_POTENTIAL_VARS_ORDER;
-
-        potentials::PotentialOptimizer optimizer(
-            task, lp_solver, 1e8);
-        optimizer.optimize_for_all_states();
-        std::vector<std::vector<double>> fact_potentials = optimizer.get_fact_potentials();
-        // Use the maximum fact potential for each variable.
-        vars_order = vector<int>{};
-        vector<pair<int, double>> vars_potential = vector<pair<int, double>>{};
-        for (int i = 0; i < task->get_num_variables(); i++) {
-            vars_potential.push_back(make_pair(i, *max_element(fact_potentials[i].begin(), fact_potentials[i].end())));
-        }
-
-        if (descending_order) {
-            sort(vars_potential.begin(), vars_potential.end(), [](pair<int, double> a, pair<int, double> b) {
-                     return a.second > b.second;
-                 });
-        } else {
-            sort(vars_potential.begin(), vars_potential.end(), [](pair<int, double> a, pair<int, double> b) {
-                     return a.second < b.second;
-                 });
-        }
-
-        for (auto pair : vars_potential) {
-            vars_order.push_back(pair.first);
-        }
-    }
+    compute_vars_order(first_pick, lp_solver);
+    compute_vars_order(tiebreak_pick, lp_solver);
 }
 
 // Define here to avoid include in header.
 SplitSelector::~SplitSelector() {
+}
+
+void SplitSelector::compute_vars_order(const PickSplit pick, lp::LPSolverType lp_solver) {
+    if (!vars_order.contains(pick)) {
+        bool descending_order = pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN ||
+            pick == PickSplit::MAX_POTENTIAL_VARS_ORDER;
+        switch (pick) {
+        case PickSplit::RANDOM_VARS_ORDER:
+        {
+            vector<int> sortered_vars = vector<int>(task->get_num_variables());
+            // Fill vars_order with numbers from 0 to num_variables -1 to shuffle it aftwerards.
+            std::iota(std::begin(sortered_vars), std::end(sortered_vars), 0);
+            // This uses /dev/urandom en Linux, so the numbers are different at each execution.
+            std::random_device rd;
+            std::mt19937 g(rd());
+            std::shuffle(sortered_vars.begin(), sortered_vars.end(), g);
+            vars_order[PickSplit::RANDOM_VARS_ORDER] = invert_vector(sortered_vars);
+            break;
+        }
+        case PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN:
+        case PickSplit::LANDMARKS_VARS_ORDER_HADD_UP:
+        {
+            utils::HashSet<int> remaining_vars{};
+            for (int i = 0; i < task->get_num_variables(); i++) {
+                remaining_vars.insert(i);
+            }
+            shared_ptr<landmarks::LandmarkGraph> landmark_graph =
+                get_landmark_graph(task);
+            vector<FactPair> fact_landmarks = get_fact_landmarks(*landmark_graph);
+            // The rng is not used but needed for the function call.
+            utils::RandomNumberGenerator rng{};
+            utils::LogProxy log{make_shared<utils::Log>(utils::Verbosity::NORMAL)};
+            if (descending_order) {
+                filter_and_order_facts(task, FactOrder::HADD_DOWN,
+                                       fact_landmarks,
+                                       rng,
+                                       log);
+            } else {
+                filter_and_order_facts(task, FactOrder::HADD_UP,
+                                       fact_landmarks,
+                                       rng,
+                                       log);
+            }
+            vector<int> sortered_vars = vector<int>{};
+            for (FactPair landmark : fact_landmarks) {
+                if (remaining_vars.contains(landmark.var)) {
+                    remaining_vars.erase(landmark.var);
+                    sortered_vars.push_back(landmark.var);
+                }
+            }
+            vector<int> cg_ordered_remaining_vars{};
+            if (!remaining_vars.empty()) {
+                cg_ordered_remaining_vars.insert(cg_ordered_remaining_vars.end(), remaining_vars.begin(), remaining_vars.end());
+                if (descending_order) {
+                    sort(cg_ordered_remaining_vars.begin(), cg_ordered_remaining_vars.end(), std::greater<int>());
+                } else {
+                    sort(cg_ordered_remaining_vars.begin(), cg_ordered_remaining_vars.end());
+                }
+                for (int var : cg_ordered_remaining_vars) {
+                    sortered_vars.push_back(var);
+                }
+            }
+            vars_order[pick] = invert_vector(sortered_vars);
+            break;
+        }
+        case PickSplit::MAX_POTENTIAL_VARS_ORDER:
+        case PickSplit::MIN_POTENTIAL_VARS_ORDER:
+        {
+            potentials::PotentialOptimizer optimizer(
+                task, lp_solver, 1e8);
+            optimizer.optimize_for_all_states();
+            std::vector<std::vector<double>> fact_potentials = optimizer.get_fact_potentials();
+            // Use the maximum fact potential for each variable.
+            vars_order[pick] = vector<int>{};
+            vector<pair<int, double>> vars_potential = vector<pair<int, double>>{};
+            for (int i = 0; i < task->get_num_variables(); i++) {
+                vars_potential.push_back(make_pair(i, *max_element(fact_potentials[i].begin(), fact_potentials[i].end())));
+            }
+
+            if (descending_order) {
+                sort(vars_potential.begin(), vars_potential.end(), [](pair<int, double> a, pair<int, double> b) {
+                         return a.second > b.second;
+                     });
+            } else {
+                sort(vars_potential.begin(), vars_potential.end(), [](pair<int, double> a, pair<int, double> b) {
+                         return a.second < b.second;
+                     });
+            }
+
+            for (auto pair : vars_potential) {
+                vars_order[pick].push_back(pair.first);
+            }
+            break;
+        }
+        default:
+            break;
+        }
+    }
 }
 
 int SplitSelector::get_num_unwanted_values(
@@ -288,7 +298,7 @@ double SplitSelector::rate_split(
     case PickSplit::LANDMARKS_VARS_ORDER_HADD_UP:
     case PickSplit::MAX_POTENTIAL_VARS_ORDER:
     case PickSplit::MIN_POTENTIAL_VARS_ORDER:
-        rating = -vars_order[var_id];
+        rating = -vars_order.at(pick)[var_id];
         break;
     case PickSplit::GOAL_DISTANCE_INCREASED:
     {
