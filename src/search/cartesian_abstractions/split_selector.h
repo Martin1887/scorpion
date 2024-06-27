@@ -46,6 +46,12 @@ enum class PickSplit {
     MAX_COVER,
     HIGHEST_COST_OPERATOR,
     LOWEST_COST_OPERATOR,
+    // A more-priority landmark fact (all non-landmark facts have the same lowest priority).
+    LANDMARKS_HADD_DOWN,
+    LANDMARKS_HADD_UP,
+    // Max/min potential.
+    MAX_POTENTIAL,
+    MIN_POTENTIAL,
     // Random order of variables, with a different seed at each execution of the planner.
     RANDOM_VARS_ORDER,
     // Landmark order of variables, sorted by h^{add}, taking the first occurrence
@@ -151,9 +157,7 @@ class SplitSelector {
     // Order of variables, where the most priority variables are first.
     utils::HashMap<PickSplit, std::vector<int>> vars_order;
     std::unique_ptr<additive_heuristic::AdditiveHeuristic> additive_heuristic;
-    std::vector<FactPair> unordered_fact_landmarks;
-    std::vector<FactPair> fact_landmarks_hadd_down;
-    std::vector<FactPair> fact_landmarks_hadd_up;
+    utils::HashMap<FactPair, int> fact_landmarks_hadd_down;
     std::vector<std::vector<double>> fact_potentials;
 
     const PickSplit first_pick;
@@ -161,7 +165,8 @@ class SplitSelector {
     const PickSequenceFlaw sequence_pick;
     const PickSequenceFlaw sequence_tiebreak_pick;
 
-    void compute_vars_order(const PickSplit pick, lp::LPSolverType lp_solver);
+    void precompute_landmarks_and_potentials(const PickSplit pick, lp::LPSolverType lp_solver);
+    void compute_vars_order(const PickSplit pick);
 
     int get_num_unwanted_values(const AbstractState &state, const Split &split) const;
     double get_refinedness(const AbstractState &state, int var_id) const;

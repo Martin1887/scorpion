@@ -86,9 +86,7 @@ SplitSelector::SplitSelector(
       simulated_transition_system(simulated_transition_system),
       debug(debug),
       vars_order(),
-      unordered_fact_landmarks(),
       fact_landmarks_hadd_down(),
-      fact_landmarks_hadd_up(),
       fact_potentials(),
       first_pick(pick),
       tiebreak_pick(tiebreak_pick),
@@ -100,15 +98,60 @@ SplitSelector::SplitSelector(
         additive_heuristic->compute_heuristic_for_cegar(
             task_proxy.get_initial_state());
     }
-    compute_vars_order(first_pick, lp_solver);
-    compute_vars_order(tiebreak_pick, lp_solver);
+    precompute_landmarks_and_potentials(first_pick, lp_solver);
+    precompute_landmarks_and_potentials(tiebreak_pick, lp_solver);
+    compute_vars_order(first_pick);
+    compute_vars_order(tiebreak_pick);
 }
 
 // Define here to avoid include in header.
 SplitSelector::~SplitSelector() {
 }
 
-void SplitSelector::compute_vars_order(const PickSplit pick, lp::LPSolverType lp_solver) {
+void SplitSelector::precompute_landmarks_and_potentials(const PickSplit pick, lp::LPSolverType lp_solver) {
+    switch (pick) {
+    case PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN:
+    case PickSplit::LANDMARKS_VARS_ORDER_HADD_UP:
+    case PickSplit::LANDMARKS_HADD_DOWN:
+    case PickSplit::LANDMARKS_HADD_UP:
+    {
+        if (fact_landmarks_hadd_down.empty()) {
+            vector<FactPair> fact_landmarks{};
+            shared_ptr<landmarks::LandmarkGraph> landmark_graph =
+                get_landmark_graph(task);
+            fact_landmarks = get_fact_landmarks(*landmark_graph);
+            // The rng is not used but needed for the function call.
+            utils::RandomNumberGenerator rng{};
+            utils::LogProxy log{make_shared<utils::Log>(utils::Verbosity::NORMAL)};
+            filter_and_order_facts(task, FactOrder::HADD_DOWN,
+                                   fact_landmarks,
+                                   rng,
+                                   log);
+            int i = 0;
+            for (FactPair fact : fact_landmarks) {
+                fact_landmarks_hadd_down.insert_or_assign(fact, i);
+                i++;
+            }
+        }
+        break;
+    }
+    case PickSplit::MAX_POTENTIAL_VARS_ORDER:
+    case PickSplit::MIN_POTENTIAL_VARS_ORDER:
+    case PickSplit::MAX_POTENTIAL:
+    case PickSplit::MIN_POTENTIAL:
+        if (fact_potentials.empty()) {
+            potentials::PotentialOptimizer optimizer(
+                task, lp_solver, 1e8);
+            optimizer.optimize_for_all_states();
+            fact_potentials = optimizer.get_fact_potentials();
+        }
+        break;
+    default:
+        break;
+    }
+}
+
+void SplitSelector::compute_vars_order(const PickSplit pick) {
     if (!vars_order.contains(pick)) {
         bool descending_order = (pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN ||
                                  pick == PickSplit::MAX_POTENTIAL_VARS_ORDER);
@@ -132,40 +175,37 @@ void SplitSelector::compute_vars_order(const PickSplit pick, lp::LPSolverType lp
             for (int i = 0; i < task->get_num_variables(); i++) {
                 remaining_vars.insert(i);
             }
-            if ((descending_order && fact_landmarks_hadd_down.empty()) ||
-                (!descending_order && fact_landmarks_hadd_up.empty())) {
-                if (unordered_fact_landmarks.empty()) {
-                    shared_ptr<landmarks::LandmarkGraph> landmark_graph =
-                        get_landmark_graph(task);
-                    unordered_fact_landmarks = get_fact_landmarks(*landmark_graph);
-                }
-                // The rng is not used but needed for the function call.
-                utils::RandomNumberGenerator rng{};
-                utils::LogProxy log{make_shared<utils::Log>(utils::Verbosity::NORMAL)};
-                if (descending_order) {
-                    fact_landmarks_hadd_down = unordered_fact_landmarks;
-                    filter_and_order_facts(task, FactOrder::HADD_DOWN,
-                                           fact_landmarks_hadd_down,
-                                           rng,
-                                           log);
-                } else {
-                    fact_landmarks_hadd_up = unordered_fact_landmarks;
-                    filter_and_order_facts(task, FactOrder::HADD_UP,
-                                           fact_landmarks_hadd_up,
-                                           rng,
-                                           log);
-                }
-            }
             vector<int> sortered_vars = vector<int>{};
-            vector<FactPair> *fact_landmarks = &fact_landmarks_hadd_up;
-            if (descending_order) {
-                fact_landmarks = &fact_landmarks_hadd_down;
-            }
-            for (FactPair landmark : *fact_landmarks) {
-                if (remaining_vars.contains(landmark.var)) {
-                    remaining_vars.erase(landmark.var);
-                    sortered_vars.push_back(landmark.var);
+            assert(!fact_landmarks_hadd_down.empty());
+            // Use the maximum fact priority for each variable.
+            vars_order[pick] = vector<int>{};
+            vector<pair<int, int>> vars_landmark_pos(task->get_num_variables(), make_pair(-1, -1));
+            for (pair<FactPair, int> pair : fact_landmarks_hadd_down) {
+                if (remaining_vars.contains(pair.first.var)) {
+                    remaining_vars.erase(pair.first.var);
+                    // No value inserted yet, so this is the best one.
+                    vars_landmark_pos[pair.first.var] = make_pair(pair.first.var, pair.second);
+                } else {
+                    if (descending_order && pair.second < vars_landmark_pos[pair.first.var].second) {
+                        vars_landmark_pos[pair.first.var] = make_pair(pair.first.var, pair.second);
+                    } else if (!descending_order && pair.second > vars_landmark_pos[pair.first.var].second) {
+                        vars_landmark_pos[pair.first.var] = make_pair(pair.first.var, pair.second);
+                    }
                 }
+            }
+            // Remove the variables without landmarks.
+            erase_if(vars_landmark_pos, [](pair<int, int> pair) {return pair.second == -1;});
+            if (descending_order) {
+                sort(vars_landmark_pos.begin(), vars_landmark_pos.end(), [](pair<int, int> a, pair<int, int> b) {
+                         return a.second < b.second;
+                     });
+            } else {
+                sort(vars_landmark_pos.begin(), vars_landmark_pos.end(), [](pair<int, int> a, pair<int, int> b) {
+                         return a.second > b.second;
+                     });
+            }
+            for (pair<int, int> pair : vars_landmark_pos) {
+                sortered_vars.push_back(pair.first);
             }
             vector<int> cg_ordered_remaining_vars{};
             if (!remaining_vars.empty()) {
@@ -185,12 +225,7 @@ void SplitSelector::compute_vars_order(const PickSplit pick, lp::LPSolverType lp
         case PickSplit::MAX_POTENTIAL_VARS_ORDER:
         case PickSplit::MIN_POTENTIAL_VARS_ORDER:
         {
-            if (fact_potentials.empty()) {
-                potentials::PotentialOptimizer optimizer(
-                    task, lp_solver, 1e8);
-                optimizer.optimize_for_all_states();
-                fact_potentials = optimizer.get_fact_potentials();
-            }
+            assert(!fact_potentials.empty());
             // Use the maximum fact potential for each variable.
             vars_order[pick] = vector<int>{};
             vector<pair<int, double>> vars_potential = vector<pair<int, double>>{};
@@ -309,6 +344,32 @@ double SplitSelector::rate_split(
         } else {
             rating = -split.op_cost;
         }
+        break;
+    case PickSplit::LANDMARKS_HADD_DOWN:
+    {
+        FactPair fact(split.var_id, split.value);
+        if (fact_landmarks_hadd_down.contains(fact)) {
+            rating = -fact_landmarks_hadd_down.at(fact);
+        } else {
+            rating = -INF;
+        }
+        break;
+    }
+    case PickSplit::LANDMARKS_HADD_UP:
+    {
+        FactPair fact(split.var_id, split.value);
+        if (fact_landmarks_hadd_down.contains(fact)) {
+            rating = fact_landmarks_hadd_down.at(fact);
+        } else {
+            rating = -INF;
+        }
+        break;
+    }
+    case PickSplit::MAX_POTENTIAL:
+        rating = fact_potentials[split.var_id][split.value];
+        break;
+    case PickSplit::MIN_POTENTIAL:
+        rating = -fact_potentials[split.var_id][split.value];
         break;
     case PickSplit::RANDOM_VARS_ORDER:
     case PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN:
@@ -550,6 +611,10 @@ static plugins::TypedEnumPlugin<PickSplit> _enum_plugin({
          "compute split that covers the maximum number of flaws for several concrete states."},
         {"highest_cost_operator", "the operator with the highest cost"},
         {"lowest_cost_operator", "the operator with the lowest cost"},
+        {"landmarks_hadd_down", "landmark fact in h^{add} descending order"},
+        {"landmarks_hadd_up", "landmark fact in h^{add} ascending order"},
+        {"max_potential", "the fact with the highest potential"},
+        {"min_potential", "the fact with the lowest potential"},
         {"random_vars_order", "random order of variables"},
         {"landmarks_vars_order_hadd_down", "landmarks order of variables sorted by h^{add} in descending order"},
         {"landmarks_vars_order_hadd_up", "landmarks order of variables sorted by h^{add} in ascending order"},
