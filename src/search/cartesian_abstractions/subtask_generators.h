@@ -29,6 +29,8 @@ class LogProxy;
 namespace cartesian_abstractions {
 using Facts = std::vector<FactPair>;
 
+struct SubtaskParams {
+};
 struct Subtask {
     // Subtasks can be copies of the same task/subtask (with different split
     // strategies for instance) or subtasks of the original Planning task. Each
@@ -65,6 +67,14 @@ Facts filter_and_order_facts(
   Create focused subtasks.
 */
 class SubtaskGenerator {
+public:
+    virtual SharedTasks get_subtasks(
+        const std::shared_ptr<AbstractTask> &task,
+        utils::LogProxy &log) const = 0;
+    virtual ~SubtaskGenerator() = default;
+};
+
+class SameParamsSubtaskGenerator : public SubtaskGenerator {
 protected:
     PickFlawedAbstractState pick_flawed_abstract_state;
     PickSplit pick_split;
@@ -72,11 +82,8 @@ protected:
     PickSequenceFlaw sequence_split;
     PickSequenceFlaw sequence_tiebreak_split;
     bool intersect_flaw_search_abstract_states;
-public:
-    virtual SharedTasks get_subtasks(
-        const std::shared_ptr<AbstractTask> &task,
-        utils::LogProxy &log) const = 0;
-    SubtaskGenerator(const plugins::Options &opts)
+
+    SameParamsSubtaskGenerator(const plugins::Options &opts)
         : pick_flawed_abstract_state(opts.get<PickFlawedAbstractState>("pick_flawed_abstract_state")),
           pick_split(opts.get<PickSplit>("pick_split")),
           tiebreak_split(opts.get<PickSplit>("tiebreak_split")),
@@ -84,14 +91,12 @@ public:
           sequence_tiebreak_split(opts.get<PickSequenceFlaw>("sequence_tiebreak_split")),
           intersect_flaw_search_abstract_states(opts.get<bool>("intersect_flaw_search_abstract_states")) {
     }
-    virtual ~SubtaskGenerator() = default;
 };
-
 
 /*
   Return copies of the original task.
 */
-class TaskDuplicator : public SubtaskGenerator {
+class TaskDuplicator : public SameParamsSubtaskGenerator {
     int num_copies;
 
 public:
@@ -106,7 +111,7 @@ public:
 /*
   Use ModifiedGoalsTask to return a subtask for each goal fact.
 */
-class GoalDecomposition : public SubtaskGenerator {
+class GoalDecomposition : public SameParamsSubtaskGenerator {
     FactOrder fact_order;
     std::shared_ptr<utils::RandomNumberGenerator> rng;
 
@@ -123,7 +128,7 @@ public:
   Nest ModifiedGoalsTask and DomainAbstractedTask to return subtasks
   focussing on a single landmark fact.
 */
-class LandmarkDecomposition : public SubtaskGenerator {
+class LandmarkDecomposition : public SameParamsSubtaskGenerator {
     FactOrder fact_order;
     bool combine_facts;
     std::shared_ptr<utils::RandomNumberGenerator> rng;
@@ -137,6 +142,37 @@ class LandmarkDecomposition : public SubtaskGenerator {
 
 public:
     explicit LandmarkDecomposition(const plugins::Options &opts);
+
+    virtual SharedTasks get_subtasks(
+        const std::shared_ptr<AbstractTask> &task,
+        utils::LogProxy &log) const override;
+};
+
+class DiversifiedSubtaskGenerator : public SubtaskGenerator {
+protected:
+    PickFlawedAbstractState pick_flawed_abstract_state;
+    PickSplit tiebreak_split;
+    bool intersect_flaw_search_abstract_states;
+
+    DiversifiedSubtaskGenerator(const plugins::Options &opts)
+        : pick_flawed_abstract_state(opts.get<PickFlawedAbstractState>("pick_flawed_abstract_state")),
+          tiebreak_split(opts.get<PickSplit>("tiebreak_split")),
+          intersect_flaw_search_abstract_states(opts.get<bool>("intersect_flaw_search_abstract_states")) {
+    }
+};
+
+class VarsOrdersSubtaskGenerator : public DiversifiedSubtaskGenerator {
+public:
+    explicit VarsOrdersSubtaskGenerator(const plugins::Options &opts);
+
+    virtual SharedTasks get_subtasks(
+        const std::shared_ptr<AbstractTask> &task,
+        utils::LogProxy &log) const override;
+};
+
+class BestStrategiesSubtaskGenerator : public DiversifiedSubtaskGenerator {
+public:
+    explicit BestStrategiesSubtaskGenerator(const plugins::Options &opts);
 
     virtual SharedTasks get_subtasks(
         const std::shared_ptr<AbstractTask> &task,

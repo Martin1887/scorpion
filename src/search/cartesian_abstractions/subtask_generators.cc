@@ -1,5 +1,6 @@
 #include "subtask_generators.h"
 
+#include "split_selector.h"
 #include "utils.h"
 #include "utils_landmarks.h"
 
@@ -95,7 +96,7 @@ Facts filter_and_order_facts(
 
 
 TaskDuplicator::TaskDuplicator(const plugins::Options &opts)
-    : SubtaskGenerator(opts),
+    : SameParamsSubtaskGenerator(opts),
       num_copies(opts.get<int>("copies")) {
 }
 
@@ -120,7 +121,7 @@ SharedTasks TaskDuplicator::get_subtasks(
 }
 
 GoalDecomposition::GoalDecomposition(const plugins::Options &opts)
-    : SubtaskGenerator(opts),
+    : SameParamsSubtaskGenerator(opts),
       fact_order(opts.get<FactOrder>("order")),
       rng(utils::parse_rng_from_options(opts)) {
 }
@@ -153,7 +154,7 @@ SharedTasks GoalDecomposition::get_subtasks(
 
 
 LandmarkDecomposition::LandmarkDecomposition(const plugins::Options &opts)
-    : SubtaskGenerator(opts),
+    : SameParamsSubtaskGenerator(opts),
       fact_order(opts.get<FactOrder>("order")),
       combine_facts(opts.get<bool>("combine_facts")),
       rng(utils::parse_rng_from_options(opts)) {
@@ -205,6 +206,86 @@ SharedTasks LandmarkDecomposition::get_subtasks(
     return subtasks;
 }
 
+VarsOrdersSubtaskGenerator::VarsOrdersSubtaskGenerator(const plugins::Options &opts)
+    : DiversifiedSubtaskGenerator(opts) {
+}
+
+SharedTasks VarsOrdersSubtaskGenerator::get_subtasks(
+    const shared_ptr<AbstractTask> &task, utils::LogProxy &log) const {
+    SharedTasks subtasks;
+    vector<PickSplit> vars_orders = {
+        PickSplit::MAX_CG,
+        PickSplit::MIN_CG,
+        PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN,
+        PickSplit::LANDMARKS_VARS_ORDER_HADD_UP,
+        PickSplit::MAX_POTENTIAL_VARS_ORDER,
+        PickSplit::MIN_POTENTIAL_VARS_ORDER,
+    };
+    log << "Vars orders diversification with orders " << vars_orders << endl;
+    for (PickSplit order : vars_orders) {
+        subtasks.push_back(
+            Subtask {
+                .subproblem_id = 0,
+                .subtask = task,
+                .pick_flawed_abstract_state = pick_flawed_abstract_state,
+                .pick_split = order,
+                .tiebreak_split = tiebreak_split,
+                .sequence_split = PickSequenceFlaw::BEST_SPLIT,
+                .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
+                .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states
+            }
+            );
+    }
+
+    return subtasks;
+}
+
+BestStrategiesSubtaskGenerator::BestStrategiesSubtaskGenerator(const plugins::Options &opts)
+    : DiversifiedSubtaskGenerator(opts) {
+}
+
+SharedTasks BestStrategiesSubtaskGenerator::get_subtasks(
+    const shared_ptr<AbstractTask> &task, utils::LogProxy &log) const {
+    SharedTasks subtasks;
+    subtasks.push_back(
+        Subtask {
+            .subproblem_id = 0,
+            .subtask = task,
+            .pick_flawed_abstract_state = pick_flawed_abstract_state,
+            .pick_split = PickSplit::MAX_COVER,
+            .tiebreak_split = tiebreak_split,
+            .sequence_split = PickSequenceFlaw::CLOSEST_TO_GOAL_FLAW,
+            .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
+            .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states
+        });
+    vector<PickSplit> best_strategies = {
+        PickSplit::MAX_REFINED,
+        PickSplit::MAX_CG,
+        PickSplit::LANDMARKS_HADD_DOWN,
+        PickSplit::LANDMARKS_HADD_UP,
+        PickSplit::MAX_POTENTIAL,
+        PickSplit::MIN_POTENTIAL,
+        PickSplit::GOAL_DISTANCE_INCREASED,
+    };
+    log << "Best strategies diversification with strategies closest_to_goal, "
+        << best_strategies << endl;
+    for (PickSplit strategy : best_strategies) {
+        subtasks.push_back(
+            Subtask {
+                .subproblem_id = 0,
+                .subtask = task,
+                .pick_flawed_abstract_state = pick_flawed_abstract_state,
+                .pick_split = strategy,
+                .tiebreak_split = tiebreak_split,
+                .sequence_split = PickSequenceFlaw::BEST_SPLIT,
+                .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
+                .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states
+            });
+    }
+
+    return subtasks;
+}
+
 static void add_fact_order_option(plugins::Feature &feature) {
     feature.add_option<FactOrder>(
         "order",
@@ -213,19 +294,27 @@ static void add_fact_order_option(plugins::Feature &feature) {
     utils::add_rng_options(feature);
 }
 
-static void add_base_options(plugins::Feature &feature) {
+static void add_diversified_base_options(plugins::Feature &feature) {
     feature.add_option<cartesian_abstractions::PickFlawedAbstractState>(
         "pick_flawed_abstract_state",
         "flaw-selection strategy",
         "batch_min_h");
     feature.add_option<PickSplit>(
-        "pick_split",
-        "split-selection strategy",
-        "max_cover");
-    feature.add_option<PickSplit>(
         "tiebreak_split",
         "split-selection strategy for breaking ties",
         "max_refined");
+    feature.add_option<bool>(
+        "intersect_flaw_search_abstract_states",
+        "intersect flaw search states with the mapped one to find more flaws",
+        "false");
+}
+
+static void add_all_base_options(plugins::Feature &feature) {
+    add_diversified_base_options(feature);
+    feature.add_option<PickSplit>(
+        "pick_split",
+        "split-selection strategy",
+        "max_cover");
     feature.add_option<PickSequenceFlaw>(
         "sequence_split",
         "split-selection strategy for choosing among flaws in different states",
@@ -234,17 +323,12 @@ static void add_base_options(plugins::Feature &feature) {
         "sequence_tiebreak_split",
         "split-selection strategy for breaking ties when choosing among flaws in different states",
         "best_split");
-    feature.add_option<bool>(
-        "intersect_flaw_search_abstract_states",
-        "intersect flaw search states with the mapped one to find more flaws",
-        "false");
 }
-
 
 class TaskDuplicatorFeature : public plugins::TypedFeature<SubtaskGenerator, TaskDuplicator> {
 public:
     TaskDuplicatorFeature() : TypedFeature("original") {
-        add_base_options(*this);
+        add_all_base_options(*this);
         add_option<int>(
             "copies",
             "number of task copies",
@@ -258,7 +342,7 @@ static plugins::FeaturePlugin<TaskDuplicatorFeature> _plugin_original;
 class GoalDecompositionFeature : public plugins::TypedFeature<SubtaskGenerator, GoalDecomposition> {
 public:
     GoalDecompositionFeature() : TypedFeature("goals") {
-        add_base_options(*this);
+        add_all_base_options(*this);
         add_fact_order_option(*this);
     }
 };
@@ -269,7 +353,7 @@ static plugins::FeaturePlugin<GoalDecompositionFeature> _plugin_goals;
 class LandmarkDecompositionFeature : public plugins::TypedFeature<SubtaskGenerator, LandmarkDecomposition> {
 public:
     LandmarkDecompositionFeature() : TypedFeature("landmarks") {
-        add_base_options(*this);
+        add_all_base_options(*this);
         add_fact_order_option(*this);
         add_option<bool>(
             "combine_facts",
@@ -279,6 +363,26 @@ public:
 };
 
 static plugins::FeaturePlugin<LandmarkDecompositionFeature> _plugin_landmarks;
+
+
+class VarsOrdersSubtaskGeneratorFeature : public plugins::TypedFeature<SubtaskGenerator, VarsOrdersSubtaskGenerator> {
+public:
+    VarsOrdersSubtaskGeneratorFeature() : TypedFeature("vars_orders") {
+        add_diversified_base_options(*this);
+    }
+};
+
+static plugins::FeaturePlugin<VarsOrdersSubtaskGeneratorFeature> _plugin_vars_orders;
+
+
+class BestStrategiesSubtaskGeneratorFeature : public plugins::TypedFeature<SubtaskGenerator, BestStrategiesSubtaskGenerator> {
+public:
+    BestStrategiesSubtaskGeneratorFeature() : TypedFeature("best_strategies") {
+        add_diversified_base_options(*this);
+    }
+};
+
+static plugins::FeaturePlugin<BestStrategiesSubtaskGeneratorFeature> _plugin_best_strategies;
 
 
 static class SubtaskGeneratorCategoryPlugin : public plugins::TypedCategoryPlugin<SubtaskGenerator> {

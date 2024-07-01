@@ -68,6 +68,62 @@ enum class PickSplit {
     BALANCE_REFINED_CLOSEST_GOAL,
 };
 
+inline std::ostream &operator<<(std::ostream &os, const PickSplit &s) {
+    switch (s) {
+    case PickSplit::RANDOM:
+        return os << "random";
+        break;
+    case PickSplit::MIN_UNWANTED:
+        return os << "min_unwanted";
+    case PickSplit::MAX_UNWANTED:
+        return os << "max_unwanted";
+    case PickSplit::MIN_REFINED:
+        return os << "min_refined";
+    case PickSplit::MAX_REFINED:
+        return os << "max_refined";
+    case PickSplit::MIN_HADD:
+        return os << "min_hadd";
+    case PickSplit::MAX_HADD:
+        return os << "max_hadd";
+    case PickSplit::MIN_CG:
+        return os << "min_cg";
+    case PickSplit::MAX_CG:
+        return os << "max_cg";
+    case PickSplit::MAX_COVER:
+        return os << "max_cover";
+    case PickSplit::HIGHEST_COST_OPERATOR:
+        return os << "highest_cost_operator";
+    case PickSplit::LOWEST_COST_OPERATOR:
+        return os << "lowest_cost_operator";
+    case PickSplit::LANDMARKS_HADD_DOWN:
+        return os << "landmarks_hadd_down";
+    case PickSplit::LANDMARKS_HADD_UP:
+        return os << "landmarks_hadd_up";
+    case PickSplit::MAX_POTENTIAL:
+        return os << "max_potential";
+    case PickSplit::MIN_POTENTIAL:
+        return os << "min_potential";
+    case PickSplit::RANDOM_VARS_ORDER:
+        return os << "random_vars_order";
+    case PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN:
+        return os << "landmarks_vars_order_hadd_down";
+    case PickSplit::LANDMARKS_VARS_ORDER_HADD_UP:
+        return os << "landmarks_vars_order_hadd_up";
+    case PickSplit::MAX_POTENTIAL_VARS_ORDER:
+        return os << "max_potential_vars_order";
+    case PickSplit::MIN_POTENTIAL_VARS_ORDER:
+        return os << "min_potential_vars_order";
+    case PickSplit::GOAL_DISTANCE_INCREASED:
+        return os << "goal_distance_increased";
+    case PickSplit::OPTIMAL_PLAN_COST_INCREASED:
+        return os << "optimal_plan_cost_increased";
+    case PickSplit::BALANCE_REFINED_CLOSEST_GOAL:
+        return os << "balance_refined_closest_goal";
+    default:
+        return os << "invalid pick_split";
+    }
+}
+
 // Strategies for selecting a sequence flaw.
 // Being able to extend `PickSplit` would be great, but it is not possible.
 // Therefore, the best alternative is to limit the sequence flaw to be the
