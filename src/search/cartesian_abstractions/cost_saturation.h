@@ -4,6 +4,7 @@
 #include "flaw_search.h"
 #include "refinement_hierarchy.h"
 #include "split_selector.h"
+#include "subtask_generators.h"
 
 #include <memory>
 #include <vector>
@@ -33,15 +34,9 @@ class CostSaturation {
     const int max_non_looping_transitions;
     const double max_time;
     const bool use_general_costs;
-    const PickFlawedAbstractState pick_flawed_abstract_state;
-    const PickSplit pick_split;
-    const PickSplit tiebreak_split;
-    const PickSequenceFlaw sequence_split;
-    const PickSequenceFlaw sequence_tiebreak_split;
     const int max_concrete_states_per_abstract_state;
     const int max_state_expansions;
     const int memory_padding_mb;
-    const bool intersect_flaw_search_abstract_states;
     const bool print_h_distribution;
     const bool print_useless_refinements;
     lp::LPSolverType lp_solver;
@@ -60,7 +55,7 @@ class CostSaturation {
         std::shared_ptr<AbstractTask> &parent) const;
     bool state_is_dead_end(const State &state) const;
     void build_abstractions(
-        const std::vector<std::shared_ptr<AbstractTask>> &subtasks,
+        const SharedTasks &subtasks,
         const utils::CountdownTimer &timer,
         const std::function<bool()> &should_abort);
     void print_statistics(utils::Duration init_time) const;
@@ -72,15 +67,9 @@ public:
         int max_non_looping_transitions,
         double max_time,
         bool use_general_costs,
-        PickFlawedAbstractState pick_flawed_abstract_state,
-        PickSplit pick_split,
-        PickSplit tiebreak_split,
-        PickSequenceFlaw sequence_split,
-        PickSequenceFlaw sequence_tiebreak_split,
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
         int memory_padding_mb,
-        bool intersect_flaw_search_abstract_states,
         bool print_h_distribution,
         bool print_useless_refinements,
         lp::LPSolverType lp_solver,

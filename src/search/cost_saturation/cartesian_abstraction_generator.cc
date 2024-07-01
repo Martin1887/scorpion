@@ -106,12 +106,6 @@ CartesianAbstractionGenerator::CartesianAbstractionGenerator(
       max_states(opts.get<int>("max_states")),
       max_transitions(opts.get<int>("max_transitions")),
       max_time(opts.get<double>("max_time")),
-      pick_flawed_abstract_state(
-          opts.get<cartesian_abstractions::PickFlawedAbstractState>("pick_flawed_abstract_state")),
-      pick_split(opts.get<cartesian_abstractions::PickSplit>("pick_split")),
-      tiebreak_split(opts.get<cartesian_abstractions::PickSplit>("tiebreak_split")),
-      sequence_split(opts.get<cartesian_abstractions::PickSequenceFlaw>("sequence_split")),
-      sequence_tiebreak_split(opts.get<cartesian_abstractions::PickSequenceFlaw>("sequence_tiebreak_split")),
       max_concrete_states_per_abstract_state(
           opts.get<int>("max_concrete_states_per_abstract_state")),
       max_state_expansions(opts.get<int>("max_state_expansions")),
@@ -132,22 +126,22 @@ bool CartesianAbstractionGenerator::has_reached_resource_limit(
 }
 
 unique_ptr<cartesian_abstractions::Abstraction> CartesianAbstractionGenerator::build_abstraction_for_subtask(
-    const shared_ptr<AbstractTask> &subtask,
+    const cartesian_abstractions::Subtask &subtask,
     int remaining_subtasks,
     const utils::CountdownTimer &timer) {
     cartesian_abstractions::CEGAR cegar(
-        subtask,
+        subtask.subtask,
         max(1, (max_states - num_states) / remaining_subtasks),
         max(1, (max_transitions - num_transitions) / remaining_subtasks),
         timer.get_remaining_time() / remaining_subtasks,
-        pick_flawed_abstract_state,
-        pick_split,
-        tiebreak_split,
-        sequence_split,
-        sequence_tiebreak_split,
+        subtask.pick_flawed_abstract_state,
+        subtask.pick_split,
+        subtask.tiebreak_split,
+        subtask.sequence_split,
+        subtask.sequence_tiebreak_split,
         max_concrete_states_per_abstract_state,
         max_state_expansions,
-        false,
+        subtask.intersect_flaw_search_abstract_states,
         lp_solver,
         *rng,
         log,
@@ -157,13 +151,13 @@ unique_ptr<cartesian_abstractions::Abstraction> CartesianAbstractionGenerator::b
 }
 
 void CartesianAbstractionGenerator::build_abstractions_for_subtasks(
-    const vector<shared_ptr<AbstractTask>> &subtasks,
+    const cartesian_abstractions::SharedTasks &subtasks,
     const utils::CountdownTimer &timer,
     Abstractions &abstractions) {
     log << "Build abstractions for " << subtasks.size() << " subtasks in "
         << timer.get_remaining_time() << endl;
     int remaining_subtasks = subtasks.size();
-    for (const shared_ptr<AbstractTask> &subtask : subtasks) {
+    for (const cartesian_abstractions::Subtask &subtask : subtasks) {
         unique_ptr<cartesian_abstractions::Abstraction> cartesian_abstraction =
             build_abstraction_for_subtask(subtask, remaining_subtasks, timer);
 
@@ -176,7 +170,7 @@ void CartesianAbstractionGenerator::build_abstractions_for_subtasks(
         num_states += cartesian_abstraction->get_num_states();
         num_transitions += cartesian_abstraction->get_transition_system().get_num_non_loops();
 
-        vector<int> operator_costs = task_properties::get_operator_costs(TaskProxy(*subtask));
+        vector<int> operator_costs = task_properties::get_operator_costs(TaskProxy(*subtask.subtask));
         auto result = convert_abstraction(*cartesian_abstraction, operator_costs);
         bool unsolvable = result.first;
         abstractions.push_back(move(result.second));

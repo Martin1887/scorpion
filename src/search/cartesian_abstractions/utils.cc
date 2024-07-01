@@ -103,32 +103,6 @@ vector<int> get_domain_sizes(const TaskProxy &task) {
     return domain_sizes;
 }
 
-static void add_pick_flawed_abstract_state_strategies(plugins::Feature &feature) {
-    feature.add_option<cartesian_abstractions::PickFlawedAbstractState>(
-        "pick_flawed_abstract_state",
-        "flaw-selection strategy",
-        "batch_min_h");
-}
-
-static void add_pick_split_strategies(plugins::Feature &feature) {
-    feature.add_option<PickSplit>(
-        "pick_split",
-        "split-selection strategy",
-        "max_cover");
-    feature.add_option<PickSplit>(
-        "tiebreak_split",
-        "split-selection strategy for breaking ties",
-        "max_refined");
-    feature.add_option<PickSequenceFlaw>(
-        "sequence_split",
-        "split-selection strategy for choosing among flaws in different states",
-        "closest_to_goal_flaw");
-    feature.add_option<PickSequenceFlaw>(
-        "sequence_tiebreak_split",
-        "split-selection strategy for breaking ties when choosing among flaws in different states",
-        "best_split");
-}
-
 static void add_memory_padding_option(plugins::Feature &feature) {
     feature.add_option<int>(
         "memory_padding",
@@ -223,8 +197,6 @@ void add_common_cegar_options(plugins::Feature &feature) {
         "infinity",
         plugins::Bounds("0.0", "infinity"));
 
-    add_pick_flawed_abstract_state_strategies(feature);
-    add_pick_split_strategies(feature);
     add_memory_padding_option(feature);
     add_dot_graph_verbosity(feature);
     utils::add_rng_options(feature);
@@ -239,11 +211,6 @@ void add_common_cegar_options(plugins::Feature &feature) {
         "maximum number of state expansions per flaw search",
         "1M",
         plugins::Bounds("1", "infinity"));
-
-    feature.add_option<bool>(
-        "intersect_flaw_search_abstract_states",
-        "intersect flaw search states with the mapped one to find more flaws",
-        "false");
 
     feature.add_option<bool>(
         "print_h_distribution",

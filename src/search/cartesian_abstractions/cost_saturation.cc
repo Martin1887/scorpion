@@ -77,15 +77,9 @@ CostSaturation::CostSaturation(
     int max_non_looping_transitions,
     double max_time,
     bool use_general_costs,
-    PickFlawedAbstractState pick_flawed_abstract_state,
-    PickSplit pick_split,
-    PickSplit tiebreak_split,
-    PickSequenceFlaw sequence_split,
-    PickSequenceFlaw sequence_tiebreak_split,
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
     int memory_padding_mb,
-    bool intersect_flaw_search_abstract_states,
     bool print_h_distribution,
     bool print_useless_refinements,
     lp::LPSolverType lp_solver,
@@ -97,15 +91,9 @@ CostSaturation::CostSaturation(
       max_non_looping_transitions(max_non_looping_transitions),
       max_time(max_time),
       use_general_costs(use_general_costs),
-      pick_flawed_abstract_state(pick_flawed_abstract_state),
-      pick_split(pick_split),
-      tiebreak_split(tiebreak_split),
-      sequence_split(sequence_split),
-      sequence_tiebreak_split(sequence_tiebreak_split),
       max_concrete_states_per_abstract_state(max_concrete_states_per_abstract_state),
       max_state_expansions(max_state_expansions),
       memory_padding_mb(memory_padding_mb),
-      intersect_flaw_search_abstract_states(intersect_flaw_search_abstract_states),
       print_h_distribution(print_h_distribution),
       print_useless_refinements(print_useless_refinements),
       lp_solver(lp_solver),
@@ -203,28 +191,28 @@ bool CostSaturation::state_is_dead_end(const State &state) const {
 }
 
 void CostSaturation::build_abstractions(
-    const vector<shared_ptr<AbstractTask>> &subtasks,
+    const SharedTasks &subtasks,
     const utils::CountdownTimer &timer,
     const function<bool()> &should_abort) {
     int rem_subtasks = subtasks.size();
-    for (shared_ptr<AbstractTask> subtask : subtasks) {
-        subtask = get_remaining_costs_task(subtask);
+    for (Subtask subtask : subtasks) {
+        shared_ptr<AbstractTask> saturated_subtask = get_remaining_costs_task(subtask.subtask);
         assert(num_states < max_states);
 
         CEGAR cegar(
-            subtask,
+            saturated_subtask,
             max(1, (max_states - num_states) / rem_subtasks),
             max(1, (max_non_looping_transitions - num_non_looping_transitions) /
                 rem_subtasks),
             timer.get_remaining_time() / rem_subtasks,
-            pick_flawed_abstract_state,
-            pick_split,
-            tiebreak_split,
-            sequence_split,
-            sequence_tiebreak_split,
+            subtask.pick_flawed_abstract_state,
+            subtask.pick_split,
+            subtask.tiebreak_split,
+            subtask.sequence_split,
+            subtask.sequence_tiebreak_split,
             max_concrete_states_per_abstract_state,
             max_state_expansions,
-            intersect_flaw_search_abstract_states,
+            subtask.intersect_flaw_search_abstract_states,
             lp_solver,
             rng,
             log,
@@ -235,7 +223,7 @@ void CostSaturation::build_abstractions(
         num_non_looping_transitions += abstraction->get_transition_system().get_num_non_loops();
         assert(num_states <= max_states);
 
-        vector<int> costs = task_properties::get_operator_costs(TaskProxy(*subtask));
+        vector<int> costs = task_properties::get_operator_costs(TaskProxy(*saturated_subtask));
         vector<int> init_distances = compute_distances(
             abstraction->get_transition_system().get_outgoing_transitions(),
             costs,

@@ -3,6 +3,7 @@
 
 #include "abstraction_generator.h"
 
+#include "../cartesian_abstractions/subtask_generators.h"
 #include "../lp/lp_solver.h"
 
 #include <memory>
@@ -15,10 +16,6 @@ class Options;
 namespace cartesian_abstractions {
 class Abstraction;
 enum class DotGraphVerbosity;
-enum class PickFlawedAbstractState;
-enum class PickSplit;
-enum class PickSequenceFlaw;
-class SubtaskGenerator;
 }
 
 namespace utils {
@@ -32,11 +29,6 @@ class CartesianAbstractionGenerator : public AbstractionGenerator {
     const int max_states;
     const int max_transitions;
     const double max_time;
-    const cartesian_abstractions::PickFlawedAbstractState pick_flawed_abstract_state;
-    const cartesian_abstractions::PickSplit pick_split;
-    const cartesian_abstractions::PickSplit tiebreak_split;
-    const cartesian_abstractions::PickSequenceFlaw sequence_split;
-    const cartesian_abstractions::PickSequenceFlaw sequence_tiebreak_split;
     const int max_concrete_states_per_abstract_state;
     const int max_state_expansions;
     const int extra_memory_padding_mb;
@@ -50,12 +42,12 @@ class CartesianAbstractionGenerator : public AbstractionGenerator {
     bool has_reached_resource_limit(const utils::CountdownTimer &timer) const;
 
     std::unique_ptr<cartesian_abstractions::Abstraction> build_abstraction_for_subtask(
-        const std::shared_ptr<AbstractTask> &subtask,
+        const cartesian_abstractions::Subtask &subtask,
         int remaining_subtasks,
         const utils::CountdownTimer &timer);
 
     void build_abstractions_for_subtasks(
-        const std::vector<std::shared_ptr<AbstractTask>> &subtasks,
+        const cartesian_abstractions::SharedTasks &subtasks,
         const utils::CountdownTimer &timer,
         Abstractions &abstractions);
 

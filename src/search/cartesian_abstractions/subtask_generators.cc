@@ -95,21 +95,33 @@ Facts filter_and_order_facts(
 
 
 TaskDuplicator::TaskDuplicator(const plugins::Options &opts)
-    : num_copies(opts.get<int>("copies")) {
+    : SubtaskGenerator(opts),
+      num_copies(opts.get<int>("copies")) {
 }
 
 SharedTasks TaskDuplicator::get_subtasks(
     const shared_ptr<AbstractTask> &task, utils::LogProxy &) const {
+    Subtask subtask {
+        .subproblem_id = 0,
+        .subtask = task,
+        .pick_flawed_abstract_state = pick_flawed_abstract_state,
+        .pick_split = pick_split,
+        .tiebreak_split = tiebreak_split,
+        .sequence_split = sequence_split,
+        .sequence_tiebreak_split = sequence_tiebreak_split,
+        .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states
+    };
     SharedTasks subtasks;
     subtasks.reserve(num_copies);
     for (int i = 0; i < num_copies; ++i) {
-        subtasks.push_back(task);
+        subtasks.push_back(subtask);
     }
     return subtasks;
 }
 
 GoalDecomposition::GoalDecomposition(const plugins::Options &opts)
-    : fact_order(opts.get<FactOrder>("order")),
+    : SubtaskGenerator(opts),
+      fact_order(opts.get<FactOrder>("order")),
       rng(utils::parse_rng_from_options(opts)) {
 }
 
@@ -119,17 +131,30 @@ SharedTasks GoalDecomposition::get_subtasks(
     TaskProxy task_proxy(*task);
     Facts goal_facts = task_properties::get_fact_pairs(task_proxy.get_goals());
     filter_and_order_facts(task, fact_order, goal_facts, *rng, log);
+    int i = 0;
     for (const FactPair &goal : goal_facts) {
-        shared_ptr<AbstractTask> subtask =
+        shared_ptr<AbstractTask> subproblem =
             make_shared<extra_tasks::ModifiedGoalsTask>(task, Facts {goal});
+        Subtask subtask {
+            .subproblem_id = i,
+            .subtask = subproblem,
+            .pick_flawed_abstract_state = pick_flawed_abstract_state,
+            .pick_split = pick_split,
+            .tiebreak_split = tiebreak_split,
+            .sequence_split = sequence_split,
+            .sequence_tiebreak_split = sequence_tiebreak_split,
+            .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states
+        };
         subtasks.push_back(subtask);
+        i++;
     }
     return subtasks;
 }
 
 
 LandmarkDecomposition::LandmarkDecomposition(const plugins::Options &opts)
-    : fact_order(opts.get<FactOrder>("order")),
+    : SubtaskGenerator(opts),
+      fact_order(opts.get<FactOrder>("order")),
       combine_facts(opts.get<bool>("combine_facts")),
       rng(utils::parse_rng_from_options(opts)) {
 }
@@ -156,14 +181,26 @@ SharedTasks LandmarkDecomposition::get_subtasks(
         get_landmark_graph(task);
     Facts landmark_facts = get_fact_landmarks(*landmark_graph);
     filter_and_order_facts(task, fact_order, landmark_facts, *rng, log);
+    int i = 0;
     for (const FactPair &landmark : landmark_facts) {
-        shared_ptr<AbstractTask> subtask =
+        shared_ptr<AbstractTask> subproblem =
             make_shared<extra_tasks::ModifiedGoalsTask>(task, Facts {landmark});
         if (combine_facts) {
-            subtask = build_domain_abstracted_task(
-                subtask, *landmark_graph, landmark);
+            subproblem = build_domain_abstracted_task(
+                subproblem, *landmark_graph, landmark);
         }
+        Subtask subtask {
+            .subproblem_id = i,
+            .subtask = subproblem,
+            .pick_flawed_abstract_state = pick_flawed_abstract_state,
+            .pick_split = pick_split,
+            .tiebreak_split = tiebreak_split,
+            .sequence_split = sequence_split,
+            .sequence_tiebreak_split = sequence_tiebreak_split,
+            .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states
+        };
         subtasks.push_back(subtask);
+        i++;
     }
     return subtasks;
 }
@@ -176,9 +213,38 @@ static void add_fact_order_option(plugins::Feature &feature) {
     utils::add_rng_options(feature);
 }
 
+static void add_base_options(plugins::Feature &feature) {
+    feature.add_option<cartesian_abstractions::PickFlawedAbstractState>(
+        "pick_flawed_abstract_state",
+        "flaw-selection strategy",
+        "batch_min_h");
+    feature.add_option<PickSplit>(
+        "pick_split",
+        "split-selection strategy",
+        "max_cover");
+    feature.add_option<PickSplit>(
+        "tiebreak_split",
+        "split-selection strategy for breaking ties",
+        "max_refined");
+    feature.add_option<PickSequenceFlaw>(
+        "sequence_split",
+        "split-selection strategy for choosing among flaws in different states",
+        "closest_to_goal_flaw");
+    feature.add_option<PickSequenceFlaw>(
+        "sequence_tiebreak_split",
+        "split-selection strategy for breaking ties when choosing among flaws in different states",
+        "best_split");
+    feature.add_option<bool>(
+        "intersect_flaw_search_abstract_states",
+        "intersect flaw search states with the mapped one to find more flaws",
+        "false");
+}
+
+
 class TaskDuplicatorFeature : public plugins::TypedFeature<SubtaskGenerator, TaskDuplicator> {
 public:
     TaskDuplicatorFeature() : TypedFeature("original") {
+        add_base_options(*this);
         add_option<int>(
             "copies",
             "number of task copies",
@@ -192,6 +258,7 @@ static plugins::FeaturePlugin<TaskDuplicatorFeature> _plugin_original;
 class GoalDecompositionFeature : public plugins::TypedFeature<SubtaskGenerator, GoalDecomposition> {
 public:
     GoalDecompositionFeature() : TypedFeature("goals") {
+        add_base_options(*this);
         add_fact_order_option(*this);
     }
 };
@@ -202,6 +269,7 @@ static plugins::FeaturePlugin<GoalDecompositionFeature> _plugin_goals;
 class LandmarkDecompositionFeature : public plugins::TypedFeature<SubtaskGenerator, LandmarkDecomposition> {
 public:
     LandmarkDecompositionFeature() : TypedFeature("landmarks") {
+        add_base_options(*this);
         add_fact_order_option(*this);
         add_option<bool>(
             "combine_facts",
