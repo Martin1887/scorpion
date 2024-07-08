@@ -583,6 +583,11 @@ bool SplitSelector::split_is_filtered(const Split &split,
         }
         break;
     }
+    case FilterSplit::NON_ZEROCOST_OPERATOR:
+    {
+        filtered = split.op_cost == 0;
+        break;
+    }
     }
 
     return filtered;
@@ -694,6 +699,7 @@ static plugins::TypedEnumPlugin<FilterSplit> _enum_plugin_filter({
         {"none", "no filter splits"},
         {"goal_distance_increased", "distance to goal is increased after the refinement."},
         {"optimal_plan_cost_increased", "cost of the optimal plan is increased after the refinement."},
+        {"non_zerocost_operator", "cost of the operator is not 0."},
     });
 static plugins::TypedEnumPlugin<PickSequenceFlaw> _enum_plugin_sequence({
         {"best_split", "select the best split among all flawed states"},

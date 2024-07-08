@@ -128,6 +128,7 @@ enum class FilterSplit {
     NONE,
     GOAL_DISTANCE_INCREASED,
     OPTIMAL_PLAN_COST_INCREASED,
+    NON_ZEROCOST_OPERATOR,
 };
 
 // Strategies for selecting a sequence flaw.
