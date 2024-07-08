@@ -136,6 +136,7 @@ unique_ptr<cartesian_abstractions::Abstraction> CartesianAbstractionGenerator::b
         timer.get_remaining_time() / remaining_subtasks,
         subtask.pick_flawed_abstract_state,
         subtask.pick_split,
+        subtask.filter_split,
         subtask.tiebreak_split,
         subtask.sequence_split,
         subtask.sequence_tiebreak_split,

@@ -173,7 +173,13 @@ class FlawSearch {
     FlawedState last_refined_flawed_state;
     Cost best_flaw_h;
     FlawedStates flawed_states;
-    bool current_bidirectional_dir_backward = false;
+    bool legacy_flaws = false;
+    bool in_sequence = false;
+    bool in_batch = false;
+    InAbstractionFlawSearchKind only_in_abstraction = InAbstractionFlawSearchKind::FALSE;
+    bool forward_direction = false;
+    bool backward_direction = false;
+    bool split_unwanted_values = false;
     bool batch_bidirectional_already_changed_dir = false;
     // {AbstractState ID -> {bw_direction -> {split_unwanted_values -> {LegacyFlaw -> {std::shared_ptr<Split>}}}}}
     HashMap<int,
@@ -250,11 +256,11 @@ class FlawSearch {
     std::unique_ptr<Split> get_single_split(const utils::CountdownTimer &cegar_timer, Cost solution_cost);
     std::unique_ptr<Split> get_min_h_batch_split(const utils::CountdownTimer &cegar_timer, Cost solution_cost);
 
+    // only_in_abstraction may change in the call when no flaws are found
+    // with the actual value.
     std::vector<LegacyFlaw> get_forward_flaws(const Solution &solution,
-                                              const bool in_sequence,
                                               const InAbstractionFlawSearchKind only_in_abstraction);
     std::vector<LegacyFlaw> get_backward_flaws(const Solution &solution,
-                                               const bool in_sequence,
                                                const InAbstractionFlawSearchKind only_in_abstraction);
 
     // Return concrete state id and abstract state id where create the split.
@@ -262,6 +268,17 @@ class FlawSearch {
     // Return flaw-search state id and abstract state id where create the split.
     std::unique_ptr<LegacyFlaw> get_flaw_legacy_backward(const Solution &solution);
 
+    // The direction here is needed for bidirectional cases.
+    void push_flaw_if_not_filtered(std::vector<LegacyFlaw> &flaws,
+                                   const LegacyFlaw &flaw,
+                                   const Solution &solution,
+                                   const bool backward_direction,
+                                   std::unique_ptr<LegacyFlaw> &first_filtered_flaw,
+                                   bool force_push = false);
+    std::unique_ptr<Split> last_not_filtered_flaw(std::vector<LegacyFlaw> &flaws,
+                                                  Cost solution_cost,
+                                                  const bool backward_direction);
+    // The direction here is needed for bidirectional cases.
     std::unique_ptr<Split> select_flaw_and_pick_split(
         std::vector<LegacyFlaw> &&flaws,
         bool backward_direction,
@@ -292,24 +309,29 @@ class FlawSearch {
                                                const Solution &solution,
                                                bool invalidate_cache = true);
 
-    std::unique_ptr<Split> splits_cache_get(LegacyFlaw f,
+    // Direction and split_unwanted_values are needed for bidirectional cases.
+    std::unique_ptr<Split> splits_cache_get(const LegacyFlaw &f,
                                             Cost solution_cost,
                                             bool backward_direction,
                                             bool split_unwanted_values);
-
     void splits_cache_invalidate(int abstract_state_id);
 
+    // Direction and split_unwanted_values are needed for bidirectional cases.
+    std::unique_ptr<Split> create_split_from_flaw(const LegacyFlaw &flaw,
+                                                  Cost solution_cost,
+                                                  const bool backward,
+                                                  const bool split_unwanted_values);
+
+    // Invoke splits_cache_get when cache makes sense and create_split_from_flaw
+    // otherwise.
     std::unique_ptr<Split> get_split_from_flaw(const LegacyFlaw &flaw,
                                                Cost solution_cost,
                                                const bool backward,
                                                const bool split_unwanted_values);
 
     SplitProperties get_split(const utils::CountdownTimer &cegar_timer, Cost solution_cost);
-    SplitProperties get_split_legacy(const Solution &solution,
-                                     const bool backward = false,
-                                     const bool split_unwanted_values = false);
-    SplitProperties get_split_legacy_closest_to_goal(const Solution &solution,
-                                                     const bool split_unwanted_values);
+    SplitProperties get_split_legacy(const Solution &solution);
+    SplitProperties get_split_legacy_closest_to_goal(const Solution &solution);
     double get_plan_perc(int abstract_state_id, const Solution &solution);
     void update_current_direction(const bool half_limits_reached);
 
@@ -322,6 +344,7 @@ public:
         utils::RandomNumberGenerator &rng,
         PickFlawedAbstractState pick_flawed_abstract_state,
         PickSplit pick_split,
+        FilterSplit filter_split,
         PickSplit tiebreak_split,
         PickSequenceFlaw sequence_split,
         PickSequenceFlaw sequence_tiebreak_split,
@@ -334,11 +357,7 @@ public:
     SplitProperties get_split_and_direction(const Solution &solution,
                                             const utils::CountdownTimer &cegar_timer,
                                             const bool half_limits_reached);
-    SplitProperties get_sequence_splits(const Solution &solution,
-                                        const InAbstractionFlawSearchKind only_in_abstraction,
-                                        const bool forward,
-                                        const bool backward,
-                                        const bool in_batch = false);
+    SplitProperties get_sequence_splits(const Solution &solution);
     bool refine_init_state() const;
     bool refine_goals() const;
 

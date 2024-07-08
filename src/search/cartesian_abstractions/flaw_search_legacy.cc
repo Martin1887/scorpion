@@ -86,6 +86,20 @@ unique_ptr<Split> FlawSearch::get_split_from_flaw(const LegacyFlaw &flaw,
                                                   Cost solution_cost,
                                                   const bool backward,
                                                   const bool split_unwanted_values) {
+    if (in_sequence &&
+        (split_selector.filter_pick != FilterSplit::NONE ||
+         (only_in_abstraction != InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION &&
+          split_selector.sequence_pick == PickSequenceFlaw::BEST_SPLIT))) {
+        return splits_cache_get(flaw, solution_cost, backward, split_unwanted_values);
+    } else {
+        return create_split_from_flaw(flaw, solution_cost, backward, split_unwanted_values);
+    }
+}
+
+unique_ptr<Split> FlawSearch::create_split_from_flaw(const LegacyFlaw &flaw,
+                                                     Cost solution_cost,
+                                                     const bool backward,
+                                                     const bool split_unwanted_values) {
     if (backward) {
         if (flaw.split_last_state) {
             return create_backward_split_from_init_state({flaw.flaw_search_state},
@@ -113,35 +127,31 @@ unique_ptr<Split> FlawSearch::get_split_from_flaw(const LegacyFlaw &flaw,
     }
 }
 
-SplitProperties FlawSearch::get_split_legacy(const Solution &solution,
-                                             const bool backward,
-                                             const bool split_unwanted_values) {
+SplitProperties FlawSearch::get_split_legacy(const Solution &solution) {
     if (log.is_at_least_debug()) {
         log << "Abstraction: " << endl;
         abstraction.dump();
     }
     Cost solution_cost = get_optimal_plan_cost(solution, task_proxy);
     unique_ptr<pair<StateID, int>> split_pair;
-    if (backward) {
+    if (backward_direction) {
         unique_ptr<LegacyFlaw> backward_flaw = get_flaw_legacy_backward(solution);
         if (backward_flaw) {
-            return SplitProperties(get_split_from_flaw(*backward_flaw, solution_cost, true, split_unwanted_values),
+            return SplitProperties(create_split_from_flaw(*backward_flaw, solution_cost, true, split_unwanted_values),
                                    get_plan_perc(backward_flaw->abstract_state_id, solution), true, 0, 1);
         }
     } else {
         unique_ptr<LegacyFlaw> forward_flaw = get_flaw_legacy_forward(solution);
         if (forward_flaw) {
-            return SplitProperties(get_split_from_flaw(*forward_flaw, solution_cost, false, split_unwanted_values),
+            return SplitProperties(create_split_from_flaw(*forward_flaw, solution_cost, false, split_unwanted_values),
                                    get_plan_perc(forward_flaw->abstract_state_id, solution), false, 1, 0);
         }
     }
 
-    return SplitProperties(nullptr, backward, 0, 0);
+    return SplitProperties(nullptr, backward_direction, 0, 0);
 }
 
-SplitProperties FlawSearch::get_split_legacy_closest_to_goal(
-    const Solution &solution,
-    const bool split_unwanted_values) {
+SplitProperties FlawSearch::get_split_legacy_closest_to_goal(const Solution &solution) {
     if (log.is_at_least_debug()) {
         log << "Abstraction: " << endl;
         abstraction.dump();
@@ -162,16 +172,16 @@ SplitProperties FlawSearch::get_split_legacy_closest_to_goal(
     }
 
     if (backward_chosen) {
-        return SplitProperties(get_split_from_flaw(*backward_flaw, solution_cost, true, split_unwanted_values),
+        return SplitProperties(create_split_from_flaw(*backward_flaw, solution_cost, true, true),
                                get_plan_perc(backward_flaw->abstract_state_id, solution), true);
     } else {
-        return SplitProperties(get_split_from_flaw(*forward_flaw, solution_cost, false, split_unwanted_values),
+        return SplitProperties(create_split_from_flaw(*forward_flaw, solution_cost, false, false),
                                get_plan_perc(forward_flaw->abstract_state_id, solution), false);
     }
 }
 
 unique_ptr<LegacyFlaw> FlawSearch::get_flaw_legacy_forward(const Solution &solution) {
-    vector<LegacyFlaw> flaws = get_forward_flaws(solution, false, InAbstractionFlawSearchKind::FALSE);
+    vector<LegacyFlaw> flaws = get_forward_flaws(solution, only_in_abstraction);
     if (flaws.empty()) {
         return nullptr;
     } else {
@@ -180,7 +190,7 @@ unique_ptr<LegacyFlaw> FlawSearch::get_flaw_legacy_forward(const Solution &solut
 }
 
 unique_ptr<LegacyFlaw> FlawSearch::get_flaw_legacy_backward(const Solution &solution) {
-    vector<LegacyFlaw> flaws = get_backward_flaws(solution, false, InAbstractionFlawSearchKind::FALSE);
+    vector<LegacyFlaw> flaws = get_backward_flaws(solution, only_in_abstraction);
     if (flaws.empty()) {
         return nullptr;
     } else {

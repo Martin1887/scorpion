@@ -124,6 +124,12 @@ inline std::ostream &operator<<(std::ostream &os, const PickSplit &s) {
     }
 }
 
+enum class FilterSplit {
+    NONE,
+    GOAL_DISTANCE_INCREASED,
+    OPTIMAL_PLAN_COST_INCREASED,
+};
+
 // Strategies for selecting a sequence flaw.
 // Being able to extend `PickSplit` would be great, but it is not possible.
 // Therefore, the best alternative is to limit the sequence flaw to be the
@@ -145,14 +151,16 @@ struct Split {
     int value;
     std::vector<int> values;
     int op_cost;
+    bool is_filtered;
 
-    Split(int abstract_state_id, int var_id, int value, std::vector<int> &&values, int count, int op_cost = -1)
+    Split(int abstract_state_id, int var_id, int value, std::vector<int> &&values, int count, int op_cost = -1, bool is_filtered = false)
         : count(count),
           abstract_state_id(abstract_state_id),
           var_id(var_id),
           value(value),
           values(move(values)),
-          op_cost(op_cost) {
+          op_cost(op_cost),
+          is_filtered(is_filtered) {
         assert(count >= 1);
     }
 
@@ -216,6 +224,7 @@ class SplitSelector {
     std::vector<std::vector<double>> fact_potentials;
 
     const PickSplit first_pick;
+    const FilterSplit filter_pick;
     const PickSplit tiebreak_pick;
     const PickSequenceFlaw sequence_pick;
     const PickSequenceFlaw sequence_tiebreak_pick;
@@ -229,7 +238,7 @@ class SplitSelector {
     int get_min_hadd_value(int var_id, const std::vector<int> &values) const;
     int get_max_hadd_value(int var_id, const std::vector<int> &values) const;
 
-    double rate_split(const AbstractState &state, const Split &split, PickSplit pick, Cost abstract_optimal_plan_cost) const;
+    double rate_split(const AbstractState &state, const Split &split, PickSplit pick, Cost optimal_abstract_plan_cost) const;
     std::vector<Split> compute_max_cover_splits(
         std::vector<std::vector<Split>> &&splits) const;
     Split select_from_best_splits(
@@ -237,6 +246,7 @@ class SplitSelector {
         std::vector<Split> &&splits,
         Cost optimal_abstract_plan_cost,
         utils::RandomNumberGenerator &rng) const;
+    bool split_is_filtered(const Split &split, const AbstractState &abstract_state, Cost optimal_abstract_plan_cost) const;
     std::vector<Split> reduce_to_best_splits(
         const AbstractState &abstract_state,
         std::vector<std::vector<Split>> &&splits,
@@ -249,6 +259,7 @@ public:
         const Abstraction &abstraction,
         std::shared_ptr<TransitionSystem> &simulated_transition_system,
         PickSplit pick,
+        FilterSplit filter_pick,
         PickSplit tiebreak_pick,
         PickSequenceFlaw sequence_pick,
         PickSequenceFlaw sequence_tiebreak_pick,

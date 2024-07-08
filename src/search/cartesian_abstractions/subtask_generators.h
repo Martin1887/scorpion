@@ -41,6 +41,7 @@ struct Subtask {
     std::shared_ptr<AbstractTask> subtask;
     PickFlawedAbstractState pick_flawed_abstract_state;
     PickSplit pick_split;
+    FilterSplit filter_split;
     PickSplit tiebreak_split;
     PickSequenceFlaw sequence_split;
     PickSequenceFlaw sequence_tiebreak_split;
@@ -78,6 +79,7 @@ class SameParamsSubtaskGenerator : public SubtaskGenerator {
 protected:
     PickFlawedAbstractState pick_flawed_abstract_state;
     PickSplit pick_split;
+    FilterSplit filter_split;
     PickSplit tiebreak_split;
     PickSequenceFlaw sequence_split;
     PickSequenceFlaw sequence_tiebreak_split;
@@ -86,6 +88,7 @@ protected:
     SameParamsSubtaskGenerator(const plugins::Options &opts)
         : pick_flawed_abstract_state(opts.get<PickFlawedAbstractState>("pick_flawed_abstract_state")),
           pick_split(opts.get<PickSplit>("pick_split")),
+          filter_split(opts.get<FilterSplit>("filter_split")),
           tiebreak_split(opts.get<PickSplit>("tiebreak_split")),
           sequence_split(opts.get<PickSequenceFlaw>("sequence_split")),
           sequence_tiebreak_split(opts.get<PickSequenceFlaw>("sequence_tiebreak_split")),

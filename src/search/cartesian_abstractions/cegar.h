@@ -79,6 +79,7 @@ public:
         double max_time,
         PickFlawedAbstractState pick_flawed_abstract_state,
         PickSplit pick_split,
+        FilterSplit filter_split,
         PickSplit tiebreak_split,
         PickSequenceFlaw sequence_split,
         PickSequenceFlaw sequence_tiebreak_split,

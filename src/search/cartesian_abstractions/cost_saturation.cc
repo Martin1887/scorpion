@@ -207,6 +207,7 @@ void CostSaturation::build_abstractions(
             timer.get_remaining_time() / rem_subtasks,
             subtask.pick_flawed_abstract_state,
             subtask.pick_split,
+            subtask.filter_split,
             subtask.tiebreak_split,
             subtask.sequence_split,
             subtask.sequence_tiebreak_split,

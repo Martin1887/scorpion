@@ -6,7 +6,7 @@
 namespace cartesian_abstractions {
 using namespace std;
 
-std::unique_ptr<Split> FlawSearch::splits_cache_get(LegacyFlaw f,
+std::unique_ptr<Split> FlawSearch::splits_cache_get(const LegacyFlaw &f,
                                                     Cost solution_cost,
                                                     bool backward_direction,
                                                     bool split_unwanted_values) {
@@ -24,7 +24,7 @@ std::unique_ptr<Split> FlawSearch::splits_cache_get(LegacyFlaw f,
         opt_tr_cache[f.abstract_state_id].at(backward_direction) != opt_tr) {
         splits_cache[f.abstract_state_id][backward_direction][split_unwanted_values].erase(f);
         splits_cache[f.abstract_state_id][backward_direction][split_unwanted_values].emplace(
-            f, get_split_from_flaw(f, solution_cost, backward_direction, split_unwanted_values));
+            f, create_split_from_flaw(f, solution_cost, backward_direction, split_unwanted_values));
         opt_tr_cache[f.abstract_state_id].erase(backward_direction);
         opt_tr_cache[f.abstract_state_id].emplace(backward_direction, std::move(opt_tr));
     }

@@ -74,6 +74,7 @@ SplitSelector::SplitSelector(
     const Abstraction &abstraction,
     shared_ptr<TransitionSystem> &simulated_transition_system,
     PickSplit pick,
+    FilterSplit filter_pick,
     PickSplit tiebreak_pick,
     PickSequenceFlaw sequence_pick,
     PickSequenceFlaw sequence_tiebreak_pick,
@@ -89,6 +90,7 @@ SplitSelector::SplitSelector(
       fact_landmarks_hadd_down(),
       fact_potentials(),
       first_pick(pick),
+      filter_pick(filter_pick),
       tiebreak_pick(tiebreak_pick),
       sequence_pick(sequence_pick),
       sequence_tiebreak_pick(sequence_tiebreak_pick) {
@@ -511,18 +513,79 @@ vector<Split> SplitSelector::reduce_to_best_splits(
         if (!var_splits.empty()) {
             for (Split &split : var_splits) {
                 double rating = rate_split(abstract_state, split, first_pick, optimal_abstract_plan_cost);
-                if (rating > max_rating) {
-                    best_splits.clear();
-                    best_splits.push_back(move(split));
-                    max_rating = rating;
-                } else if (rating == max_rating) {
-                    best_splits.push_back(move(split));
+                if (rating >= max_rating) {
+                    if (!split_is_filtered(split, abstract_state, optimal_abstract_plan_cost)) {
+                        if (rating > max_rating) {
+                            best_splits.clear();
+                            best_splits.push_back(move(split));
+                            max_rating = rating;
+                        } else if (rating == max_rating) {
+                            best_splits.push_back(move(split));
+                        }
+                    } else if (best_splits.empty()) {
+                        // If it is filtered set as the best but with the lowest rating.
+                        split.is_filtered = true;
+                        best_splits.push_back(move(split));
+                    }
                 }
             }
         }
     }
     assert(!best_splits.empty());
     return best_splits;
+}
+
+bool SplitSelector::split_is_filtered(const Split &split,
+                                      const AbstractState &abstract_state,
+                                      Cost optimal_abstract_plan_cost) const {
+    bool filtered = false;
+    switch (filter_pick) {
+    case FilterSplit::NONE:
+        break;
+    case FilterSplit::GOAL_DISTANCE_INCREASED:
+    {
+        int state_id = abstract_state.get_id();
+        Cost current_dist = shortest_paths.get_64bit_goal_distance(state_id);
+        SimulatedRefinement ref =
+            abstraction.simulate_refinement(simulated_transition_system, abstract_state, split.var_id, split.values);
+        shortest_paths.update_incrementally(ref.transition_system->get_incoming_transitions(),
+                                            ref.transition_system->get_outgoing_transitions(),
+                                            state_id,
+                                            ref.v1_id,
+                                            ref.v2_id,
+                                            ref.goals,
+                                            0,
+                                            true);
+        // Distance only can be equal or higher, == should be a bit faster than <=.
+        if (max(shortest_paths.get_64bit_goal_distance(ref.v1_id, true),
+                shortest_paths.get_64bit_goal_distance(ref.v2_id, true)) == current_dist) {
+            filtered = true;
+        }
+        break;
+    }
+    case FilterSplit::OPTIMAL_PLAN_COST_INCREASED:
+    {
+        int state_id = abstract_state.get_id();
+        SimulatedRefinement ref =
+            abstraction.simulate_refinement(simulated_transition_system, abstract_state, split.var_id, split.values);
+        shortest_paths.update_incrementally(ref.transition_system->get_incoming_transitions(),
+                                            ref.transition_system->get_outgoing_transitions(),
+                                            state_id,
+                                            ref.v1_id,
+                                            ref.v2_id,
+                                            ref.goals,
+                                            0,
+                                            true);
+        Solution solution = *shortest_paths.extract_solution(0, ref.goals, true);
+        // Distance only can be equal or higher, == should be a bit faster than <=.
+        if (get_optimal_plan_cost(solution, task_proxy) == optimal_abstract_plan_cost) {
+            filtered = true;
+        }
+        break;
+    }
+    }
+
+    return filtered;
 }
 
 Split SplitSelector::select_from_best_splits(
@@ -626,6 +689,11 @@ static plugins::TypedEnumPlugin<PickSplit> _enum_plugin({
          "amount in which the cost of the optimal plan is increased after the refinement."},
         {"balance_refined_closest_goal",
          "max_refined and distance of the state before refinement to goal with the same weight."}
+    });
+static plugins::TypedEnumPlugin<FilterSplit> _enum_plugin_filter({
+        {"none", "no filter splits"},
+        {"goal_distance_increased", "distance to goal is increased after the refinement."},
+        {"optimal_plan_cost_increased", "cost of the optimal plan is increased after the refinement."},
     });
 static plugins::TypedEnumPlugin<PickSequenceFlaw> _enum_plugin_sequence({
         {"best_split", "select the best split among all flawed states"},

@@ -489,7 +489,7 @@ unique_ptr<Split> FlawSearch::get_single_split(const utils::CountdownTimer &cega
             log << "Path (without last operator): " << operator_names << endl;
         }
 
-        return create_split({state_id}, flawed_state.abs_id, solution_cost, false);
+        return create_split({state_id}, flawed_state.abs_id, solution_cost, split_unwanted_values);
     }
     assert(search_status == SOLVED);
     return nullptr;
@@ -554,7 +554,7 @@ FlawSearch::get_min_h_batch_split(const utils::CountdownTimer &cegar_timer, Cost
         }
 
         unique_ptr<Split> split;
-        split = create_split(flawed_state.concrete_states, flawed_state.abs_id, solution_cost, false);
+        split = create_split(flawed_state.concrete_states, flawed_state.abs_id, solution_cost, split_unwanted_values);
 
         if (!utils::extra_memory_padding_is_reserved()) {
             return nullptr;
@@ -583,6 +583,7 @@ FlawSearch::FlawSearch(
     utils::RandomNumberGenerator &rng,
     PickFlawedAbstractState pick_flawed_abstract_state,
     PickSplit pick_split,
+    FilterSplit filter_split,
     PickSplit tiebreak_split,
     PickSequenceFlaw sequence_split,
     PickSequenceFlaw sequence_tiebreak_split,
@@ -600,6 +601,7 @@ FlawSearch::FlawSearch(
                    abstraction,
                    simulated_transition_system,
                    pick_split,
+                   filter_split,
                    tiebreak_split,
                    sequence_split,
                    sequence_tiebreak_split,
@@ -623,10 +625,112 @@ FlawSearch::FlawSearch(
     flaw_search_timer(false),
     compute_splits_timer(false),
     pick_split_timer(false) {
-    // Note that the interleaved case starts as backward but its value is
-    // modified inside the refinement loop.
-    if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD) {
-        current_bidirectional_dir_backward = true;
+    // legacy_flaws, in_sequence or new flaws (default).
+    switch (pick_flawed_abstract_state) {
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_UNWANTED_VALUES:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_FORWARD_BACKWARD:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_CLOSEST_TO_GOAL:
+        legacy_flaws = true;
+        break;
+    case PickFlawedAbstractState::SEQUENCE:
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION:
+    case PickFlawedAbstractState::SEQUENCE_BACKWARD:
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BACKWARD:
+    case PickFlawedAbstractState::SEQUENCE_BIDIRECTIONAL:
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BIDIRECTIONAL:
+    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION:
+    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION_BACKWARD:
+    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION_BIDIRECTIONAL:
+    case PickFlawedAbstractState::SEQUENCE_BATCH:
+    case PickFlawedAbstractState::SEQUENCE_BATCH_BACKWARD:
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BATCH:
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BATCH_BACKWARD:
+        in_sequence = true;
+        break;
+    default:
+        break;
+    }
+    // only_in_abstraction and in_batch switches.
+    switch (pick_flawed_abstract_state) {
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION:
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BACKWARD:
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BIDIRECTIONAL:
+        only_in_abstraction = InAbstractionFlawSearchKind::TRUE;
+        break;
+    case PickFlawedAbstractState::SEQUENCE_BATCH:
+    case PickFlawedAbstractState::SEQUENCE_BATCH_BACKWARD:
+        in_batch = true;
+        break;
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BATCH:
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BATCH_BACKWARD:
+        only_in_abstraction = InAbstractionFlawSearchKind::TRUE;
+        in_batch = true;
+        break;
+    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION:
+    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION_BACKWARD:
+    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION_BIDIRECTIONAL:
+        only_in_abstraction = InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION;
+        break;
+    default:
+        break;
+    }
+    // Direction (FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_CLOSEST_TO_GOAL is
+    // determined in its function).
+    switch (pick_flawed_abstract_state) {
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH:
+        forward_direction = true;
+        break;
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_UNWANTED_VALUES:
+        forward_direction = true;
+        split_unwanted_values = true;
+        break;
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE:
+        backward_direction = true;
+        break;
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD:
+        backward_direction = true;
+        split_unwanted_values = true;
+        break;
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED:
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_FORWARD_BACKWARD:
+        forward_direction = true;
+        break;
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD:
+        // Note that the interleaved case starts as backward but its value is
+        // modified inside the refinement loop.
+        backward_direction = true;
+        split_unwanted_values = true;
+        break;
+    case PickFlawedAbstractState::SEQUENCE:
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION:
+    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION:
+    case PickFlawedAbstractState::SEQUENCE_BATCH:
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BATCH:
+        forward_direction = true;
+        break;
+    case PickFlawedAbstractState::SEQUENCE_BACKWARD:
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BACKWARD:
+    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION_BACKWARD:
+    case PickFlawedAbstractState::SEQUENCE_BATCH_BACKWARD:
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BATCH_BACKWARD:
+        backward_direction = true;
+        break;
+    case PickFlawedAbstractState::SEQUENCE_BIDIRECTIONAL:
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BIDIRECTIONAL:
+    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION_BIDIRECTIONAL:
+        forward_direction = true;
+        backward_direction = true;
+        break;
+    default:
+        forward_direction = true;
+        break;
     }
 }
 
@@ -671,53 +775,13 @@ SplitProperties FlawSearch::get_split_and_direction(const Solution &solution,
                                                     const utils::CountdownTimer &cegar_timer,
                                                     const bool half_limits_reached) {
     update_current_direction(half_limits_reached);
-    switch (pick_flawed_abstract_state) {
-    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH:
+    if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_CLOSEST_TO_GOAL) {
+        return get_split_legacy_closest_to_goal(solution);
+    } else if (in_sequence) {
+        return get_sequence_splits(solution);
+    } else if (legacy_flaws) {
         return get_split_legacy(solution);
-    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_UNWANTED_VALUES:
-        return get_split_legacy(solution, false, true);
-    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
-    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE:
-        return get_split_legacy(solution, true);
-    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD:
-        return get_split_legacy(solution, true, true);
-    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED:
-    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD:
-    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_FORWARD_BACKWARD:
-        if (current_bidirectional_dir_backward) {
-            return get_split_legacy(solution, true, true);
-        } else {
-            return get_split_legacy(solution);
-        }
-    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_CLOSEST_TO_GOAL:
-        return get_split_legacy_closest_to_goal(solution, true);
-    case PickFlawedAbstractState::SEQUENCE:
-        return get_sequence_splits(solution, InAbstractionFlawSearchKind::FALSE, true, false);
-    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION:
-        return get_sequence_splits(solution, InAbstractionFlawSearchKind::TRUE, true, false);
-    case PickFlawedAbstractState::SEQUENCE_BACKWARD:
-        return get_sequence_splits(solution, InAbstractionFlawSearchKind::FALSE, false, true);
-    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BACKWARD:
-        return get_sequence_splits(solution, InAbstractionFlawSearchKind::TRUE, false, true);
-    case PickFlawedAbstractState::SEQUENCE_BIDIRECTIONAL:
-        return get_sequence_splits(solution, InAbstractionFlawSearchKind::FALSE, true, true);
-    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BIDIRECTIONAL:
-        return get_sequence_splits(solution, InAbstractionFlawSearchKind::TRUE, true, true);
-    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION:
-        return get_sequence_splits(solution, InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION, true, false);
-    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION_BACKWARD:
-        return get_sequence_splits(solution, InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION, false, true);
-    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION_BIDIRECTIONAL:
-        return get_sequence_splits(solution, InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION, true, true);
-    case PickFlawedAbstractState::SEQUENCE_BATCH:
-        return get_sequence_splits(solution, InAbstractionFlawSearchKind::FALSE, true, false, true);
-    case PickFlawedAbstractState::SEQUENCE_BATCH_BACKWARD:
-        return get_sequence_splits(solution, InAbstractionFlawSearchKind::FALSE, false, true, true);
-    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BATCH:
-        return get_sequence_splits(solution, InAbstractionFlawSearchKind::TRUE, true, false, true);
-    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BATCH_BACKWARD:
-        return get_sequence_splits(solution, InAbstractionFlawSearchKind::TRUE, false, true, true);
-    default:
+    } else {
         return get_split(cegar_timer, get_optimal_plan_cost(solution, task_proxy));
     }
 }
@@ -748,12 +812,16 @@ bool FlawSearch::refine_goals() const {
 void FlawSearch::update_current_direction(const bool half_limits_reached) {
     switch (pick_flawed_abstract_state) {
     case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED:
-        current_bidirectional_dir_backward = !current_bidirectional_dir_backward;
+        backward_direction = !backward_direction;
+        forward_direction = !forward_direction;
+        split_unwanted_values = backward_direction;
         break;
     case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD:
     case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_FORWARD_BACKWARD:
         if (!batch_bidirectional_already_changed_dir && half_limits_reached) {
-            current_bidirectional_dir_backward = !current_bidirectional_dir_backward;
+            backward_direction = !backward_direction;
+            forward_direction = !forward_direction;
+            split_unwanted_values = backward_direction;
             batch_bidirectional_already_changed_dir = true;
         }
         break;

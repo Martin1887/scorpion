@@ -107,6 +107,7 @@ SharedTasks TaskDuplicator::get_subtasks(
         .subtask = task,
         .pick_flawed_abstract_state = pick_flawed_abstract_state,
         .pick_split = pick_split,
+        .filter_split = filter_split,
         .tiebreak_split = tiebreak_split,
         .sequence_split = sequence_split,
         .sequence_tiebreak_split = sequence_tiebreak_split,
@@ -141,6 +142,7 @@ SharedTasks GoalDecomposition::get_subtasks(
             .subtask = subproblem,
             .pick_flawed_abstract_state = pick_flawed_abstract_state,
             .pick_split = pick_split,
+            .filter_split = filter_split,
             .tiebreak_split = tiebreak_split,
             .sequence_split = sequence_split,
             .sequence_tiebreak_split = sequence_tiebreak_split,
@@ -195,6 +197,7 @@ SharedTasks LandmarkDecomposition::get_subtasks(
             .subtask = subproblem,
             .pick_flawed_abstract_state = pick_flawed_abstract_state,
             .pick_split = pick_split,
+            .filter_split = filter_split,
             .tiebreak_split = tiebreak_split,
             .sequence_split = sequence_split,
             .sequence_tiebreak_split = sequence_tiebreak_split,
@@ -229,6 +232,7 @@ SharedTasks VarsOrdersSubtaskGenerator::get_subtasks(
                 .subtask = task,
                 .pick_flawed_abstract_state = pick_flawed_abstract_state,
                 .pick_split = order,
+                .filter_split = FilterSplit::NONE,
                 .tiebreak_split = tiebreak_split,
                 .sequence_split = PickSequenceFlaw::BEST_SPLIT,
                 .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
@@ -253,6 +257,7 @@ SharedTasks BestStrategiesSubtaskGenerator::get_subtasks(
             .subtask = task,
             .pick_flawed_abstract_state = pick_flawed_abstract_state,
             .pick_split = PickSplit::MAX_COVER,
+            .filter_split = FilterSplit::NONE,
             .tiebreak_split = tiebreak_split,
             .sequence_split = PickSequenceFlaw::CLOSEST_TO_GOAL_FLAW,
             .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
@@ -276,6 +281,7 @@ SharedTasks BestStrategiesSubtaskGenerator::get_subtasks(
                 .subtask = task,
                 .pick_flawed_abstract_state = pick_flawed_abstract_state,
                 .pick_split = strategy,
+                .filter_split = FilterSplit::NONE,
                 .tiebreak_split = tiebreak_split,
                 .sequence_split = PickSequenceFlaw::BEST_SPLIT,
                 .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
@@ -315,6 +321,10 @@ static void add_all_base_options(plugins::Feature &feature) {
         "pick_split",
         "split-selection strategy",
         "max_cover");
+    feature.add_option<FilterSplit>(
+        "filter_split",
+        "filter the best split by a criterion, choosing the following one until one of them satisfies the criterion or choosing the first one otherwise.",
+        "none");
     feature.add_option<PickSequenceFlaw>(
         "sequence_split",
         "split-selection strategy for choosing among flaws in different states",

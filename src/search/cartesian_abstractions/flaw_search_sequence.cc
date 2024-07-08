@@ -20,6 +20,48 @@
 using namespace std;
 
 namespace cartesian_abstractions {
+void FlawSearch::push_flaw_if_not_filtered(vector<LegacyFlaw> &flaws,
+                                           const LegacyFlaw &flaw,
+                                           const Solution &solution,
+                                           const bool backward_direction,
+                                           unique_ptr<LegacyFlaw> &first_filtered_flaw,
+                                           bool force_push) {
+    if (split_selector.filter_pick != FilterSplit::NONE) {
+        // Remove the split if it is filtered, the computation of the best split
+        // of the abstract state is cached, so no penalties for no filtered flaws.
+        unique_ptr<Split> best = get_split_from_flaw(flaw,
+                                                     get_optimal_plan_cost(solution, task_proxy),
+                                                     backward_direction,
+                                                     backward_direction);
+        if (force_push || !best->is_filtered) {
+            flaws.push_back(move(flaw));
+        } else if (!first_filtered_flaw) {
+            first_filtered_flaw = make_unique<LegacyFlaw>(move(flaw));
+        }
+    } else {
+        flaws.push_back(move(flaw));
+    }
+}
+
+unique_ptr<Split> FlawSearch::last_not_filtered_flaw(vector<LegacyFlaw> &flaws,
+                                                     Cost solution_cost,
+                                                     const bool backward_direction) {
+    unique_ptr<Split> best_split = nullptr;
+    unique_ptr<Split> actual_last = nullptr;
+    do {
+        LegacyFlaw last = flaws.back();
+        flaws.pop_back();
+        best_split = get_split_from_flaw(last, solution_cost, backward_direction, backward_direction);
+        if (best_split->is_filtered && !actual_last) {
+            actual_last = move(best_split);
+        }
+    } while ((!best_split || best_split->is_filtered) && !flaws.empty());
+    if (!best_split || best_split->is_filtered) {
+        best_split = move(actual_last);
+    }
+    return best_split;
+}
+
 void FlawSearch::get_deviation_splits(
     const AbstractState &abs_state,
     const vector<AbstractState> &flaw_search_states,
@@ -289,11 +331,20 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
 }
 
 vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
-                                                 const bool in_sequence,
                                                  const InAbstractionFlawSearchKind only_in_abstraction) {
     vector<LegacyFlaw> flaws{};
     state_registry = utils::make_unique_ptr<StateRegistry>(task_proxy);
     bool debug = log.is_at_least_debug();
+    bool force_push_filtered_flaws = true;
+    // This pointer is used to return the first found flaw if all have been
+    // filtered.
+    unique_ptr<LegacyFlaw> first_filtered_flaw = nullptr;
+    // Only avoid pushing filtered flaws in sequence strategies that stop at the
+    // first flaw.
+    if (only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION ||
+        (in_sequence && split_selector.sequence_pick == PickSequenceFlaw::FIRST_FLAW)) {
+        force_push_filtered_flaws = false;
+    }
     if (debug)
         log << "Check solution:" << endl;
 
@@ -353,9 +404,16 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                         log << "  Paths deviate." << endl;
                         log << "  Flaw-search state: " << next_flaw_search_state << endl;
                     }
-                    flaws.push_back(LegacyFlaw(move(flaw_search_state), abstract_state->get_id(), false));
+                    push_flaw_if_not_filtered(flaws,
+                                              LegacyFlaw(move(flaw_search_state),
+                                                         abstract_state->get_id(),
+                                                         false),
+                                              solution,
+                                              false,
+                                              first_filtered_flaw,
+                                              force_push_filtered_flaws);
                     if (!in_sequence ||
-                        split_selector.sequence_pick == PickSequenceFlaw::FIRST_FLAW) {
+                        (split_selector.sequence_pick == PickSequenceFlaw::FIRST_FLAW && !flaws.empty())) {
                         return flaws;
                     } else {
                         next_flaw_search_state = AbstractState(-1, -1, next_flaw_search_state.undeviate(*next_abstract_state));
@@ -377,9 +435,16 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                     log << "  Abstract state: " << *abstract_state << endl;
                     log << "  Flaw-search state: " << flaw_search_state << endl;
                 }
-                flaws.push_back(LegacyFlaw(move(flaw_search_state), abstract_state->get_id(), false));
+                push_flaw_if_not_filtered(flaws,
+                                          LegacyFlaw(move(flaw_search_state),
+                                                     abstract_state->get_id(),
+                                                     false),
+                                          solution,
+                                          false,
+                                          first_filtered_flaw,
+                                          force_push_filtered_flaws);
                 if (!in_sequence ||
-                    split_selector.sequence_pick == PickSequenceFlaw::FIRST_FLAW) {
+                    (split_selector.sequence_pick == PickSequenceFlaw::FIRST_FLAW && !flaws.empty())) {
                     return flaws;
                 } else {
                     abstract_state = &abstraction.get_state(step.target_id);
@@ -406,7 +471,14 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                 // has no optimal transitions.
                 if (debug)
                     log << "  Goal test failed." << endl;
-                flaws.push_back(LegacyFlaw(move(flaw_search_state), abstract_state->get_id(), true));
+                push_flaw_if_not_filtered(flaws,
+                                          LegacyFlaw(move(flaw_search_state),
+                                                     abstract_state->get_id(),
+                                                     true),
+                                          solution,
+                                          false,
+                                          first_filtered_flaw,
+                                          force_push_filtered_flaws);
             }
         }
         if (only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION && flaws.empty()) {
@@ -427,13 +499,28 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
         start_abstract_state_index--;
     } while (only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION && flaws.empty());
 
+    if (flaws.empty() && first_filtered_flaw) {
+        flaws.push_back(move(*first_filtered_flaw));
+    }
+
     return flaws;
 }
 
 vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
-                                                  const bool in_sequence,
                                                   const InAbstractionFlawSearchKind only_in_abstraction) {
     vector<LegacyFlaw> flaws{};
+    bool force_push_filtered_flaws = true;
+    // This pointer is used to return the first found flaw if all have been
+    // filtered.
+    unique_ptr<LegacyFlaw> first_filtered_flaw = nullptr;
+    // Only avoid pushing filtered flaws in sequence strategies that stop at the
+    // first flaw.
+    if (only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION ||
+        (in_sequence &&
+         (split_selector.sequence_pick == PickSequenceFlaw::FIRST_FLAW ||
+          split_selector.sequence_pick == PickSequenceFlaw::CLOSEST_TO_GOAL_FLAW))) {
+        force_push_filtered_flaws = false;
+    }
     bool debug = log.is_at_least_debug();
     if (debug) {
         log << "Check solution:" << endl;
@@ -495,11 +582,19 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                     log << "  Paths deviate." << endl;
                     log << "  Flaw-search state: " << next_flaw_search_state << endl;
                 }
-                flaws.push_back(LegacyFlaw(move(flaw_search_state), abstract_state->get_id(), false));
+                push_flaw_if_not_filtered(flaws,
+                                          LegacyFlaw(move(flaw_search_state),
+                                                     abstract_state->get_id(),
+                                                     false),
+                                          solution,
+                                          true,
+                                          first_filtered_flaw,
+                                          force_push_filtered_flaws);
                 if (!in_sequence ||
-                    only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION ||
-                    split_selector.sequence_pick == PickSequenceFlaw::FIRST_FLAW ||
-                    split_selector.sequence_pick == PickSequenceFlaw::CLOSEST_TO_GOAL_FLAW) {
+                    (!flaws.empty() &&
+                     (only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION ||
+                      split_selector.sequence_pick == PickSequenceFlaw::FIRST_FLAW ||
+                      split_selector.sequence_pick == PickSequenceFlaw::CLOSEST_TO_GOAL_FLAW))) {
                     return flaws;
                 } else {
                     next_flaw_search_state = AbstractState(-1, -1, next_flaw_search_state.undeviate(*next_abstract_state));
@@ -518,11 +613,19 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
         } else {
             if (debug)
                 log << "  Operator not backward applicable: " << op.get_name() << endl;
-            flaws.push_back(LegacyFlaw(move(flaw_search_state), abstract_state->get_id(), false));
+            push_flaw_if_not_filtered(flaws,
+                                      LegacyFlaw(move(flaw_search_state),
+                                                 abstract_state->get_id(),
+                                                 false),
+                                      solution,
+                                      true,
+                                      first_filtered_flaw,
+                                      force_push_filtered_flaws);
             if (!in_sequence ||
-                only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION ||
-                split_selector.sequence_pick == PickSequenceFlaw::FIRST_FLAW ||
-                split_selector.sequence_pick == PickSequenceFlaw::CLOSEST_TO_GOAL_FLAW) {
+                (!flaws.empty() &&
+                 (only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION ||
+                  split_selector.sequence_pick == PickSequenceFlaw::FIRST_FLAW ||
+                  split_selector.sequence_pick == PickSequenceFlaw::CLOSEST_TO_GOAL_FLAW))) {
                 return flaws;
             } else {
                 if (i > 0) {
@@ -551,38 +654,45 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
             // before starting the refinement steps.
             if (debug)
                 log << "  Initial state test failed." << endl;
-            flaws.push_back(LegacyFlaw(move(flaw_search_state), abstract_state->get_id(), true));
+            push_flaw_if_not_filtered(flaws,
+                                      LegacyFlaw(move(flaw_search_state),
+                                                 abstract_state->get_id(),
+                                                 true),
+                                      solution,
+                                      true,
+                                      first_filtered_flaw,
+                                      force_push_filtered_flaws);
         }
     }
 
     // It could happen that flaws are not found because starting in the goals
     // abstract state, so start from the goals.
     if (only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION && flaws.empty()) {
-        flaws = get_backward_flaws(solution, true, InAbstractionFlawSearchKind::FALSE);
+        flaws = get_backward_flaws(solution, InAbstractionFlawSearchKind::FALSE);
+    }
+
+    if (flaws.empty() && first_filtered_flaw) {
+        flaws.push_back(move(*first_filtered_flaw));
     }
 
     return flaws;
 }
 
-SplitProperties FlawSearch::get_sequence_splits(const Solution &solution,
-                                                const InAbstractionFlawSearchKind only_in_abstraction,
-                                                const bool forward,
-                                                const bool backward,
-                                                const bool in_batch) {
-    assert(forward || backward);
+SplitProperties FlawSearch::get_sequence_splits(const Solution &solution) {
+    assert(forward_direction || backward_direction);
     vector<LegacyFlaw> forward_flaws{};
     vector<LegacyFlaw> backward_flaws{};
     if (!in_batch || sequence_flaws_queue.empty()) {
-        if (forward) {
-            forward_flaws = get_forward_flaws(solution, true, only_in_abstraction);
+        if (forward_direction) {
+            forward_flaws = get_forward_flaws(solution, only_in_abstraction);
             if (only_in_abstraction == InAbstractionFlawSearchKind::TRUE && forward_flaws.empty()) {
-                forward_flaws = get_forward_flaws(solution, true, InAbstractionFlawSearchKind::FALSE);
+                forward_flaws = get_forward_flaws(solution, InAbstractionFlawSearchKind::FALSE);
             }
         }
-        if (backward) {
-            backward_flaws = get_backward_flaws(solution, true, only_in_abstraction);
+        if (backward_direction) {
+            backward_flaws = get_backward_flaws(solution, only_in_abstraction);
             if (only_in_abstraction == InAbstractionFlawSearchKind::TRUE && backward_flaws.empty()) {
-                backward_flaws = get_backward_flaws(solution, true, InAbstractionFlawSearchKind::FALSE);
+                backward_flaws = get_backward_flaws(solution, InAbstractionFlawSearchKind::FALSE);
             }
         }
     }
@@ -605,7 +715,7 @@ SplitProperties FlawSearch::get_sequence_splits(const Solution &solution,
             flaws = vector<LegacyFlaw>{move(sequence_flaws_queue.front())};
             sequence_flaws_queue.pop_front();
         }
-        if (forward) {
+        if (forward_direction) {
             return pick_sequence_split(move(flaws), vector<LegacyFlaw>{}, solution, rng);
         } else {
             return pick_sequence_split(vector<LegacyFlaw>{}, move(flaws), solution, rng);
@@ -665,7 +775,6 @@ SplitProperties FlawSearch::select_from_sequence_flaws(
             shortest_paths.get_64bit_goal_distance(best_bw->abstract_state_id);
 
         switch (split_selector.sequence_pick) {
-        // Cache is filled only the `default` case.
         case PickSequenceFlaw::RANDOM:
             if (rng.random(2) == 0) {
                 return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, solution, false);
@@ -775,24 +884,46 @@ unique_ptr<Split> FlawSearch::select_flaw_and_pick_split(
         return get_split_from_flaw(move(flaws[0]), solution_cost, backward_direction, backward_direction);
     } else {
         unique_ptr<Split> selected_split = nullptr;
+        // Splits cache is used only when needed (the same flaw can happen in
+        // another iteration or filtered status must be checked).
         switch (split_selector.sequence_pick) {
+        // The first flaw (and closest to goal in the backward direction) is
+        // already filtered, but for the other cases iteration is needed
+        // until getting a non-filtered flaw.
+        // In default case this is automatically handled by the lowest
+        // rating of filtered flaws.
         case PickSequenceFlaw::RANDOM:
-            return get_split_from_flaw(move(*rng.choose(flaws)), solution_cost, backward_direction, backward_direction);
+        {
+            unique_ptr<Split> best_split = nullptr;
+            unique_ptr<Split> first_filtered = nullptr;
+            do {
+                auto flaws_iterator = flaws.begin() + rng.random(flaws.size());
+                best_split = get_split_from_flaw(*flaws_iterator, solution_cost, backward_direction, backward_direction);
+                flaws.erase(flaws_iterator);
+                if (best_split->is_filtered && !first_filtered) {
+                    first_filtered = move(best_split);
+                }
+            } while ((!best_split || best_split->is_filtered) && !flaws.empty());
+            if (!best_split || best_split->is_filtered) {
+                best_split = move(first_filtered);
+            }
+            return best_split;
+        }
         case PickSequenceFlaw::FIRST_FLAW:
-            return get_split_from_flaw(move(flaws[0]), solution_cost, backward_direction, backward_direction);
+            return get_split_from_flaw(flaws[0], solution_cost, backward_direction, backward_direction);
         case PickSequenceFlaw::LAST_FLAW:
-            return get_split_from_flaw(move(flaws.back()), solution_cost, backward_direction, backward_direction);
+            return last_not_filtered_flaw(flaws, solution_cost, backward_direction);
         case PickSequenceFlaw::CLOSEST_TO_GOAL_FLAW:
             if (backward_direction) {
-                return get_split_from_flaw(move(flaws[0]), solution_cost, backward_direction, backward_direction);
+                return get_split_from_flaw(flaws[0], solution_cost, backward_direction, backward_direction);
             } else {
-                return get_split_from_flaw(move(flaws.back()), solution_cost, backward_direction, backward_direction);
+                return last_not_filtered_flaw(flaws, solution_cost, backward_direction);
             }
         default:
             double max_rating = numeric_limits<double>::lowest();
             double max_tiebreak_rating = numeric_limits<double>::lowest();
             for (LegacyFlaw &fl : flaws) {
-                unique_ptr<Split> split = splits_cache_get(move(fl), solution_cost, backward_direction, backward_direction);
+                unique_ptr<Split> split = get_split_from_flaw(move(fl), solution_cost, backward_direction, backward_direction);
                 const AbstractState &abs = abstraction.get_state(split->abstract_state_id);
                 double rating = split_selector.rate_split(abs, *split, split_selector.first_pick, solution_cost);
                 if (rating > max_rating) {
