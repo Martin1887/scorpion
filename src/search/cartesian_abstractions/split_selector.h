@@ -248,7 +248,9 @@ class SplitSelector {
 
     double rate_split(const AbstractState &state, const Split &split, PickSplit pick, Cost optimal_abstract_plan_cost) const;
     std::vector<Split> compute_max_cover_splits(
-        std::vector<std::vector<Split>> &&splits) const;
+        const AbstractState &abstract_state,
+        std::vector<std::vector<Split>> &&splits,
+        Cost optimal_abstract_plan_cost) const;
     Split select_from_best_splits(
         const AbstractState &abstract_state,
         std::vector<Split> &&splits,

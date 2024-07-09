@@ -436,7 +436,9 @@ double SplitSelector::rate_split(
 }
 
 vector<Split> SplitSelector::compute_max_cover_splits(
-    vector<vector<Split>> &&splits) const {
+    const AbstractState &abstract_state,
+    vector<vector<Split>> &&splits,
+    Cost optimal_abstract_plan_cost) const {
     vector<int> domain_sizes = get_domain_sizes(task_proxy);
 
     if (debug) {
@@ -488,12 +490,21 @@ vector<Split> SplitSelector::compute_max_cover_splits(
     for (auto &var_splits : splits) {
         if (!var_splits.empty()) {
             Split &best_split_for_var = var_splits[0];
-            if (best_split_for_var.count > max_count) {
-                best_splits.clear();
-                best_splits.push_back(move(best_split_for_var));
-                max_count = best_split_for_var.count;
-            } else if (best_split_for_var.count == max_count) {
-                best_splits.push_back(move(best_split_for_var));
+            if (best_split_for_var.count >= max_count) {
+                if (!split_is_filtered(best_split_for_var,
+                                       abstract_state,
+                                       optimal_abstract_plan_cost)) {
+                    if (best_split_for_var.count > max_count) {
+                        best_splits.clear();
+                        best_splits.push_back(move(best_split_for_var));
+                        max_count = best_split_for_var.count;
+                    } else if (best_split_for_var.count == max_count) {
+                        best_splits.push_back(move(best_split_for_var));
+                    }
+                } else if (best_splits.empty()) {
+                    best_split_for_var.is_filtered = true;
+                    best_splits.push_back(move(best_split_for_var));
+                }
             }
         }
     }
@@ -505,7 +516,7 @@ vector<Split> SplitSelector::reduce_to_best_splits(
     vector<vector<Split>> &&splits,
     Cost optimal_abstract_plan_cost) const {
     if (first_pick == PickSplit::MAX_COVER) {
-        return compute_max_cover_splits(move(splits));
+        return compute_max_cover_splits(abstract_state, move(splits), optimal_abstract_plan_cost);
     }
 
     vector<Split> best_splits;
