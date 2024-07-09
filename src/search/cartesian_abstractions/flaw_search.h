@@ -232,6 +232,7 @@ class FlawSearch {
     Cost get_h_value(int abstract_state_id) const;
     void add_flaw(int abs_id, const State &state);
     OptimalTransitions get_f_optimal_transitions(int abstract_state_id) const;
+    OptimalTransitions get_f_optimal_incoming_transitions(int abstract_state_id) const;
     OptimalTransitions get_f_optimal_backward_transitions(int abstract_state_id) const;
 
     void initialize();
@@ -368,6 +369,16 @@ public:
         const OperatorProxy &op, int num_variables);
 
     void print_statistics() const;
+
+    static OptimalTransitions get_f_optimal_transitions(const Abstraction &abstraction,
+                                                        const ShortestPaths &shortest_paths,
+                                                        int abstract_state_id);
+    static OptimalTransitions get_f_optimal_incoming_transitions(const Abstraction &abstraction,
+                                                                 const ShortestPaths &shortest_paths,
+                                                                 int abstract_state_id);
+    static OptimalTransitions get_f_optimal_backward_transitions(const Abstraction &abstraction,
+                                                                 const ShortestPaths &shortest_paths,
+                                                                 int abstract_state_id);
 };
 }
 

@@ -129,6 +129,13 @@ enum class FilterSplit {
     GOAL_DISTANCE_INCREASED,
     OPTIMAL_PLAN_COST_INCREASED,
     NON_ZEROCOST_OPERATOR,
+    // Instead of simulating a refinement to check the distance has been
+    // increased in some of the children, a distance increase is verified
+    // if none of the optimal incoming and optimal outgoing transitions are
+    // preserved at the same time. This is an estimation because a zero-cost
+    // operator between the children would mean the distance has not been
+    // increased, but it is a good estimation.
+    ESTIMATED_GOAL_DISTANCE_INCREASED,
 };
 
 // Strategies for selecting a sequence flaw.

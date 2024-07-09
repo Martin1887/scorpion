@@ -12,6 +12,7 @@
 #include "../lp/lp_solver.h"
 #include "../potentials/potential_optimizer.h"
 #include "../plugins/plugin.h"
+#include "../task_utils/task_properties.h"
 #include "../utils/logging.h"
 #include "../utils/memory.h"
 #include "../utils/rng.h"
@@ -588,6 +589,85 @@ bool SplitSelector::split_is_filtered(const Split &split,
         filtered = split.op_cost == 0;
         break;
     }
+    case FilterSplit::ESTIMATED_GOAL_DISTANCE_INCREASED:
+    {
+        // In the trivial abstraction the distance is always increased.
+        if (abstraction.get_num_states() == 1) {
+            return false;
+        } else {
+            // In goal states outgoing transitions are irrelevant, the filter
+            // happens if the child is goal and incoming is possible.
+            bool check_outgoing = !abstraction.get_goals().contains(abstract_state.get_id());
+            // In the initial state incoming transitions are irrelevant, the
+            // filter happens if the child is the initial state and
+            // outgoing is possible.
+            bool check_incoming = abstract_state.get_id() != 0;
+
+            OptimalTransitions incoming =
+                FlawSearch::get_f_optimal_incoming_transitions(abstraction, shortest_paths, abstract_state.get_id());
+            OptimalTransitions outgoing =
+                FlawSearch::get_f_optimal_transitions(abstraction, shortest_paths, abstract_state.get_id());
+
+            pair<CartesianSet, CartesianSet> cartesian_sets =
+                abstract_state.split_domain(split.var_id, split.values);
+            // ids are not used.
+            AbstractState v1 = AbstractState(-1, -1, move(cartesian_sets.first));
+            AbstractState v2 = AbstractState(-1, -1, move(cartesian_sets.second));
+
+            OperatorsProxy ops = task_proxy.get_operators();
+            for (AbstractState abs : vector{v1, v2}) {
+                bool any_incoming = false;
+                bool any_outgoing = false;
+                // Only check incoming if also check outgoing (intermediate state)
+                // or the child is also a goal state.
+                if (check_incoming && (check_outgoing || abs.includes(task_properties::get_fact_pairs(task_proxy.get_goals())))) {
+                    for (auto op_tr_pair : incoming) {
+                        for (int target_state_id : op_tr_pair.second) {
+                            if (abstraction.get_state(target_state_id).progress(ops[op_tr_pair.first]).intersects(abs.get_cartesian_set())) {
+                                any_incoming = true;
+                                break;
+                            }
+                        }
+                        if (any_incoming) {
+                            break;
+                        }
+                    }
+                }
+                // Only check outgoing if also check incoming (intermediate state)
+                // or the child is also the initial state.
+                if (check_outgoing && (check_incoming || abs.get_cartesian_set().test(split.var_id, task_proxy.get_initial_state()[split.var_id].get_value()))) {
+                    for (auto op_tr_pair : outgoing) {
+                        for (int target_state_id : op_tr_pair.second) {
+                            if (abs.is_applicable(ops[op_tr_pair.first]) &&
+                                abs.progress(ops[op_tr_pair.first]).intersects(abstraction.get_state(target_state_id).get_cartesian_set())) {
+                                any_outgoing = true;
+                                break;
+                            }
+                        }
+                        if (any_outgoing) {
+                            break;
+                        }
+                    }
+                }
+                if (check_incoming && check_outgoing) {
+                    if (any_incoming && any_outgoing) {
+                        filtered = true;
+                        break;
+                    }
+                } else if (check_incoming && any_incoming) {
+                    assert(abs.includes(task_properties::get_fact_pairs(task_proxy.get_goals())));
+                    filtered = true;
+                    break;
+                } else if (any_outgoing) {
+                    assert(abs.get_cartesian_set().test(split.var_id, task_proxy.get_initial_state()[split.var_id].get_value()));
+                    assert(check_outgoing);
+                    filtered = true;
+                    break;
+                }
+            }
+        }
+        break;
+    }
     }
 
     return filtered;
@@ -700,6 +780,7 @@ static plugins::TypedEnumPlugin<FilterSplit> _enum_plugin_filter({
         {"goal_distance_increased", "distance to goal is increased after the refinement."},
         {"optimal_plan_cost_increased", "cost of the optimal plan is increased after the refinement."},
         {"non_zerocost_operator", "cost of the operator is not 0."},
+        {"estimated_goal_distance_increased", "No pair of optimal incoming and optimal outgoing transition is preserved in children."},
     });
 static plugins::TypedEnumPlugin<PickSequenceFlaw> _enum_plugin_sequence({
         {"best_split", "select the best split among all flawed states"},

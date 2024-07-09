@@ -21,15 +21,9 @@
 using namespace std;
 
 namespace cartesian_abstractions {
-int FlawSearch::get_abstract_state_id(const State &state) const {
-    return abstraction.get_abstract_state_id(state);
-}
-
-Cost FlawSearch::get_h_value(int abstract_state_id) const {
-    return shortest_paths.get_64bit_goal_distance(abstract_state_id);
-}
-
-OptimalTransitions FlawSearch::get_f_optimal_transitions(int abstract_state_id) const {
+OptimalTransitions FlawSearch::get_f_optimal_transitions(const Abstraction &abstraction,
+                                                         const ShortestPaths &shortest_paths,
+                                                         int abstract_state_id) {
     OptimalTransitions transitions;
     for (const Transition &t :
          abstraction.get_transition_system().get_outgoing_transitions()[abstract_state_id]) {
@@ -40,7 +34,22 @@ OptimalTransitions FlawSearch::get_f_optimal_transitions(int abstract_state_id) 
     return transitions;
 }
 
-OptimalTransitions FlawSearch::get_f_optimal_backward_transitions(int abstract_state_id) const {
+OptimalTransitions FlawSearch::get_f_optimal_incoming_transitions(const Abstraction &abstraction,
+                                                                  const ShortestPaths &shortest_paths,
+                                                                  int abstract_state_id) {
+    OptimalTransitions transitions;
+    for (const Transition &t :
+         abstraction.get_transition_system().get_incoming_transitions()[abstract_state_id]) {
+        if (shortest_paths.is_optimal_transition(t.target_id, t.op_id, abstract_state_id)) {
+            transitions[t.op_id].push_back(t.target_id);
+        }
+    }
+    return transitions;
+}
+
+OptimalTransitions FlawSearch::get_f_optimal_backward_transitions(const Abstraction &abstraction,
+                                                                  const ShortestPaths &shortest_paths,
+                                                                  int abstract_state_id) {
     OptimalTransitions transitions;
     for (const Transition &t :
          abstraction.get_transition_system().get_incoming_transitions()[abstract_state_id]) {
@@ -49,6 +58,26 @@ OptimalTransitions FlawSearch::get_f_optimal_backward_transitions(int abstract_s
         }
     }
     return transitions;
+}
+
+int FlawSearch::get_abstract_state_id(const State &state) const {
+    return abstraction.get_abstract_state_id(state);
+}
+
+Cost FlawSearch::get_h_value(int abstract_state_id) const {
+    return shortest_paths.get_64bit_goal_distance(abstract_state_id);
+}
+
+OptimalTransitions FlawSearch::get_f_optimal_transitions(int abstract_state_id) const {
+    return get_f_optimal_transitions(abstraction, shortest_paths, abstract_state_id);
+}
+
+OptimalTransitions FlawSearch::get_f_optimal_incoming_transitions(int abstract_state_id) const {
+    return get_f_optimal_incoming_transitions(abstraction, shortest_paths, abstract_state_id);
+}
+
+OptimalTransitions FlawSearch::get_f_optimal_backward_transitions(int abstract_state_id) const {
+    return get_f_optimal_backward_transitions(abstraction, shortest_paths, abstract_state_id);
 }
 
 void FlawSearch::add_flaw(int abs_id, const State &state) {
