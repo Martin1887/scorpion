@@ -308,6 +308,9 @@ double SplitSelector::rate_split(
     int var_id = split.var_id;
     double rating;
     switch (pick) {
+    case PickSplit::MAX_COVER:
+        rating = split.count;
+        break;
     case PickSplit::MIN_UNWANTED:
         rating = -get_num_unwanted_values(state, split);
         break;

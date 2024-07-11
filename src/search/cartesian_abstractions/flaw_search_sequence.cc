@@ -777,35 +777,17 @@ SplitProperties FlawSearch::select_from_sequence_flaws(
         switch (split_selector.sequence_pick) {
         case PickSequenceFlaw::RANDOM:
             if (rng.random(2) == 0) {
-                return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, solution, false);
+                return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, solution);
             } else {
-                return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution, false);
+                return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution);
             }
-        case PickSequenceFlaw::FIRST_FLAW:
-            return sequence_splits_tiebreak(move(best_fw),
-                                            fw_abstract_state,
-                                            move(best_bw),
-                                            bw_abstract_state,
-                                            n_forward,
-                                            n_backward,
-                                            solution,
-                                            false);
-        case PickSequenceFlaw::LAST_FLAW:
-            return sequence_splits_tiebreak(move(best_fw),
-                                            fw_abstract_state,
-                                            move(best_bw),
-                                            bw_abstract_state,
-                                            n_forward,
-                                            n_backward,
-                                            solution,
-                                            false);
         case PickSequenceFlaw::CLOSEST_TO_GOAL_FLAW:
             // Find which is closest to goal, and break tie only if they are at the same distance.
             if (dist_diff > 0) {
                 // Forward distance is higher, return backward flaw.
-                return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution, false);
+                return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution);
             } else if (dist_diff < 0) {
-                return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, solution, false);
+                return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, solution);
             } else {
                 return sequence_splits_tiebreak(move(best_fw),
                                                 fw_abstract_state,
@@ -813,8 +795,7 @@ SplitProperties FlawSearch::select_from_sequence_flaws(
                                                 bw_abstract_state,
                                                 n_forward,
                                                 n_backward,
-                                                solution,
-                                                false);
+                                                solution);
             }
         default:
             Cost solution_cost = get_optimal_plan_cost(solution, task_proxy);
