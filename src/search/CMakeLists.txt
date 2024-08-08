@@ -782,6 +782,14 @@ create_fast_downward_library(
 )
 
 create_fast_downward_library(
+        NAME mutex_information
+        HELP "Mutex Information"
+        SOURCES
+        task_utils/mutex_information
+        CORE_LIBRARY
+)
+
+create_fast_downward_library(
     NAME sampling
     HELP "Sampling"
     SOURCES

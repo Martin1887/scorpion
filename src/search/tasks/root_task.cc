@@ -3,6 +3,7 @@
 #include "../state_registry.h"
 
 #include "../plugins/plugin.h"
+#include "../task_utils/mutex_information.h"
 #include "../utils/collections.h"
 #include "../utils/timer.h"
 
@@ -54,8 +55,7 @@ struct ExplicitOperator {
 
 class RootTask : public AbstractTask {
     vector<ExplicitVariable> variables;
-    // TODO: think about using hash sets here.
-    vector<vector<set<FactPair>>> mutexes;
+    MutexInformation mutexes;
     vector<ExplicitOperator> operators;
     vector<ExplicitOperator> axioms;
     vector<int> initial_state_values;
@@ -252,7 +252,7 @@ static vector<ExplicitVariable> read_variables(istream &in) {
     return variables;
 }
 
-static vector<vector<set<FactPair>>> read_mutexes(istream &in, const vector<ExplicitVariable> &variables) {
+static MutexInformation read_mutexes(istream &in, const vector<ExplicitVariable> &variables) {
     vector<vector<set<FactPair>>> inconsistent_facts(variables.size());
     for (size_t i = 0; i < variables.size(); ++i)
         inconsistent_facts[i].resize(variables[i].domain_size);
@@ -298,7 +298,7 @@ static vector<vector<set<FactPair>>> read_mutexes(istream &in, const vector<Expl
             }
         }
     }
-    return inconsistent_facts;
+    return MutexInformation(inconsistent_facts);
 }
 
 static vector<FactPair> read_goal(istream &in) {
@@ -409,13 +409,7 @@ string RootTask::get_fact_name(const FactPair &fact) const {
 }
 
 bool RootTask::are_facts_mutex(const FactPair &fact1, const FactPair &fact2) const {
-    if (fact1.var == fact2.var) {
-        // Same variable: mutex iff different value.
-        return fact1.value != fact2.value;
-    }
-    assert(utils::in_bounds(fact1.var, mutexes));
-    assert(utils::in_bounds(fact1.value, mutexes[fact1.var]));
-    return bool(mutexes[fact1.var][fact1.value].count(fact2));
+    return mutexes.are_facts_mutex(fact1, fact2);
 }
 
 int RootTask::get_operator_cost(int index, bool is_axiom) const {
