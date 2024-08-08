@@ -20,3 +20,8 @@ src/search/Makefile
 src/search/cmake_install.cmake
 .clangd
 .vscode
+src/CMakeCache.txt
+src/CMakeFiles
+src/Makefile
+src/cmake_install.cmake
+src/search/CMakeFiles
