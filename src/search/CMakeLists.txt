@@ -747,6 +747,7 @@ create_fast_downward_library(
         tasks/cost_adapted_task
         tasks/delegating_task
         tasks/root_task
+        tasks/unsolvable_task
     CORE_LIBRARY
 )
 
