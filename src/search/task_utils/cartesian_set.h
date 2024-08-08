@@ -11,6 +11,8 @@
 namespace cartesian_set {
 using Bitset = dynamic_bitset::DynamicBitset<unsigned short>;
 
+class CartesianSetFactsProxyIterator;
+
 /*
   For each variable store a subset of its domain.
 
@@ -19,7 +21,12 @@ using Bitset = dynamic_bitset::DynamicBitset<unsigned short>;
 class CartesianSet {
     std::vector<Bitset> domain_subsets;
 
+private:
+    void init_facts(std::vector<FactPair> facts);
+
 public:
+    explicit CartesianSet(const TaskProxy &task);
+    explicit CartesianSet(const TaskProxy &task, std::vector<FactPair> facts);
     explicit CartesianSet(const std::vector<int> &domain_sizes);
     explicit CartesianSet(const std::vector<int> &domain_sizes, std::vector<FactPair> facts);
 
@@ -42,6 +49,12 @@ public:
     bool intersects(const CartesianSet &other, int var) const;
     bool intersects(const CartesianSet &other) const;
     bool is_superset_of(const CartesianSet &other) const;
+
+    CartesianSetFactsProxyIterator begin(int var) const;
+
+    CartesianSetFactsProxyIterator begin() const;
+
+    CartesianSetFactsProxyIterator end() const;
 
     friend std::ostream &operator<<(
         std::ostream &os, const CartesianSet &cartesian_set);

@@ -2,9 +2,35 @@
 
 #include <sstream>
 
+#include "cartesian_set_facts_proxy_iterator.h"
+
 using namespace std;
 
 namespace cartesian_set {
+void CartesianSet::init_facts(vector<FactPair> facts) {
+    vector<bool> reset_vars(n_vars(), false);
+    for (FactPair fact : facts) {
+        if (!reset_vars[fact.var]) {
+            set_single_value(fact.var, fact.value);
+            reset_vars[fact.var] = true;
+        } else {
+            add(fact.var, fact.value);
+        }
+    }
+}
+
+CartesianSet::CartesianSet(const TaskProxy &task) {
+    domain_subsets.reserve(task.get_variables().size());
+    for (const auto &var : task.get_variables()) {
+        Bitset domain(var.get_domain_size());
+        domain.set();
+        domain_subsets.push_back(std::move(domain));
+    }
+}
+CartesianSet::CartesianSet(const TaskProxy &task, vector<FactPair> facts)
+    : CartesianSet(task) {
+    init_facts(facts);
+}
 CartesianSet::CartesianSet(const vector<int> &domain_sizes) {
     domain_subsets.reserve(domain_sizes.size());
     for (int domain_size : domain_sizes) {
@@ -15,15 +41,7 @@ CartesianSet::CartesianSet(const vector<int> &domain_sizes) {
 }
 CartesianSet::CartesianSet(const vector<int> &domain_sizes, vector<FactPair> facts)
     : CartesianSet(domain_sizes) {
-    vector<bool> reset_vars(domain_sizes.size(), false);
-    for (FactPair fact : facts) {
-        if (!reset_vars[fact.var]) {
-            set_single_value(fact.var, fact.value);
-            reset_vars[fact.var] = true;
-        } else {
-            add(fact.var, fact.value);
-        }
-    }
+    init_facts(facts);
 }
 
 int CartesianSet::n_vars() const {
@@ -109,6 +127,18 @@ bool CartesianSet::is_superset_of(const CartesianSet &other) const {
             return false;
     }
     return true;
+}
+
+CartesianSetFactsProxyIterator CartesianSet::begin(int var) const {
+    return CartesianSetFactsProxyIterator(this, var, 0);
+}
+
+CartesianSetFactsProxyIterator CartesianSet::begin() const {
+    return CartesianSetFactsProxyIterator(this, 0, 0);
+}
+
+CartesianSetFactsProxyIterator CartesianSet::end() const {
+    return CartesianSetFactsProxyIterator(this, n_vars(), 0);
 }
 
 ostream &operator<<(ostream &os, const CartesianSet &cartesian_set) {
