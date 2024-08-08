@@ -2,14 +2,13 @@
 #define CARTESIAN_ABSTRACTIONS_FLAW_SEARCH_H
 
 #include "abstract_state.h"
-#include "cartesian_set.h"
 #include "flaw.h"
 #include "split_selector.h"
 #include "types.h"
 
 // Needed for SearchStatus enum.
 #include "../search_algorithm.h"
-
+#include "../task_utils/cartesian_set.h"
 #include "../utils/logging.h"
 #include "../utils/timer.h"
 

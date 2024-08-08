@@ -1,5 +1,5 @@
-#ifndef CARTESIAN_ABSTRACTIONS_CARTESIAN_SET_H
-#define CARTESIAN_ABSTRACTIONS_CARTESIAN_SET_H
+#ifndef TASK_UTILS_CARTESIAN_SET_H
+#define TASK_UTILS_CARTESIAN_SET_H
 
 #include "../algorithms/dynamic_bitset.h"
 #include "../task_proxy.h"
@@ -8,7 +8,7 @@
 #include <ostream>
 #include <vector>
 
-namespace cartesian_abstractions {
+namespace cartesian_set {
 using Bitset = dynamic_bitset::DynamicBitset<unsigned short>;
 
 /*
@@ -51,7 +51,7 @@ public:
 }
 
 namespace utils {
-inline void feed(HashState &hash_state, const cartesian_abstractions::CartesianSet &val) {
+inline void feed(HashState &hash_state, const cartesian_set::CartesianSet &val) {
     int n_vars = val.n_vars();
     feed(hash_state, n_vars);
     for (int var = 0; var < n_vars; var++) {

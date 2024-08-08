@@ -1,12 +1,11 @@
 #ifndef CARTESIAN_ABSTRACTIONS_ABSTRACTION_H
 #define CARTESIAN_ABSTRACTIONS_ABSTRACTION_H
 
-#include "cartesian_set.h"
 #include "transition_system.h"
 #include "types.h"
 
 #include "../task_proxy.h"
-
+#include "../task_utils/cartesian_set.h"
 #include "../utils/collections.h"
 
 #include <memory>
@@ -15,6 +14,8 @@
 namespace utils {
 class LogProxy;
 }
+
+using namespace cartesian_set;
 
 namespace cartesian_abstractions {
 class AbstractState;

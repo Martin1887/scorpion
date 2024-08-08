@@ -1,8 +1,9 @@
 #ifndef CARTESIAN_ABSTRACTIONS_ABSTRACT_STATE_H
 #define CARTESIAN_ABSTRACTIONS_ABSTRACT_STATE_H
 
-#include "cartesian_set.h"
 #include "types.h"
+
+#include "../task_utils/cartesian_set.h"
 
 #include <vector>
 
@@ -11,6 +12,8 @@ struct FactPair;
 class OperatorProxy;
 class State;
 class TaskProxy;
+
+using namespace cartesian_set;
 
 namespace cartesian_abstractions {
 /*

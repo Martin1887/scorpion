@@ -764,6 +764,15 @@ create_fast_downward_library(
 )
 
 create_fast_downward_library(
+        NAME cartesian_set
+        HELP "Cartesian set"
+        SOURCES
+        task_utils/cartesian_set
+        task_utils/cartesian_set_facts_proxy_iterator
+        DEPENDS dynamic_bitset
+)
+
+create_fast_downward_library(
     NAME causal_graph
     HELP "Causal Graph"
     SOURCES
@@ -828,7 +837,6 @@ create_fast_downward_library(
         cartesian_abstractions/abstract_state
         cartesian_abstractions/additive_cartesian_heuristic
         cartesian_abstractions/cartesian_heuristic_function
-        cartesian_abstractions/cartesian_set
         cartesian_abstractions/cegar
         cartesian_abstractions/cost_saturation
         cartesian_abstractions/flaw

@@ -14,6 +14,8 @@
 class AbstractTask;
 class State;
 
+using namespace cartesian_set;
+
 namespace cartesian_abstractions {
 class Node {
     /*

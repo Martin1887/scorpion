@@ -2,12 +2,12 @@
 
 #include "abstraction.h"
 #include "abstract_state.h"
-#include "cartesian_set.h"
 #include "flaw_search.h"
 #include "shortest_paths.h"
 #include "transition_system.h"
 #include "utils.h"
 
+#include "../task_utils/cartesian_set.h"
 #include "../task_utils/task_properties.h"
 #include "../utils/language.h"
 #include "../utils/logging.h"
