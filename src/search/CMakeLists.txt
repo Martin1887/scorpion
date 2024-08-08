@@ -764,12 +764,12 @@ create_fast_downward_library(
 )
 
 create_fast_downward_library(
-        NAME cartesian_set
+    NAME cartesian_set
         HELP "Cartesian set"
-        SOURCES
+    SOURCES
         task_utils/cartesian_set
         task_utils/cartesian_set_facts_proxy_iterator
-        DEPENDS dynamic_bitset
+    DEPENDS dynamic_bitset
 )
 
 create_fast_downward_library(
@@ -788,6 +788,14 @@ create_fast_downward_library(
     DEPENDS
         successor_generator
         task_properties
+    DEPENDENCY_ONLY
+)
+
+create_fast_downward_library(
+    NAME fact_indexing
+        HELP "fact indexing"
+    SOURCES
+        task_utils/fact_indexing
     DEPENDENCY_ONLY
 )
 
