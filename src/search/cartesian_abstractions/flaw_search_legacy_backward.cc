@@ -21,7 +21,7 @@ using namespace std;
 namespace cartesian_abstractions {
 void FlawSearch::get_deviation_backward_splits(
     const AbstractState &abs_state,
-    const vector<AbstractState> &flaw_search_states,
+    const vector<CartesianState> &flaw_search_states,
     const vector<int> &unaffected_variables,
     const AbstractState &source_abs_state,
     const vector<int> &domain_sizes,
@@ -49,7 +49,7 @@ void FlawSearch::get_deviation_backward_splits(
     for (size_t var = 0; var < domain_sizes.size(); ++var) {
         fact_count[var].resize(domain_sizes[var], 0);
     }
-    for (const AbstractState &flaw_search_st : flaw_search_states) {
+    for (const CartesianState &flaw_search_st : flaw_search_states) {
         for (int var : unaffected_variables) {
             // When disambiguation is implemented, `contains` will be possible
             // instead of `intersects`
@@ -95,7 +95,7 @@ void FlawSearch::get_deviation_backward_splits(
 }
 
 unique_ptr<Split> FlawSearch::create_backward_split(
-    const vector<AbstractState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
+    const vector<CartesianState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
@@ -103,7 +103,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
         log << endl;
         log << "Create split for abstract state " << abstract_state_id << " and "
             << states.size() << " flaw-search states:" << endl;
-        for (AbstractState fss : states) {
+        for (CartesianState fss : states) {
             log << fss << endl;
         }
     }
@@ -146,7 +146,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
         }
 
         for (size_t i = 0; i < states.size(); ++i) {
-            const AbstractState &state = states[i];
+            const CartesianState &state = states[i];
             for (int not_applicable : state.vars_not_backward_applicable(op)) {
                 if (log.is_at_least_debug()) {
                     log << "Not applicable!" << endl;
@@ -186,7 +186,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
             }
         }
 
-        phmap::flat_hash_map<int, vector<AbstractState>> deviation_states_by_source;
+        phmap::flat_hash_map<int, vector<CartesianState>> deviation_states_by_source;
         for (size_t i = 0; i < states.size(); ++i) {
             if (!applicable[i]) {
                 if (log.is_at_least_debug()) {
@@ -194,9 +194,9 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                 }
                 continue;
             }
-            const AbstractState &state = states[i];
+            const CartesianState &state = states[i];
             assert(state.is_backward_applicable(op));
-            AbstractState succ_state(-1, -1, state.regress(op));
+            CartesianState succ_state(state.regress(op));
             bool source_hit = false;
             for (int source : sources) {
                 if (!utils::extra_memory_padding_is_reserved()) {
@@ -227,7 +227,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
 
         for (auto &pair : deviation_states_by_source) {
             int source = pair.first;
-            const vector<AbstractState> &deviation_states = pair.second;
+            const vector<CartesianState> &deviation_states = pair.second;
             if (!deviation_states.empty()) {
                 int num_vars = domain_sizes.size();
                 get_deviation_backward_splits(
@@ -259,7 +259,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
 }
 
 unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
-    const vector<AbstractState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
+    const vector<CartesianState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
@@ -267,7 +267,7 @@ unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
         log << endl;
         log << "Create split for abstract state " << abstract_state_id << " and "
             << states.size() << " flaw-search states:" << endl;
-        for (AbstractState fss : states) {
+        for (CartesianState fss : states) {
             log << fss << endl;
         }
     }
@@ -286,7 +286,7 @@ unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
             int init_value = init_state[var].get_value();
 
             if (split_unwanted_values) {
-                for (AbstractState state : states) {
+                for (CartesianState state : states) {
                     if (!state.contains(var, init_value)) {
                         for (int state_value : state.get_cartesian_set().get_values(var)) {
                             if (abstract_state.contains(var, state_value)) {

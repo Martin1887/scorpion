@@ -774,19 +774,37 @@ create_fast_downward_library(
 )
 
 create_fast_downward_library(
+    NAME cartesian_state
+        HELP "Cartesian state"
+    SOURCES
+        task_utils/cartesian_state
+    DEPENDS cartesian_set
+)
+
+create_fast_downward_library(
+    NAME disambiguation
+        HELP "Disambiguation of partial states"
+    SOURCES
+        task_utils/disambiguated_operator
+        task_utils/disambiguation_method
+        task_utils/ac3_disambiguation
+    DEPENDS cartesian_state
+)
+
+create_fast_downward_library(
+    NAME mutex_information
+        HELP "Mutex Information"
+    SOURCES
+        task_utils/mutex_information
+        CORE_LIBRARY
+)
+
+create_fast_downward_library(
     NAME causal_graph
     HELP "Causal Graph"
     SOURCES
         task_utils/causal_graph
     DEPENDENCY_ONLY
-)
-
-create_fast_downward_library(
-        NAME mutex_information
-        HELP "Mutex Information"
-        SOURCES
-        task_utils/mutex_information
-        CORE_LIBRARY
 )
 
 create_fast_downward_library(
@@ -873,7 +891,8 @@ create_fast_downward_library(
         cartesian_abstractions/utils_landmarks
     DEPENDS
         additive_heuristic
-        dynamic_bitset
+        cartesian_state
+        disambiguation
         extra_tasks
         landmarks
         priority_queues

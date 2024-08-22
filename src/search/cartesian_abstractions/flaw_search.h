@@ -117,11 +117,11 @@ enum class InAbstractionFlawSearchKind {
 using OptimalTransitions = phmap::flat_hash_map<int, std::vector<int>>;
 
 struct LegacyFlaw {
-    AbstractState flaw_search_state;
+    CartesianState flaw_search_state;
     int abstract_state_id;
     bool split_last_state;
 
-    LegacyFlaw(AbstractState flaw_search_state,
+    LegacyFlaw(CartesianState flaw_search_state,
                int abstract_id,
                bool split_last_state)
         : flaw_search_state(flaw_search_state),
@@ -208,7 +208,7 @@ class FlawSearch {
 
     static void get_deviation_splits(
         const AbstractState &abs_state,
-        const std::vector<AbstractState> &flaw_search_states,
+        const std::vector<CartesianState> &flaw_search_states,
         const std::vector<int> &unaffected_variables,
         const AbstractState &target_abs_state,
         const std::vector<int> &domain_sizes,
@@ -219,7 +219,7 @@ class FlawSearch {
 
     static void get_deviation_backward_splits(
         const AbstractState &abs_state,
-        const std::vector<AbstractState> &flaw_search_states,
+        const std::vector<CartesianState> &flaw_search_states,
         const std::vector<int> &unaffected_variables,
         const AbstractState &source_abs_state,
         const std::vector<int> &domain_sizes,
@@ -244,13 +244,13 @@ class FlawSearch {
         const std::vector<StateID> &state_ids, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
 
     std::unique_ptr<Split> create_split(
-        const std::vector<AbstractState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
+        const std::vector<CartesianState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
     std::unique_ptr<Split> create_split_from_goal_state(
-        const std::vector<AbstractState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
+        const std::vector<CartesianState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
     std::unique_ptr<Split> create_backward_split(
-        const std::vector<AbstractState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
+        const std::vector<CartesianState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
     std::unique_ptr<Split> create_backward_split_from_init_state(
-        const std::vector<AbstractState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
+        const std::vector<CartesianState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
 
     FlawedState get_flawed_state_with_min_h();
     std::unique_ptr<Split> get_single_split(const utils::CountdownTimer &cegar_timer, Cost solution_cost);

@@ -76,6 +76,7 @@ public:
     virtual string get_fact_name(const FactPair &fact) const override;
     virtual bool are_facts_mutex(
         const FactPair &fact1, const FactPair &fact2) const override;
+    virtual MutexInformation mutex_information() const override;
 
     virtual int get_operator_cost(int index, bool is_axiom) const override;
     virtual string get_operator_name(
@@ -410,6 +411,10 @@ string RootTask::get_fact_name(const FactPair &fact) const {
 
 bool RootTask::are_facts_mutex(const FactPair &fact1, const FactPair &fact2) const {
     return mutexes.are_facts_mutex(fact1, fact2);
+}
+
+MutexInformation RootTask::mutex_information() const {
+    return mutexes;
 }
 
 int RootTask::get_operator_cost(int index, bool is_axiom) const {

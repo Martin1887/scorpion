@@ -21,7 +21,7 @@ public:
         int num_variables = cartesian_set->n_vars();
         do {     //TODO: This should make use of specialized bitset algorithms and not test every element one by one
             assert(var_id < num_variables);
-            int num_facts = cartesian_set->n_values(var_id);
+            int num_facts = cartesian_set->count(var_id);
             assert(value < num_facts);
             ++value;
             if (value == num_facts) {

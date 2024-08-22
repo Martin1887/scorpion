@@ -12,9 +12,12 @@ bool MutexInformation::are_facts_mutex(const FactPair &fact1, const FactPair &fa
     return bool(mutexes[fact1.var][fact1.value].count(fact2));
 }
 
-
-
 void MutexInformation::add_mutex(const FactPair &a, const FactPair &b) {
     mutexes[a.var][a.value].insert(b);
     mutexes[b.var][b.value].insert(a);
+}
+
+void MutexInformation::remove_mutex(const FactPair &a, const FactPair &b) {
+    mutexes[a.var][a.value].erase(b);
+    mutexes[b.var][b.value].erase(a);
 }

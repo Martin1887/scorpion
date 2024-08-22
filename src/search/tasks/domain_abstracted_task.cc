@@ -97,6 +97,10 @@ bool DomainAbstractedTask::are_facts_mutex(const FactPair &, const FactPair &) c
     ABORT("DomainAbstractedTask doesn't support querying mutexes.");
 }
 
+MutexInformation DomainAbstractedTask::mutex_information() const {
+    ABORT("DomainAbstractedTask doesn't support querying mutexes.");
+}
+
 FactPair DomainAbstractedTask::get_operator_precondition(
     int op_index, int fact_index, bool is_axiom) const {
     return value_map.convert(

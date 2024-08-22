@@ -64,7 +64,7 @@ unique_ptr<Split> FlawSearch::last_not_filtered_flaw(vector<LegacyFlaw> &flaws,
 
 void FlawSearch::get_deviation_splits(
     const AbstractState &abs_state,
-    const vector<AbstractState> &flaw_search_states,
+    const vector<CartesianState> &flaw_search_states,
     const vector<int> &unaffected_variables,
     const AbstractState &target_abs_state,
     const vector<int> &domain_sizes,
@@ -92,7 +92,7 @@ void FlawSearch::get_deviation_splits(
     for (size_t var = 0; var < domain_sizes.size(); ++var) {
         fact_count[var].resize(domain_sizes[var], 0);
     }
-    for (const AbstractState &fs_state : flaw_search_states) {
+    for (const CartesianState &fs_state : flaw_search_states) {
         for (int var : unaffected_variables) {
             // When disambiguation is implemented, `contains` will be possible
             // instead of `intersects`
@@ -137,7 +137,7 @@ void FlawSearch::get_deviation_splits(
 }
 
 unique_ptr<Split> FlawSearch::create_split(
-    const vector<AbstractState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
+    const vector<CartesianState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
@@ -145,7 +145,7 @@ unique_ptr<Split> FlawSearch::create_split(
         log << endl;
         log << "Create split for abstract state " << abstract_state_id << " and "
             << states.size() << " flaw-search states:" << endl;
-        for (AbstractState fss : states) {
+        for (CartesianState fss : states) {
             log << fss << endl;
         }
     }
@@ -167,7 +167,7 @@ unique_ptr<Split> FlawSearch::create_split(
         for (FactPair fact : ts.get_preconditions(op_id)) {
             vector<int> state_value_count(domain_sizes[fact.var], 0);
             for (size_t i = 0; i < states.size(); ++i) {
-                const AbstractState &state = states[i];
+                const CartesianState &state = states[i];
                 if (!state.contains(fact.var, fact.value)) {
                     // Applicability flaw
                     applicable[i] = false;
@@ -196,14 +196,14 @@ unique_ptr<Split> FlawSearch::create_split(
             }
         }
 
-        phmap::flat_hash_map<int, vector<AbstractState>> deviation_states_by_target;
+        phmap::flat_hash_map<int, vector<CartesianState>> deviation_states_by_target;
         for (size_t i = 0; i < states.size(); ++i) {
             if (!applicable[i]) {
                 continue;
             }
-            const AbstractState &state = states[i];
+            const CartesianState &state = states[i];
             assert(state.is_applicable(op));
-            AbstractState succ_state(-1, -1, state.progress(op));
+            CartesianState succ_state(state.progress(op));
             bool target_hit = false;
             for (int target : targets) {
                 if (!utils::extra_memory_padding_is_reserved()) {
@@ -223,7 +223,7 @@ unique_ptr<Split> FlawSearch::create_split(
 
         for (auto &pair : deviation_states_by_target) {
             int target = pair.first;
-            const vector<AbstractState> &deviation_states = pair.second;
+            const vector<CartesianState> &deviation_states = pair.second;
             if (!deviation_states.empty()) {
                 int num_vars = domain_sizes.size();
                 get_deviation_splits(
@@ -255,7 +255,7 @@ unique_ptr<Split> FlawSearch::create_split(
 }
 
 unique_ptr<Split> FlawSearch::create_split_from_goal_state(
-    const vector<AbstractState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
+    const vector<CartesianState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
@@ -263,7 +263,7 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
         log << endl;
         log << "Create split for abstract state " << abstract_state_id << " and "
             << states.size() << " flaw-search states:" << endl;
-        for (AbstractState fss : states) {
+        for (CartesianState fss : states) {
             log << fss << endl;
         }
     }
@@ -284,7 +284,7 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
                     }
 
                     if (split_unwanted_values) {
-                        for (AbstractState state : states) {
+                        for (CartesianState state : states) {
                             for (int value : state.get_cartesian_set().get_values(var)) {
                                 if (value != goal_value && abstract_state.contains(var, value)) {
                                     if (log.is_at_least_debug()) {
@@ -350,29 +350,29 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
 
     int start_abstract_state_index = 0;
     const AbstractState *abstract_state = &abstraction.get_initial_state();
-    AbstractState flaw_search_state = AbstractState(abstraction.get_initial_state());
+    CartesianState flaw_search_state = CartesianState(abstraction.get_initial_state());
     switch (only_in_abstraction) {
     case InAbstractionFlawSearchKind::TRUE:
         // Already correct values.
         break;
     case InAbstractionFlawSearchKind::FALSE:
-        flaw_search_state = AbstractState(get_domain_sizes(task_proxy),
-                                          task_properties::get_fact_pairs(state_registry->get_initial_state()));
+        flaw_search_state = CartesianState(get_domain_sizes(task_proxy),
+                                           task_properties::get_fact_pairs(state_registry->get_initial_state()));
         break;
     case InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION:
         // In goal state and in the last state before goal no possible flaw
         // exists, so get the previous state, or the initial state if 2 or
         // fewer states.
         if (solution.size() >= 3) {
-            flaw_search_state = AbstractState(abstraction.get_state(solution.at(solution.size() - 3).target_id));
+            flaw_search_state = CartesianState(abstraction.get_state(solution.at(solution.size() - 3).target_id));
             abstract_state = &abstraction.get_state(solution.at(solution.size() - 3).target_id);
             start_abstract_state_index = solution.size() - 2;
         } else if (solution.size() == 2) {
             // Already correct values.
             start_abstract_state_index = 0;
         } else {
-            flaw_search_state = AbstractState(get_domain_sizes(task_proxy),
-                                              task_properties::get_fact_pairs(state_registry->get_initial_state()));
+            flaw_search_state = CartesianState(get_domain_sizes(task_proxy),
+                                               task_properties::get_fact_pairs(state_registry->get_initial_state()));
             start_abstract_state_index = -1;
         }
         break;
@@ -398,7 +398,7 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                 if (debug)
                     log << "  Move to " << *next_abstract_state << " with "
                         << op.get_name() << endl;
-                AbstractState next_flaw_search_state(-1, -1, flaw_search_state.progress(op));
+                CartesianState next_flaw_search_state(flaw_search_state.progress(op));
                 if (!next_abstract_state->intersects(next_flaw_search_state)) {
                     if (debug) {
                         log << "  Paths deviate." << endl;
@@ -416,7 +416,7 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                         (split_selector.sequence_pick == PickSequenceFlaw::FIRST_FLAW && !flaws.empty())) {
                         return flaws;
                     } else {
-                        next_flaw_search_state = AbstractState(-1, -1, next_flaw_search_state.undeviate(*next_abstract_state));
+                        next_flaw_search_state = CartesianState(next_flaw_search_state.undeviate(*next_abstract_state));
                         if (debug) {
                             log << "  Undeviated state: " << next_flaw_search_state << endl;
                             log << "  Abstract state: " << *next_abstract_state << endl;
@@ -449,13 +449,13 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                 } else {
                     abstract_state = &abstraction.get_state(step.target_id);
                     // Apply the operator as if it were applicable (and undeviate if needed).
-                    flaw_search_state = AbstractState(-1, -1, flaws.back().flaw_search_state.progress(op));
+                    flaw_search_state = CartesianState(flaws.back().flaw_search_state.progress(op));
                     if (!abstract_state->intersects(flaw_search_state)) {
                         if (debug) {
                             log << "  The state " << flaw_search_state << " does not intersects" << endl;
                             log << "  Abstract state: " << *abstract_state << endl;
                         }
-                        flaw_search_state = AbstractState(-1, -1, flaw_search_state.undeviate(*abstract_state));
+                        flaw_search_state = CartesianState(flaw_search_state.undeviate(*abstract_state));
                         if (debug)
                             log << "  Undeviated state: " << flaw_search_state << endl;
                     }
@@ -485,14 +485,14 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
             if (start_abstract_state_index < 0) {
                 break;
             } else if (start_abstract_state_index == 0) {
-                flaw_search_state = AbstractState(get_domain_sizes(task_proxy),
-                                                  task_properties::get_fact_pairs(state_registry->get_initial_state()));
+                flaw_search_state = CartesianState(get_domain_sizes(task_proxy),
+                                                   task_properties::get_fact_pairs(state_registry->get_initial_state()));
                 abstract_state = &abstraction.get_initial_state();
             } else if (start_abstract_state_index == 1) {
-                flaw_search_state = AbstractState(abstraction.get_initial_state());
+                flaw_search_state = CartesianState(abstraction.get_initial_state());
                 abstract_state = &abstraction.get_initial_state();
             } else {
-                flaw_search_state = AbstractState(abstraction.get_state(solution.at(start_abstract_state_index - 2).target_id));
+                flaw_search_state = CartesianState(abstraction.get_state(solution.at(start_abstract_state_index - 2).target_id));
                 abstract_state = &abstraction.get_state(solution.at(start_abstract_state_index - 2).target_id);
             }
         }
@@ -546,10 +546,10 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
     // that usually is an abstract state
     GoalsProxy goals = task_proxy.get_goals();
     vector<FactPair> goals_facts = task_properties::get_fact_pairs(task_proxy.get_goals());
-    AbstractState flaw_search_state = only_in_abstraction != InAbstractionFlawSearchKind::FALSE ?
-        AbstractState(-1, -1, abstract_state->get_cartesian_set())
+    CartesianState flaw_search_state = only_in_abstraction != InAbstractionFlawSearchKind::FALSE ?
+        CartesianState(abstract_state->get_cartesian_set())
         :
-        AbstractState(get_domain_sizes(task_proxy), move(goals_facts));
+        CartesianState(get_domain_sizes(task_proxy), move(goals_facts));
     if (intersect_flaw_search_abstract_states) {
         flaw_search_state = flaw_search_state.intersection(*abstract_state);
     }
@@ -573,7 +573,7 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
             if (debug)
                 log << "  Move from " << *abstract_state << " to " << *next_abstract_state << " with "
                     << op.get_name() << endl;
-            AbstractState next_flaw_search_state(AbstractState(-1, -1, flaw_search_state.regress(op)));
+            CartesianState next_flaw_search_state(CartesianState(flaw_search_state.regress(op)));
             if (debug)
                 log << "  In flaw-search space move from " << flaw_search_state << " to "
                     << next_flaw_search_state << " with " << op.get_name() << endl;
@@ -597,7 +597,7 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                       split_selector.sequence_pick == PickSequenceFlaw::CLOSEST_TO_GOAL_FLAW))) {
                     return flaws;
                 } else {
-                    next_flaw_search_state = AbstractState(-1, -1, next_flaw_search_state.undeviate(*next_abstract_state));
+                    next_flaw_search_state = CartesianState(next_flaw_search_state.undeviate(*next_abstract_state));
                     if (debug) {
                         log << "  Undeviated state: " << next_flaw_search_state << endl;
                     }
@@ -634,13 +634,13 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                     abstract_state = initial_abstract_state;
                 }
                 // Apply the operator as if it were applicable (and undeviate if needed).
-                flaw_search_state = AbstractState(-1, -1, flaws.back().flaw_search_state.regress(op));
+                flaw_search_state = CartesianState(flaws.back().flaw_search_state.regress(op));
                 if (!abstract_state->intersects(flaw_search_state)) {
                     if (debug) {
                         log << "  The state " << flaw_search_state << " does not intersects" << endl;
                         log << "  Abstract state: " << *abstract_state << endl;
                     }
-                    flaw_search_state = AbstractState(-1, -1, flaw_search_state.undeviate(*abstract_state));
+                    flaw_search_state = CartesianState(flaw_search_state.undeviate(*abstract_state));
                     if (debug)
                         log << "  Undeviated state: " << flaw_search_state << endl;
                 }

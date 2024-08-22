@@ -38,6 +38,18 @@ LogProxy get_log_from_options(const plugins::Options &options) {
     return LogProxy(make_shared<Log>(options.get<Verbosity>("verbosity")));
 }
 
+tuple<Verbosity> get_log_arguments_from_options(
+    const plugins::Options &opts) {
+    return make_tuple<Verbosity>(opts.get<Verbosity>("verbosity"));
+}
+
+LogProxy get_log_for_verbosity(const Verbosity &verbosity) {
+    if (verbosity == Verbosity::NORMAL) {
+        return LogProxy(global_log);
+    }
+    return LogProxy(make_shared<Log>(verbosity));
+}
+
 LogProxy get_silent_log() {
     plugins::Options opts;
     opts.set<utils::Verbosity>("verbosity", utils::Verbosity::SILENT);

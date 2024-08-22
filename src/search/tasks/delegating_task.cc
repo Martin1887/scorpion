@@ -1,5 +1,7 @@
 #include "delegating_task.h"
 
+#include "../task_utils/mutex_information.h"
+
 using namespace std;
 
 namespace tasks {
@@ -33,6 +35,10 @@ string DelegatingTask::get_fact_name(const FactPair &fact) const {
 
 bool DelegatingTask::are_facts_mutex(const FactPair &fact1, const FactPair &fact2) const {
     return parent->are_facts_mutex(fact1, fact2);
+}
+
+MutexInformation DelegatingTask::mutex_information() const {
+    return parent->mutex_information();
 }
 
 int DelegatingTask::get_operator_cost(int index, bool is_axiom) const {

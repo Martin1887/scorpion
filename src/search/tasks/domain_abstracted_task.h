@@ -4,6 +4,7 @@
 #include "delegating_task.h"
 
 #include "../algorithms/array_pool.h"
+#include "../task_utils/mutex_information.h"
 #include "../utils/collections.h"
 
 #include <cassert>
@@ -58,6 +59,7 @@ public:
     virtual std::string get_fact_name(const FactPair &fact) const override;
     virtual bool are_facts_mutex(
         const FactPair &fact1, const FactPair &fact2) const override;
+    virtual MutexInformation mutex_information() const override;
 
     virtual FactPair get_operator_precondition(
         int op_index, int fact_index, bool is_axiom) const override;

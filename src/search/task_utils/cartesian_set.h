@@ -22,30 +22,37 @@ class CartesianSet {
     std::vector<Bitset> domain_subsets;
 
 private:
-    void init_facts(std::vector<FactPair> facts);
+    void init_facts(const std::vector<FactPair> &facts);
+    void init_facts(const PreconditionsProxy &facts);
 
 public:
     explicit CartesianSet(const TaskProxy &task);
-    explicit CartesianSet(const TaskProxy &task, std::vector<FactPair> facts);
+    explicit CartesianSet(const TaskProxy &task, const std::vector<FactPair> &facts);
+    explicit CartesianSet(const TaskProxy &task, const PreconditionsProxy &facts);
     explicit CartesianSet(const std::vector<int> &domain_sizes);
-    explicit CartesianSet(const std::vector<int> &domain_sizes, std::vector<FactPair> facts);
+    explicit CartesianSet(const std::vector<int> &domain_sizes, const std::vector<FactPair> &facts);
+    explicit CartesianSet(const std::vector<int> &domain_sizes, const PreconditionsProxy &facts);
 
     int n_vars() const;
-    int n_values(int var) const;
     void add(int var, int value);
     void set_single_value(int var, int value);
     void remove(int var, int value);
     void add_all(int var);
     void remove_all(int var);
     CartesianSet intersection(const CartesianSet &other) const;
+    utils::HashSet<int> var_intersection(const CartesianSet &other, int var) const;
 
     bool test(int var, int value) const {
         return domain_subsets[var][value];
     }
 
     int count(int var) const;
+    bool is_empty() const;
     bool all_values_set(int var) const;
     std::vector<int> get_values(int var) const;
+    utils::HashSet<int> get_values_set(int var) const;
+    void set_values(int var, const std::vector<int> &values);
+    void set_values(int var, const utils::HashSet<int> &values);
     bool intersects(const CartesianSet &other, int var) const;
     bool intersects(const CartesianSet &other) const;
     bool is_superset_of(const CartesianSet &other) const;
