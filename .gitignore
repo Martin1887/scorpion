@@ -25,3 +25,5 @@ src/CMakeFiles
 src/Makefile
 src/cmake_install.cmake
 src/search/CMakeFiles
+.devenv*
+.direnv
