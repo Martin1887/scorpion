@@ -24,6 +24,10 @@ class RandomNumberGenerator;
 
 using utils::HashMap;
 
+namespace disambiguation {
+class DisambiguationMethod;
+}
+
 namespace cartesian_abstractions {
 class Abstraction;
 class ShortestPaths;
@@ -152,6 +156,7 @@ class FlawSearch {
     const int max_state_expansions;
     // Intersect flaw search states with the mapped one to find more flaws.
     const bool intersect_flaw_search_abstract_states;
+    std::shared_ptr<disambiguation::DisambiguationMethod> flaw_search_states_disambiguation;
     mutable utils::LogProxy log;
     mutable utils::LogProxy silent_log;  // For concrete search space.
 
@@ -352,6 +357,7 @@ public:
         int max_state_expansions,
         bool intersect_flaw_search_abstract_states,
         lp::LPSolverType lp_solver,
+        std::shared_ptr<disambiguation::DisambiguationMethod> flaw_search_states_disambiguation,
         const utils::LogProxy &log);
 
     SplitProperties get_split_and_direction(const Solution &solution,

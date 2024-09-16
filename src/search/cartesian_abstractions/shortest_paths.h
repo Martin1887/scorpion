@@ -121,7 +121,8 @@ class ShortestPaths {
     void update_incrementally_in_direction(
         const std::vector<Transitions> &in,
         const std::vector<Transitions> &out,
-        int v, int v1, int v2,
+        int v, int v1, int v2, bool disambiguated,
+        Transitions old_incoming, Transitions old_outgoing,
         const std::unordered_set<int> &goals,
         const int initial_state,
         const bool backward,
@@ -139,7 +140,8 @@ public:
     void update_incrementally(
         const std::vector<Transitions> &in,
         const std::vector<Transitions> &out,
-        int v, int v1, int v2,
+        int v, int v1, int v2, bool disambiguated,
+        Transitions old_incoming, Transitions old_outgoing,
         const std::unordered_set<int> &goals,
         const int initial_state,
         const bool simulated = false);

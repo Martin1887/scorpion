@@ -74,6 +74,7 @@ public:
     bool includes(const std::vector<FactPair> &facts) const;
 
     CartesianSet get_cartesian_set() const;
+    void set_cartesian_set(CartesianSet &&other);
     CartesianState intersection(const CartesianState &other) const;
 
     friend std::ostream &operator<<(std::ostream &os, const CartesianState &state) {

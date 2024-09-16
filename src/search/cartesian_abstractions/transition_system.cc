@@ -81,9 +81,9 @@ static void remove_transitions_with_given_target(
 TransitionSystem::TransitionSystem(const OperatorsProxy &ops)
     : preconditions_by_operator(get_preconditions_by_operator(ops)),
       postconditions_by_operator(get_postconditions_by_operator(ops)),
+      operators(ops),
       num_non_loops(0),
       num_loops(0) {
-    add_loops_in_trivial_abstraction();
 }
 
 int TransitionSystem::get_precondition_value(int op_id, int var) const {
@@ -101,12 +101,18 @@ void TransitionSystem::enlarge_vectors_by_one() {
     loops.resize(new_num_states);
 }
 
-void TransitionSystem::add_loops_in_trivial_abstraction() {
+void TransitionSystem::add_loops_in_trivial_abstraction(const AbstractState &init,
+                                                        const bool disambiguated) {
     assert(get_num_states() == 0);
     enlarge_vectors_by_one();
     int init_id = 0;
     for (int i = 0; i < get_num_operators(); ++i) {
-        add_loop(init_id, i);
+        // The initial abstract state could be disambiguated.
+        if (!disambiguated ||
+            (init.is_applicable(operators[i]) &&
+             init.progress(operators[i]).intersects(init.get_cartesian_set()))) {
+            add_loop(init_id, i);
+        }
     }
 }
 
@@ -133,7 +139,8 @@ void TransitionSystem::force_new_transitions(const std::vector<Transitions> &new
 
 void TransitionSystem::rewire_incoming_transitions(
     const Transitions &old_incoming, const AbstractStates &states, int v_id,
-    const AbstractState &v1, const AbstractState &v2, int var) {
+    const AbstractState &v1, const AbstractState &v2, int var,
+    const bool disambiguated) {
     /* State v has been split into v1 and v2. Now for all transitions
        u->v we need to add transitions u->v1, u->v2, or both. */
     int v1_id = v1.get_id();
@@ -154,31 +161,49 @@ void TransitionSystem::rewire_incoming_transitions(
         int u_id = transition.target_id;
         const AbstractState &u = *states[u_id];
         int post = get_postcondition_value(op_id, var);
+        bool reach_v1 = true;
+        bool reach_v2 = true;
         if (post == UNDEFINED) {
+            if (disambiguated) {
+                // TODO: Faster comparing postconditions for each var?!
+                CartesianSet progression = u.progress(operators[op_id]);
+                reach_v1 = progression.intersects(v1.get_cartesian_set());
+                reach_v2 = progression.intersects(v2.get_cartesian_set());
+            }
             // op has no precondition and no effect on var.
             bool u_and_v1_intersect = u.domain_subsets_intersect(v1, var);
-            if (u_and_v1_intersect) {
+            if (reach_v1 && u_and_v1_intersect) {
                 add_transition(u_id, op_id, v1_id);
             }
             /* If u and v1 don't intersect, we must add the other transition
                and can avoid an intersection test. */
-            if (!u_and_v1_intersect || u.domain_subsets_intersect(v2, var)) {
+            if (reach_v2 && (!u_and_v1_intersect || u.domain_subsets_intersect(v2, var))) {
                 add_transition(u_id, op_id, v2_id);
             }
         } else if (v1.contains(var, post)) {
-            // op can only end in v1.
-            add_transition(u_id, op_id, v1_id);
+            // op can only end in v1 (if not disambiguated).
+            if (disambiguated) {
+                reach_v1 = u.progress(operators[op_id]).intersects(v1.get_cartesian_set());
+            }
+            if (reach_v1) {
+                add_transition(u_id, op_id, v1_id);
+            }
         } else {
-            // op can only end in v2.
-            assert(v2.contains(var, post));
-            add_transition(u_id, op_id, v2_id);
+            // op can only end in v2 (if not disambiguated).
+            if (disambiguated) {
+                reach_v2 = u.progress(operators[op_id]).intersects(v2.get_cartesian_set());
+            }
+            if (reach_v2) {
+                add_transition(u_id, op_id, v2_id);
+            }
         }
     }
 }
 
 void TransitionSystem::rewire_outgoing_transitions(
     const Transitions &old_outgoing, const AbstractStates &states, int v_id,
-    const AbstractState &v1, const AbstractState &v2, int var) {
+    const AbstractState &v1, const AbstractState &v2, int var,
+    const bool disambiguated) {
     /* State v has been split into v1 and v2. Now for all transitions
        v->w we need to add transitions v1->w, v2->w, or both. */
     int v1_id = v1.get_id();
@@ -200,35 +225,68 @@ void TransitionSystem::rewire_outgoing_transitions(
         const AbstractState &w = *states[w_id];
         int pre = get_precondition_value(op_id, var);
         int post = get_postcondition_value(op_id, var);
+        bool applicable_v1 = true;
+        bool applicable_v2 = true;
+        bool reach_from_v1 = true;
+        bool reach_from_v2 = true;
         if (post == UNDEFINED) {
             assert(pre == UNDEFINED);
+            if (disambiguated) {
+                // TODO: Faster comparing preconditions for each var?!
+                applicable_v1 = v1.is_applicable(operators[op_id]);
+                applicable_v2 = v2.is_applicable(operators[op_id]);
+                reach_from_v1 = v1.progress(operators[op_id]).intersects(w.get_cartesian_set());
+                reach_from_v2 = v2.progress(operators[op_id]).intersects(w.get_cartesian_set());
+            }
             // op has no precondition and no effect on var.
             bool v1_and_w_intersect = v1.domain_subsets_intersect(w, var);
-            if (v1_and_w_intersect) {
+            if (applicable_v1 && reach_from_v1 && v1_and_w_intersect) {
                 add_transition(v1_id, op_id, w_id);
             }
             /* If v1 and w don't intersect, we must add the other transition
                and can avoid an intersection test. */
-            if (!v1_and_w_intersect || v2.domain_subsets_intersect(w, var)) {
+            if (applicable_v2 && reach_from_v2 && (!v1_and_w_intersect || v2.domain_subsets_intersect(w, var))) {
                 add_transition(v2_id, op_id, w_id);
             }
         } else if (pre == UNDEFINED) {
             // op has no precondition, but an effect on var.
-            add_transition(v1_id, op_id, w_id);
-            add_transition(v2_id, op_id, w_id);
+            if (disambiguated) {
+                applicable_v1 = v1.is_applicable(operators[op_id]);
+                applicable_v2 = v2.is_applicable(operators[op_id]);
+                reach_from_v1 = v1.progress(operators[op_id]).intersects(w.get_cartesian_set());
+                reach_from_v2 = v2.progress(operators[op_id]).intersects(w.get_cartesian_set());
+            }
+            if (applicable_v1 && reach_from_v1) {
+                add_transition(v1_id, op_id, w_id);
+            }
+            if (applicable_v2 && reach_from_v2) {
+                add_transition(v2_id, op_id, w_id);
+            }
         } else if (v1.contains(var, pre)) {
             // op can only start in v1.
-            add_transition(v1_id, op_id, w_id);
+            if (disambiguated) {
+                applicable_v1 = v1.is_applicable(operators[op_id]);
+                reach_from_v1 = v1.progress(operators[op_id]).intersects(w.get_cartesian_set());
+            }
+            if (applicable_v1 && reach_from_v1) {
+                add_transition(v1_id, op_id, w_id);
+            }
         } else {
             // op can only start in v2.
-            assert(v2.contains(var, pre));
-            add_transition(v2_id, op_id, w_id);
+            if (disambiguated) {
+                applicable_v2 = v2.is_applicable(operators[op_id]);
+                reach_from_v2 = v2.progress(operators[op_id]).intersects(w.get_cartesian_set());
+            }
+            if (applicable_v2 && reach_from_v2) {
+                add_transition(v2_id, op_id, w_id);
+            }
         }
     }
 }
 
 void TransitionSystem::rewire_loops(
     const Loops &old_loops, const AbstractState &v1, const AbstractState &v2, int var,
+    const bool disambiguated,
     const bool simulated) {
     /* State v has been split into v1 and v2. Now for all self-loops
        v->v we need to add one or two of the transitions v1->v1, v1->v2,
@@ -238,51 +296,88 @@ void TransitionSystem::rewire_loops(
     for (int op_id : old_loops) {
         int pre = get_precondition_value(op_id, var);
         int post = get_postcondition_value(op_id, var);
+        bool applicable_v1 = true;
+        bool applicable_v2 = true;
+        bool reach_v1_from_v1 = true;
+        bool reach_v2_from_v1 = true;
+        bool reach_v1_from_v2 = true;
+        bool reach_v2_from_v2 = true;
         if (pre == UNDEFINED) {
+            if (disambiguated) {
+                // TODO: Faster comparing preconditions for each var?!
+                applicable_v1 = v1.is_applicable(operators[op_id]);
+                applicable_v2 = v2.is_applicable(operators[op_id]);
+                CartesianSet progression_v1 = v1.progress(operators[op_id]);
+                CartesianSet progression_v2 = v2.progress(operators[op_id]);
+                reach_v1_from_v1 = progression_v1.intersects(v1.get_cartesian_set());
+                reach_v2_from_v1 = progression_v1.intersects(v2.get_cartesian_set());
+                reach_v1_from_v2 = progression_v2.intersects(v1.get_cartesian_set());
+                reach_v2_from_v2 = progression_v2.intersects(v2.get_cartesian_set());
+            }
             // op has no precondition on var --> it must start in v1 and v2.
             if (post == UNDEFINED) {
                 // op has no effect on var --> it must end in v1 and v2.
                 if (!simulated) {
-                    add_loop(v1_id, op_id);
-                    add_loop(v2_id, op_id);
+                    if (reach_v1_from_v1 && applicable_v1) {
+                        add_loop(v1_id, op_id);
+                    }
+                    if (reach_v2_from_v2 && applicable_v2) {
+                        add_loop(v2_id, op_id);
+                    }
                 }
             } else if (v2.contains(var, post)) {
                 // op must end in v2.
-                add_transition(v1_id, op_id, v2_id);
-                if (!simulated) {
+                if (reach_v2_from_v1 && applicable_v1) {
+                    add_transition(v1_id, op_id, v2_id);
+                }
+                if (!simulated && reach_v2_from_v2 && applicable_v2) {
                     add_loop(v2_id, op_id);
                 }
             } else {
                 // op must end in v1.
-                assert(v1.contains(var, post));
-                if (!simulated) {
+                if (!simulated && reach_v1_from_v1 && applicable_v1) {
                     add_loop(v1_id, op_id);
                 }
-                add_transition(v2_id, op_id, v1_id);
+                if (reach_v1_from_v2 && applicable_v2) {
+                    add_transition(v2_id, op_id, v1_id);
+                }
             }
         } else if (v1.contains(var, pre)) {
             // op must start in v1.
+            if (disambiguated) {
+                // TODO: Faster comparing preconditions for each var?!
+                applicable_v1 = v1.is_applicable(operators[op_id]);
+                CartesianSet progression_v1 = v1.progress(operators[op_id]);
+                reach_v1_from_v1 = progression_v1.intersects(v1.get_cartesian_set());
+                reach_v2_from_v1 = progression_v1.intersects(v2.get_cartesian_set());
+            }
             assert(post != UNDEFINED);
             if (v1.contains(var, post)) {
                 // op must end in v1.
-                if (!simulated) {
+                if (!simulated && reach_v1_from_v1 && applicable_v1) {
                     add_loop(v1_id, op_id);
                 }
             } else {
                 // op must end in v2.
-                assert(v2.contains(var, post));
-                add_transition(v1_id, op_id, v2_id);
+                if (reach_v2_from_v1 && applicable_v1) {
+                    add_transition(v1_id, op_id, v2_id);
+                }
             }
         } else {
             // op must start in v2.
-            assert(v2.contains(var, pre));
+            if (disambiguated) {
+                // TODO: Faster comparing preconditions for each var?!
+                applicable_v2 = v2.is_applicable(operators[op_id]);
+                CartesianSet progression_v2 = v2.progress(operators[op_id]);
+                reach_v1_from_v2 = progression_v2.intersects(v1.get_cartesian_set());
+                reach_v2_from_v2 = progression_v2.intersects(v2.get_cartesian_set());
+            }
             assert(post != UNDEFINED);
-            if (v1.contains(var, post)) {
+            if (reach_v1_from_v2 && applicable_v2 && v1.contains(var, post)) {
                 // op must end in v1.
                 add_transition(v2_id, op_id, v1_id);
-            } else if (!simulated) {
+            } else if (!simulated && reach_v2_from_v2 && applicable_v2) {
                 // op must end in v2.
-                assert(v2.contains(var, post));
                 add_loop(v2_id, op_id);
             }
         }
@@ -290,9 +385,10 @@ void TransitionSystem::rewire_loops(
     num_loops -= old_loops.size();
 }
 
-void TransitionSystem::rewire(
+tuple<Transitions, Transitions> TransitionSystem::rewire(
     const AbstractStates &states, int v_id,
     const AbstractState &v1, const AbstractState &v2, int var,
+    const bool disambiguated,
     const bool simulated) {
     // Retrieve old transitions and make space for new transitions.
     Transitions old_incoming = move(incoming[v_id]);
@@ -307,11 +403,13 @@ void TransitionSystem::rewire(
     assert(incoming[v2_id].empty() && outgoing[v2_id].empty() && loops[v2_id].empty());
 
     // Remove old transitions and add new transitions.
-    rewire_incoming_transitions(old_incoming, states, v_id, v1, v2, var);
-    rewire_outgoing_transitions(old_outgoing, states, v_id, v1, v2, var);
+    rewire_incoming_transitions(old_incoming, states, v_id, v1, v2, var, disambiguated);
+    rewire_outgoing_transitions(old_outgoing, states, v_id, v1, v2, var, disambiguated);
     // For a simulated rewire, loops can be omitted because they will not be
     // used in future iterations.
-    rewire_loops(old_loops, v1, v2, var, simulated);
+    rewire_loops(old_loops, v1, v2, var, disambiguated, simulated);
+
+    return {old_incoming, old_outgoing};
 }
 
 const vector<Transitions> &TransitionSystem::get_incoming_transitions() const {

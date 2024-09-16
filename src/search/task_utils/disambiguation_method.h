@@ -6,21 +6,27 @@
 
 using namespace cartesian_state;
 
+namespace plugins {
+class Options;
+}
+
 namespace disambiguation  {
 class DisambiguationMethod {
 public:
     DisambiguationMethod() = default;
     virtual ~DisambiguationMethod() = default;
 
-    virtual CartesianState disambiguate_copy(const CartesianState &, const MutexInformation &) const;
+    virtual CartesianState disambiguate_copy(const CartesianState &, MutexInformation &) const;
 
     // Returns true if the cartesian set is changed
-    virtual bool disambiguate(CartesianState &, const MutexInformation &) const = 0;
+    virtual bool disambiguate(CartesianState &, MutexInformation &) const = 0;
 };
 
 class NoDisambiguation : public DisambiguationMethod {
 public:
-    virtual bool disambiguate(CartesianState &, const MutexInformation &) const override {
+    NoDisambiguation(const plugins::Options &) {}
+
+    virtual bool disambiguate(CartesianState &, MutexInformation &) const override {
         return false;
     }
 };

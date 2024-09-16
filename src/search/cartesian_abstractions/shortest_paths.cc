@@ -170,7 +170,8 @@ void ShortestPaths::mark_dirty(int state, bool backward, bool simulated) {
 void ShortestPaths::update_incrementally(
     const vector<Transitions> &in,
     const vector<Transitions> &out,
-    int v, int v1, int v2,
+    int v, int v1, int v2, bool disambiguated,
+    Transitions old_incoming, Transitions old_outgoing,
     const std::unordered_set<int> &goals,
     const int initial_state,
     const bool simulated) {
@@ -196,16 +197,17 @@ void ShortestPaths::update_incrementally(
 
     dirty_candidate.resize(num_states, false);
     dirty_states.clear();
-    update_incrementally_in_direction(in, out, v, v1, v2, goals, initial_state, false, simulated);
+    update_incrementally_in_direction(in, out, v, v1, v2, disambiguated, old_incoming, old_outgoing, goals, initial_state, false, simulated);
     dirty_candidate.resize(num_states, false);
     dirty_states.clear();
-    update_incrementally_in_direction(in, out, v, v1, v2, goals, initial_state, true, simulated);
+    update_incrementally_in_direction(in, out, v, v1, v2, disambiguated, old_incoming, old_outgoing, goals, initial_state, true, simulated);
 }
 
 void ShortestPaths::update_incrementally_in_direction(
     const std::vector<Transitions> &in,
     const std::vector<Transitions> &out,
-    int v, int v1, int v2,
+    int v, int v1, int v2, bool disambiguated,
+    Transitions old_incoming, Transitions old_outgoing,
     const std::unordered_set<int> &goals,
     const int initial_state,
     const bool backward,
@@ -311,10 +313,31 @@ void ShortestPaths::update_incrementally_in_direction(
     dirty_candidate[v2] = true;
     candidate_queue.push((*distances)[v1], v1);
     candidate_queue.push((*distances)[v2], v2);
+    // If some of the states has been disambiguated, all outgoing and incoming
+    // states must be marked as dirty candidates because the optimal transition
+    // may have been removed.
+    if (disambiguated) {
+        for (Transition t : old_incoming) {
+            dirty_candidate[t.target_id] = true;
+            candidate_queue.push((*distances)[t.target_id], t.target_id);
+        }
+        for (Transition t : old_outgoing) {
+            dirty_candidate[t.target_id] = true;
+            candidate_queue.push((*distances)[t.target_id], t.target_id);
+        }
+    }
 
     // So, after this all dirty states are marked.
     while (!candidate_queue.empty()) {
         int state = candidate_queue.pop().second;
+        // The state could be put several times in the queue in the case of
+        // disambiguation, if already processed dirty_candidate[state]=false.
+        if (!dirty_candidate[state]) {
+            continue;
+        }
+        if (debug) {
+            log << "Candidate pop from queue: " << state << endl;
+        }
         // If the distance is actually 0 (goal in forward direction and init
         // state in backward direction) the state must not be reconnected nor
         // marked as dirty.
@@ -329,9 +352,10 @@ void ShortestPaths::update_incrementally_in_direction(
                 continue;
             }
         }
-        assert(dirty_candidate[state]);
-        assert((*distances)[state] != INF_COSTS);
-        assert((*distances)[state] != DIRTY);
+        if (!disambiguated) {
+            assert((*distances)[state] != INF_COSTS);
+            assert((*distances)[state] != DIRTY);
+        }
         bool reconnected = false;
         // Try to reconnect to settled, solvable state.
         for (const Transition &t : (*virtual_out)[state]) {
@@ -342,6 +366,9 @@ void ShortestPaths::update_incrementally_in_direction(
                 == (*distances)[state]) {
                 (*virtual_shortest_path)[state] = Transition(op_id, succ);
                 reconnected = true;
+                if (debug) {
+                    log << "Reconnected" << endl;
+                }
                 break;
             }
         }

@@ -6,6 +6,7 @@
 #include "utils.h"
 
 #include "../plugins/plugin.h"
+#include "../task_utils/disambiguation_method.h"
 #include "../utils/logging.h"
 #include "../utils/markup.h"
 #include "../utils/rng.h"
@@ -37,6 +38,9 @@ static vector<CartesianHeuristicFunction> generate_heuristic_functions(
         opts.get<bool>("print_h_distribution"),
         opts.get<bool>("print_useless_refinements"),
         opts.get<lp::LPSolverType>("lpsolver"),
+        opts.get<shared_ptr<disambiguation::DisambiguationMethod>>("operators_disambiguation"),
+        opts.get<shared_ptr<disambiguation::DisambiguationMethod>>("abstract_space_disambiguation"),
+        opts.get<shared_ptr<disambiguation::DisambiguationMethod>>("flaw_search_states_disambiguation"),
         *rng,
         log,
         opts.get<DotGraphVerbosity>("dot_graph_verbosity"));

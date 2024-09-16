@@ -620,6 +620,7 @@ FlawSearch::FlawSearch(
     int max_state_expansions,
     bool intersect_flaw_search_abstract_states,
     lp::LPSolverType lp_solver,
+    shared_ptr<disambiguation::DisambiguationMethod> flaw_search_states_disambiguation,
     const utils::LogProxy &log) :
     task_proxy(*task),
     domain_sizes(get_domain_sizes(task_proxy)),
@@ -641,6 +642,7 @@ FlawSearch::FlawSearch(
     max_concrete_states_per_abstract_state(max_concrete_states_per_abstract_state),
     max_state_expansions(max_state_expansions),
     intersect_flaw_search_abstract_states(intersect_flaw_search_abstract_states),
+    flaw_search_states_disambiguation(flaw_search_states_disambiguation),
     log(log),
     silent_log(utils::get_silent_log()),
     sequence_flaws_queue(),

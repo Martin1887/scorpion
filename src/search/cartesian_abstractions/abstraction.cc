@@ -6,6 +6,7 @@
 #include "transition_system.h"
 #include "utils.h"
 
+#include "../task_utils/disambiguation_method.h"
 #include "../task_utils/task_properties.h"
 #include "../utils/logging.h"
 #include "../utils/math.h"
@@ -19,17 +20,36 @@
 using namespace std;
 
 namespace cartesian_abstractions {
-Abstraction::Abstraction(const shared_ptr<AbstractTask> &task, utils::LogProxy &log)
+Abstraction::Abstraction(const shared_ptr<AbstractTask> &task,
+                         shared_ptr<MutexInformation> &mutex_information,
+                         shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
+                         utils::LogProxy &log)
     : task_proxy(TaskProxy(*task)),
       transition_system(utils::make_unique_ptr<TransitionSystem>(task_proxy.get_operators())),
       concrete_initial_state(task_proxy.get_initial_state()),
       goal_facts(task_properties::get_fact_pairs(task_proxy.get_goals())),
+      mutex_information(mutex_information),
+      abstract_space_disambiguation(abstract_space_disambiguation),
       refinement_hierarchy(utils::make_unique_ptr<RefinementHierarchy>(task)),
       log(log) {
     initialize_trivial_abstraction(get_domain_sizes(TaskProxy(*task)));
+    bool disambiguated = disambiguate_state(0);
+    transition_system->add_loops_in_trivial_abstraction(*states[0], disambiguated);
 }
 
 Abstraction::~Abstraction() {
+}
+
+bool Abstraction::disambiguate_state(int state_id) {
+    return disambiguate_state(*states[state_id]);
+}
+
+bool Abstraction::disambiguate_state(AbstractState &state) {
+    bool disambiguated = abstract_space_disambiguation->disambiguate(state, *mutex_information);
+    if (disambiguated) {
+        n_disambiguations++;
+    }
+    return disambiguated;
 }
 
 const AbstractState &Abstraction::get_initial_state() const {
@@ -117,7 +137,7 @@ AbstractStateSplit Abstraction::split(
     return AbstractStateSplit {v1_id, v2_id, v2_values, v1_cartesian_set, v2_cartesian_set};
 }
 
-pair<int, int> Abstraction::refine(
+tuple<int, int, bool, Transitions, Transitions> Abstraction::refine(
     const AbstractState &state, int var, const vector<int> &wanted) {
     if (log.is_at_least_debug())
         log << "Refine " << state << " for " << var << "=" << wanted << endl;
@@ -130,12 +150,22 @@ pair<int, int> Abstraction::refine(
         state.get_node_id(), var,
         split_result.v2_values, split_result.v1_id, split_result.v2_id);
 
-    unique_ptr<AbstractState> v1 = utils::make_unique_ptr<AbstractState>(
+    unique_ptr<AbstractState> v1 = make_unique<AbstractState>(
         split_result.v1_id, node_ids.first, move(split_result.v1_cartesian_set));
-    unique_ptr<AbstractState> v2 = utils::make_unique_ptr<AbstractState>(
+    unique_ptr<AbstractState> v2 = make_unique<AbstractState>(
         split_result.v2_id, node_ids.second, move(split_result.v2_cartesian_set));
     assert(state.includes(*v1));
     assert(state.includes(*v2));
+
+    bool disambiguated = disambiguate_state(*v1) || disambiguate_state(*v2);
+    if (disambiguated) {
+        if (v1->get_cartesian_set().is_empty()) {
+            n_removed_states++;
+        }
+        if (v2->get_cartesian_set().is_empty()) {
+            n_removed_states++;
+        }
+    }
 
     if (goals.count(v_id)) {
         goals.erase(v_id);
@@ -150,7 +180,8 @@ pair<int, int> Abstraction::refine(
         }
     }
 
-    transition_system->rewire(states, v_id, *v1, *v2, var);
+    tuple<Transitions, Transitions> old_incoming_outgoing =
+        transition_system->rewire(states, v_id, *v1, *v2, var, disambiguated);
 
     states.emplace_back();
     states[split_result.v1_id] = move(v1);
@@ -159,7 +190,8 @@ pair<int, int> Abstraction::refine(
     assert(init_id == 0);
     assert(get_initial_state().includes(concrete_initial_state));
 
-    return {split_result.v1_id, split_result.v2_id};
+    return {split_result.v1_id, split_result.v2_id, disambiguated,
+            get<0>(old_incoming_outgoing), get<1>(old_incoming_outgoing)};
 }
 
 SimulatedRefinement Abstraction::simulate_refinement(
@@ -176,9 +208,9 @@ SimulatedRefinement Abstraction::simulate_refinement(
     auto split_result = split(state, var, wanted);
 
     // Node ids are not used in simulated refinements.
-    unique_ptr<AbstractState> v1 = utils::make_unique_ptr<AbstractState>(
+    unique_ptr<AbstractState> v1 = make_unique<AbstractState>(
         split_result.v1_id, split_result.v1_id, move(split_result.v1_cartesian_set));
-    unique_ptr<AbstractState> v2 = utils::make_unique_ptr<AbstractState>(
+    unique_ptr<AbstractState> v2 = make_unique<AbstractState>(
         split_result.v2_id, split_result.v2_id, move(split_result.v2_cartesian_set));
     assert(state.includes(*v1));
     assert(state.includes(*v2));
@@ -186,7 +218,18 @@ SimulatedRefinement Abstraction::simulate_refinement(
     simulated_transition_system->force_new_transitions(get_transition_system().get_incoming_transitions(),
                                                        get_transition_system().get_outgoing_transitions(),
                                                        get_transition_system().get_loops());
-    SimulatedRefinement ref(simulated_transition_system, goals, split_result.v1_id, split_result.v2_id);
+
+    // disambiguate_state function is not called because statistics must not be
+    // increased for simulated refinements.
+    bool disambiguated = abstract_space_disambiguation->disambiguate(*v1, *mutex_information) ||
+        abstract_space_disambiguation->disambiguate(*v2, *mutex_information);
+    SimulatedRefinement ref(simulated_transition_system,
+                            goals,
+                            split_result.v1_id,
+                            split_result.v2_id,
+                            disambiguated,
+                            get_transition_system().get_incoming_transitions()[v_id],
+                            get_transition_system().get_outgoing_transitions()[v_id]);
 
     if (ref.goals.count(v_id)) {
         ref.goals.erase(v_id);
@@ -216,6 +259,8 @@ void Abstraction::print_statistics() const {
         transition_system->print_statistics(log);
         log << "Nodes in refinement hierarchy: "
             << refinement_hierarchy->get_num_nodes() << endl;
+        log << "Disambiguated states: " << n_disambiguations << endl;
+        log << "Removed states: " << n_removed_states << endl;
     }
 }
 

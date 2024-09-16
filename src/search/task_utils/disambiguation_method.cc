@@ -4,12 +4,20 @@
 
 namespace disambiguation {
 CartesianState DisambiguationMethod::disambiguate_copy(const CartesianState &partial_state,
-                                                       const MutexInformation &mutexes) const {
+                                                       MutexInformation &mutexes) const {
     CartesianState copy = partial_state;
     disambiguate(copy, mutexes);
     return copy;
 }
 
+
+class NoDisambiguationFeature : public plugins::TypedFeature<DisambiguationMethod, NoDisambiguation> {
+public:
+    NoDisambiguationFeature() : TypedFeature("none") {
+        document_title("no disambiguation");
+    }
+};
+static plugins::FeaturePlugin<NoDisambiguationFeature> _plugin_no_disambiguation;
 
 static class DisambiguationMethodCategoryPlugin : public plugins::TypedCategoryPlugin<DisambiguationMethod> {
 public:
@@ -20,13 +28,4 @@ public:
     }
 }
 _category_plugin;
-
-class NoDisambiguationFeature : public plugins::TypedFeature<DisambiguationMethod, NoDisambiguation> {
-public:
-    NoDisambiguationFeature() : TypedFeature("none") {
-        document_title("no disambiguation");
-    }
-
-    static plugins::FeaturePlugin<NoDisambiguationFeature> _plugin;
-};
 }

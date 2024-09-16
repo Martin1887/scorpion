@@ -8,6 +8,7 @@
 #include "utils.h"
 
 #include "../task_utils/cartesian_set.h"
+#include "../task_utils/disambiguation_method.h"
 #include "../task_utils/task_properties.h"
 #include "../utils/language.h"
 #include "../utils/logging.h"
@@ -37,6 +38,9 @@ CEGAR::CEGAR(
     int max_state_expansions,
     bool intersect_flaw_search_abstract_states,
     lp::LPSolverType lp_solver,
+    shared_ptr<disambiguation::DisambiguationMethod> &operators_disambiguation,
+    shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
+    shared_ptr<disambiguation::DisambiguationMethod> &flaw_search_states_disambiguation,
     utils::RandomNumberGenerator &rng,
     utils::LogProxy &log,
     DotGraphVerbosity dot_graph_verbosity)
@@ -45,21 +49,25 @@ CEGAR::CEGAR(
       max_states(max_states),
       max_non_looping_transitions(max_non_looping_transitions),
       pick_flawed_abstract_state(pick_flawed_abstract_state),
-      abstraction(utils::make_unique_ptr<Abstraction>(task, log)),
+      mutex_information(make_shared<MutexInformation>(task->mutex_information())),
+      operators_disambiguation(operators_disambiguation),
+      abstract_space_disambiguation(abstract_space_disambiguation),
+      flaw_search_states_disambiguation(flaw_search_states_disambiguation),
+      abstraction(make_unique<Abstraction>(task, mutex_information, abstract_space_disambiguation, log)),
       simulated_transition_system(make_shared<TransitionSystem>(task_proxy.get_operators())),
       timer(max_time),
       max_time(max_time),
       log(log),
       dot_graph_verbosity(dot_graph_verbosity) {
     assert(max_states >= 1);
-    shortest_paths = utils::make_unique_ptr<ShortestPaths>(
+    shortest_paths = make_unique<ShortestPaths>(
         task_properties::get_operator_costs(task_proxy), log);
-    flaw_search = utils::make_unique_ptr<FlawSearch>(
+    flaw_search = make_unique<FlawSearch>(
         task, *abstraction, *shortest_paths, simulated_transition_system, rng,
         pick_flawed_abstract_state, pick_split, filter_split, tiebreak_split,
         sequence_split, sequence_tiebreak_split,
         max_concrete_states_per_abstract_state, max_state_expansions,
-        intersect_flaw_search_abstract_states, lp_solver, log);
+        intersect_flaw_search_abstract_states, lp_solver, flaw_search_states_disambiguation, log);
 
     if (log.is_at_least_normal()) {
         log << "Start building abstraction." << endl;
@@ -102,8 +110,10 @@ void CEGAR::separate_facts_unreachable_before_goal(bool refine_goals) const {
             if (reachable_facts.count(fact) == 0)
                 unreachable_values.push_back(value);
         }
-        if (!unreachable_values.empty())
+        if (!unreachable_values.empty() &&
+            abstraction->get_initial_state().get_cartesian_set().count(var_id) > static_cast<int>(unreachable_values.size())) {
             abstraction->refine(abstraction->get_initial_state(), var_id, unreachable_values);
+        }
     }
     abstraction->mark_all_states_as_goals();
     /*
@@ -193,8 +203,10 @@ void CEGAR::refinement_loop() {
                 break;
             }
             FactPair fact = goal.get_pair();
-            auto pair = abstraction->refine(*current, fact.var, {fact.value});
-            current = &abstraction->get_state(pair.second);
+            if (current->get_cartesian_set().count(fact.var) > 1) {
+                auto pair = abstraction->refine(*current, fact.var, {fact.value});
+                current = &abstraction->get_state(get<1>(pair));
+            }
         }
         assert(!abstraction->get_goals().count(abstraction->get_initial_state().get_id()));
         assert(abstraction->get_goals().size() == 1);
@@ -220,7 +232,10 @@ void CEGAR::refinement_loop() {
                     other_values.push_back(var_value);
                 }
             }
-            if (!other_values.empty()) {
+            // The state could be disambiguated, we need to check that it
+            // contains somer other value.
+            if (!other_values.empty() &&
+                abstraction->get_initial_state().get_cartesian_set().count(fact.var) > static_cast<int>(other_values.size())) {
                 abstraction->refine(abstraction->get_initial_state(), fact.var, other_values);
             }
         }
@@ -310,7 +325,7 @@ void CEGAR::refinement_loop() {
         // This may not happen in the backward direction.
         // assert(!abstraction->get_goals().count(state_id));
 
-        pair<int, int> new_state_ids = abstraction->refine(
+        tuple<int, int, bool, Transitions, Transitions> refinement = abstraction->refine(
             abstract_state, split_prop.split->var_id, split_prop.split->values);
         refine_timer.stop();
 
@@ -377,7 +392,8 @@ void CEGAR::refinement_loop() {
         shortest_paths->update_incrementally(
             abstraction->get_transition_system().get_incoming_transitions(),
             abstraction->get_transition_system().get_outgoing_transitions(),
-            state_id, new_state_ids.first, new_state_ids.second,
+            state_id, get<0>(refinement), get<1>(refinement), get<2>(refinement),
+            get<3>(refinement), get<4>(refinement),
             abstraction->get_goals(),
             abstraction->get_initial_state().get_id());
         assert(shortest_paths->test_distances(

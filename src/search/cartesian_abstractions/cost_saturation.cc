@@ -10,6 +10,7 @@
 #include "transition_system.h"
 #include "utils.h"
 
+#include "../task_utils/disambiguation_method.h"
 #include "../task_utils/task_properties.h"
 #include "../tasks/modified_operator_costs_task.h"
 #include "../utils/countdown_timer.h"
@@ -83,6 +84,9 @@ CostSaturation::CostSaturation(
     bool print_h_distribution,
     bool print_useless_refinements,
     lp::LPSolverType lp_solver,
+    shared_ptr<disambiguation::DisambiguationMethod> operators_disambiguation,
+    shared_ptr<disambiguation::DisambiguationMethod> abstract_space_disambiguation,
+    shared_ptr<disambiguation::DisambiguationMethod> flaw_search_states_disambiguation,
     utils::RandomNumberGenerator &rng,
     utils::LogProxy &log,
     DotGraphVerbosity dot_graph_verbosity)
@@ -97,6 +101,9 @@ CostSaturation::CostSaturation(
       print_h_distribution(print_h_distribution),
       print_useless_refinements(print_useless_refinements),
       lp_solver(lp_solver),
+      operators_disambiguation(operators_disambiguation),
+      abstract_space_disambiguation(abstract_space_disambiguation),
+      flaw_search_states_disambiguation(flaw_search_states_disambiguation),
       rng(rng),
       log(log),
       dot_graph_verbosity(dot_graph_verbosity),
@@ -215,6 +222,9 @@ void CostSaturation::build_abstractions(
             max_state_expansions,
             subtask.intersect_flaw_search_abstract_states,
             lp_solver,
+            operators_disambiguation,
+            abstract_space_disambiguation,
+            flaw_search_states_disambiguation,
             rng,
             log,
             dot_graph_verbosity);

@@ -332,6 +332,7 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
 
 vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                                                  const InAbstractionFlawSearchKind only_in_abstraction) {
+    // TODO: disambiguation
     vector<LegacyFlaw> flaws{};
     state_registry = utils::make_unique_ptr<StateRegistry>(task_proxy);
     bool debug = log.is_at_least_debug();
@@ -508,6 +509,7 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
 
 vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                                                   const InAbstractionFlawSearchKind only_in_abstraction) {
+    // TODO: disambiguation
     vector<LegacyFlaw> flaws{};
     bool force_push_filtered_flaws = true;
     // This pointer is used to return the first found flaw if all have been

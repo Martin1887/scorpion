@@ -270,6 +270,9 @@ bool CartesianState::intersects(const CartesianState &other) const {
 CartesianSet CartesianState::get_cartesian_set() const {
     return cartesian_set;
 }
+void CartesianState::set_cartesian_set(CartesianSet &&other) {
+    cartesian_set = move(other);
+}
 
 CartesianState CartesianState::intersection(const CartesianState &other) const {
     return CartesianState(cartesian_set.intersection(other.get_cartesian_set()));

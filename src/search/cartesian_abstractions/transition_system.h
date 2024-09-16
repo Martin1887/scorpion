@@ -3,10 +3,11 @@
 
 #include "types.h"
 
+#include "../task_proxy.h"
+
 #include <vector>
 
 struct FactPair;
-class OperatorsProxy;
 
 namespace utils {
 class LogProxy;
@@ -19,6 +20,7 @@ namespace cartesian_abstractions {
 class TransitionSystem {
     const std::vector<std::vector<FactPair>> preconditions_by_operator;
     const std::vector<std::vector<FactPair>> postconditions_by_operator;
+    OperatorsProxy operators;
 
     // Transitions from and to other abstract states.
     std::vector<Transitions> incoming;
@@ -32,9 +34,6 @@ class TransitionSystem {
 
     void enlarge_vectors_by_one();
 
-    // Add self-loops to single abstract state in trivial abstraction.
-    void add_loops_in_trivial_abstraction();
-
     int get_precondition_value(int op_id, int var) const;
     int get_postcondition_value(int op_id, int var) const;
 
@@ -43,23 +42,30 @@ class TransitionSystem {
 
     void rewire_incoming_transitions(
         const Transitions &old_incoming, const AbstractStates &states,
-        int v_id, const AbstractState &v1, const AbstractState &v2, int var);
+        int v_id, const AbstractState &v1, const AbstractState &v2, int var,
+        const bool disambiguated);
     void rewire_outgoing_transitions(
         const Transitions &old_outgoing, const AbstractStates &states,
-        int v_id, const AbstractState &v1, const AbstractState &v2, int var);
+        int v_id, const AbstractState &v1, const AbstractState &v2, int var,
+        const bool disambiguated);
     void rewire_loops(
         const Loops &old_loops,
         const AbstractState &v1, const AbstractState &v2, int var,
+        const bool disambiguated,
         const bool simulated = false);
 
 public:
     explicit TransitionSystem(const OperatorsProxy &ops);
 
     // Update transition system after v has been split for var into v1 and v2.
-    void rewire(
+    std::tuple<Transitions, Transitions> rewire(
         const AbstractStates &states, int v_id,
         const AbstractState &v1, const AbstractState &v2, int var,
+        const bool disambiguated,
         const bool simulated = false);
+    // Add self-loops to single abstract state in trivial abstraction.
+    void add_loops_in_trivial_abstraction(const AbstractState &init,
+                                          const bool disambiguated);
 
     const std::vector<Transitions> &get_incoming_transitions() const;
     const std::vector<Transitions> &get_outgoing_transitions() const;

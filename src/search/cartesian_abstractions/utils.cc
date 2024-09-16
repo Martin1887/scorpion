@@ -10,6 +10,8 @@
 #include "../lp/lp_solver.h"
 #include "../plugins/plugin.h"
 #include "../heuristics/additive_heuristic.h"
+#include "../task_utils/ac3_disambiguation.h"
+#include "../task_utils/disambiguation_method.h"
 #include "../task_utils/task_properties.h"
 #include "../utils/logging.h"
 #include "../utils/memory.h"
@@ -22,6 +24,7 @@
 #include <map>
 
 using namespace std;
+using namespace disambiguation;
 
 namespace cartesian_abstractions {
 class SubtaskGenerator;
@@ -223,6 +226,19 @@ void add_common_cegar_options(plugins::Feature &feature) {
         "false");
 
     lp::add_lp_solver_option_to_feature(feature);
+
+    feature.add_option<shared_ptr<DisambiguationMethod>>(
+        "operators_disambiguation",
+        "method to disambiguate preconditions and effects of operators",
+        "none()");
+    feature.add_option<shared_ptr<DisambiguationMethod>>(
+        "abstract_space_disambiguation",
+        "method to disambiguate abstract states",
+        "none()");
+    feature.add_option<shared_ptr<DisambiguationMethod>>(
+        "flaw_search_states_disambiguation",
+        "method to disambiguate partial states obtained during the flaws search",
+        "none()");
 }
 
 static plugins::TypedEnumPlugin<DotGraphVerbosity> _enum_plugin({

@@ -2,6 +2,11 @@
 #define TASK_UTILS_DISAMBIGUATION_H
 
 #include "disambiguation_method.h"
+
+namespace plugins {
+class Options;
+}
+
 namespace disambiguation {
 class AC3Disambiguation : public DisambiguationMethod {
     bool arc_reduce(CartesianSet &disambiguated,
@@ -12,7 +17,8 @@ class AC3Disambiguation : public DisambiguationMethod {
                          const std::set<std::tuple<int, FactPair>> &var_mutexes,
                          std::set<std::tuple<int, FactPair>> worklist) const;
 public:
-    bool disambiguate(CartesianState &, const MutexInformation &) const;
+    AC3Disambiguation(const plugins::Options &) {}
+    virtual bool disambiguate(CartesianState &, MutexInformation &) const override;
 };
 }
 #endif

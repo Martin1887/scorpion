@@ -6,7 +6,7 @@ using namespace std;
 
 namespace disambiguation {
 bool AC3Disambiguation::disambiguate(CartesianState &partial_state,
-                                     const MutexInformation &mutexes) const {
+                                     MutexInformation &mutexes) const {
     bool changed = false;
     CartesianSet disambiguated = partial_state.get_cartesian_set();
 
@@ -14,7 +14,7 @@ bool AC3Disambiguation::disambiguate(CartesianState &partial_state,
         set<tuple<int, FactPair>> var_mutexes = mutexes.get_var_mutexes(var);
         // Initially, worklist=var_mutexes, but it changes.
         set<tuple<int, FactPair>> worklist = var_mutexes;
-        do {
+        while (!worklist.empty()) {
             auto iterator = worklist.begin();
             tuple<int, FactPair> mutex = *iterator;
             worklist.erase(iterator);
@@ -22,11 +22,11 @@ bool AC3Disambiguation::disambiguate(CartesianState &partial_state,
                 changed = true;
                 add_new_mutexes(mutex, var_mutexes, worklist);
             }
-        } while (!worklist.empty());
+        }
     }
 
     if (changed) {
-        partial_state = CartesianState(move(disambiguated));
+        partial_state.set_cartesian_set(move(disambiguated));
     }
 
     return changed;
@@ -37,17 +37,16 @@ bool AC3Disambiguation::arc_reduce(CartesianSet &disambiguated,
                                    const tuple<int, FactPair> &mutex,
                                    const set<tuple<int, FactPair>> &var_mutexes) const {
     bool change = false;
-    vector<int> dom_x = disambiguated.get_values(var);
-    for (int x : dom_x) {
-        bool all_no_mutex = false;
+    for (int x : disambiguated.get_values(var)) {
+        bool all_mutex = true;
         int second_var = std::get<1>(mutex).var;
         for (int y : disambiguated.get_values(second_var)) {
-            if (!var_mutexes.contains(make_tuple(x, FactPair(second_var, y)))) {
-                all_no_mutex = true;
+            if (!var_mutexes.contains({x, FactPair(second_var, y)})) {
+                all_mutex = false;
                 break;
             }
         }
-        if (!all_no_mutex) {
+        if (all_mutex) {
             disambiguated.remove(var, x);
             change = true;
         }
@@ -71,10 +70,9 @@ void AC3Disambiguation::add_new_mutexes(const tuple<int, FactPair> &removed_mute
 
 class AC3DisambiguationFeature : public plugins::TypedFeature<DisambiguationMethod, AC3Disambiguation> {
 public:
-    AC3DisambiguationFeature() : TypedFeature("AC-3") {
+    AC3DisambiguationFeature() : TypedFeature("AC3") {
         document_title("AC-3 disambiguation method");
     }
-
-    static plugins::FeaturePlugin<AC3DisambiguationFeature> _plugin;
 };
+static plugins::FeaturePlugin<AC3DisambiguationFeature> _plugin_ac3;
 }

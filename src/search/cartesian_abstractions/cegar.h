@@ -8,6 +8,7 @@
 
 #include "../task_proxy.h"
 
+#include "../task_utils/mutex_information.h"
 #include "../utils/countdown_timer.h"
 
 #include <memory>
@@ -15,6 +16,10 @@
 namespace utils {
 class RandomNumberGenerator;
 class LogProxy;
+}
+
+namespace disambiguation {
+class DisambiguationMethod;
 }
 
 namespace cartesian_abstractions {
@@ -36,6 +41,13 @@ class CEGAR {
     const int max_states;
     const int max_non_looping_transitions;
     const PickFlawedAbstractState pick_flawed_abstract_state;
+
+    std::shared_ptr<MutexInformation> mutex_information;
+    std::shared_ptr<disambiguation::DisambiguationMethod> operators_disambiguation;
+    std::shared_ptr<disambiguation::DisambiguationMethod> abstract_space_disambiguation;
+    std::shared_ptr<disambiguation::DisambiguationMethod> flaw_search_states_disambiguation;
+    // TODO: disambiguate operators
+    // std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> operators;
 
     std::unique_ptr<Abstraction> abstraction;
     // Transition system used for simulations, from which only transitions are
@@ -87,6 +99,9 @@ public:
         int max_state_expansions,
         bool intersect_flaw_search_abstract_states,
         lp::LPSolverType lp_solver,
+        std::shared_ptr<disambiguation::DisambiguationMethod> &operators_disambiguation,
+        std::shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
+        std::shared_ptr<disambiguation::DisambiguationMethod> &flaw_search_states_disambiguation,
         utils::RandomNumberGenerator &rng,
         utils::LogProxy &log,
         DotGraphVerbosity dot_graph_verbosity);

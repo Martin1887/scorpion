@@ -1,11 +1,13 @@
 #ifndef CARTESIAN_ABSTRACTIONS_ABSTRACTION_H
 #define CARTESIAN_ABSTRACTIONS_ABSTRACTION_H
 
+#include "transition.h"
 #include "transition_system.h"
 #include "types.h"
 
 #include "../task_proxy.h"
 #include "../task_utils/cartesian_set.h"
+#include "../task_utils/mutex_information.h"
 #include "../utils/collections.h"
 
 #include <memory>
@@ -13,6 +15,10 @@
 
 namespace utils {
 class LogProxy;
+}
+
+namespace disambiguation {
+class DisambiguationMethod;
 }
 
 using namespace cartesian_set;
@@ -36,14 +42,23 @@ public:
     Goals goals;
     const int v1_id;
     const int v2_id;
+    const bool disambiguated;
+    const Transitions old_incoming;
+    const Transitions old_outgoing;
     SimulatedRefinement(const std::shared_ptr<TransitionSystem> tr,
                         const Goals goals,
                         const int v1_id,
-                        const int v2_id)
+                        const int v2_id,
+                        const bool disambiguated,
+                        const Transitions old_incoming,
+                        const Transitions old_outgoing)
         : transition_system(tr),
           goals(goals),
           v1_id(v1_id),
-          v2_id(v2_id) {
+          v2_id(v2_id),
+          disambiguated(disambiguated),
+          old_incoming(old_incoming),
+          old_outgoing(old_outgoing) {
     }
 };
 
@@ -58,6 +73,11 @@ class Abstraction {
     const std::unique_ptr<TransitionSystem> transition_system;
     const State concrete_initial_state;
     const std::vector<FactPair> goal_facts;
+
+    std::shared_ptr<MutexInformation> mutex_information;
+    std::shared_ptr<disambiguation::DisambiguationMethod> abstract_space_disambiguation;
+    int n_disambiguations = 0;
+    int n_removed_states = 0;
 
     // All (as of yet unsplit) abstract states.
     AbstractStates states;
@@ -76,9 +96,14 @@ class Abstraction {
 
     AbstractStateSplit split(
         const AbstractState &state, int var, const std::vector<int> &wanted) const;
+    bool disambiguate_state(int state_id);
+    bool disambiguate_state(AbstractState &state);
 
 public:
-    Abstraction(const std::shared_ptr<AbstractTask> &task, utils::LogProxy &log);
+    Abstraction(const std::shared_ptr<AbstractTask> &task,
+                std::shared_ptr<MutexInformation> &mutex_information,
+                std::shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
+                utils::LogProxy &log);
     ~Abstraction();
 
     Abstraction(const Abstraction &) = delete;
@@ -95,7 +120,7 @@ public:
     void mark_all_states_as_goals();
 
     // Split state into two child states.
-    std::pair<int, int> refine(
+    std::tuple<int, int, bool, Transitions, Transitions> refine(
         const AbstractState &state, int var, const std::vector<int> &wanted);
     SimulatedRefinement simulate_refinement(
         std::shared_ptr<TransitionSystem> &simulated_transition_system,

@@ -727,7 +727,7 @@ fast_downward_plugin(
         cegar/types
         cegar/utils
         cegar/utils_landmarks
-    DEPENDS ADDITIVE_HEURISTIC DYNAMIC_BITSET EXTRA_TASKS LANDMARKS PRIORITY_QUEUES TASK_PROPERTIES
+    DEPENDS ADDITIVE_HEURISTIC DYNAMIC_BITSET EXTRA_TASKS LANDMARKS PRIORITY_QUEUES TASK_PROPERTIES DISAMBIGUATION
 )
 
 fast_downward_plugin(
@@ -763,7 +763,7 @@ fast_downward_plugin(
         cost_saturation/unsolvability_heuristic
         cost_saturation/utils
         cost_saturation/zero_one_cost_partitioning_heuristic
-    DEPENDS CEGAR LP_SOLVER PDBS PARTIAL_STATE_TREE PRIORITY_QUEUES SAMPLING TASK_PROPERTIES
+    DEPENDS CEGAR LP_SOLVER PDBS PARTIAL_STATE_TREE PRIORITY_QUEUES SAMPLING TASK_PROPERTIES DISAMBIGUATION
 )
 
 fast_downward_plugin(
@@ -910,6 +910,16 @@ fast_downward_plugin(
          "directed graph."
     SOURCES
         algorithms/sccs
+    DEPENDENCY_ONLY
+)
+
+fast_downward_plugin(
+    NAME DISAMBIGUATION
+    HELP "Advanced disambiguation methods."
+    SOURCES
+        task_utils/disambiguated_operator
+        task_utils/disambiguation_method
+        task_utils/ac3_disambiguation
     DEPENDENCY_ONLY
 )
 

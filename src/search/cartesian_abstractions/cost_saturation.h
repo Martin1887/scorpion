@@ -16,6 +16,10 @@ class RandomNumberGenerator;
 class LogProxy;
 }
 
+namespace disambiguation {
+class DisambiguationMethod;
+}
+
 namespace cartesian_abstractions {
 class CartesianHeuristicFunction;
 enum class DotGraphVerbosity;
@@ -40,6 +44,9 @@ class CostSaturation {
     const bool print_h_distribution;
     const bool print_useless_refinements;
     lp::LPSolverType lp_solver;
+    std::shared_ptr<disambiguation::DisambiguationMethod> operators_disambiguation;
+    std::shared_ptr<disambiguation::DisambiguationMethod> abstract_space_disambiguation;
+    std::shared_ptr<disambiguation::DisambiguationMethod> flaw_search_states_disambiguation;
     utils::RandomNumberGenerator &rng;
     utils::LogProxy &log;
     const cartesian_abstractions::DotGraphVerbosity dot_graph_verbosity;
@@ -73,6 +80,9 @@ public:
         bool print_h_distribution,
         bool print_useless_refinements,
         lp::LPSolverType lp_solver,
+        std::shared_ptr<disambiguation::DisambiguationMethod> operators_disambiguation,
+        std::shared_ptr<disambiguation::DisambiguationMethod> abstract_space_disambiguation,
+        std::shared_ptr<disambiguation::DisambiguationMethod> flaw_search_states_disambiguation,
         utils::RandomNumberGenerator &rng,
         utils::LogProxy &log,
         DotGraphVerbosity dot_graph_verbosity);
