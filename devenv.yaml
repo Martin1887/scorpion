@@ -2,6 +2,8 @@
 inputs:
   nixpkgs:
     url: github:NixOS/nixpkgs/nixos-24.05
+  nixpkgs-unstable:
+    url: github:NixOS/nixpkgs/nixpkgs-unstable
     # none of these works, at the moment uncrustify 0.72 must be compiled by hand and the PATH is updated in devenv.nix
     # uncrustify:
     #   # 0.72.0 tag
