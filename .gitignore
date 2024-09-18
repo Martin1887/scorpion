@@ -20,3 +20,5 @@ src/search/Makefile
 src/search/cmake_install.cmake
 .clangd
 .vscode
+.devenv*
+.direnv
