@@ -308,7 +308,7 @@ SharedTasks BestStrategiesSubtaskGenerator::get_subtasks(
         });
     log << "Best strategies diversification with strategies closest_to_goal, it";
     for (tuple<PickFlawedAbstractState, PickSplit> strategy : best_strategies) {
-        log << ", (" << get<0>(strategy) << "," << get<1>(strategy);
+        log << ", (" << get<0>(strategy) << "," << get<1>(strategy) << ")";
         subtasks.push_back(
             Subtask {
                 .subproblem_id = 0,
