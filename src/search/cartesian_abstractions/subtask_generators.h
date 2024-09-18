@@ -31,7 +31,8 @@ using Facts = std::vector<FactPair>;
 
 struct SubtaskParams {
 };
-struct Subtask {
+class Subtask {
+public:
     // Subtasks can be copies of the same task/subtask (with different split
     // strategies for instance) or subtasks of the original Planning task. Each
     // subproblem identifies a subtask of the original Planning task, so
@@ -39,6 +40,9 @@ struct Subtask {
     // subproblem.
     int subproblem_id;
     std::shared_ptr<AbstractTask> subtask;
+    int max_states;
+    int max_transitions;
+    double max_time;
     PickFlawedAbstractState pick_flawed_abstract_state;
     PickSplit pick_split;
     FilterSplit filter_split;
@@ -75,7 +79,24 @@ public:
     virtual ~SubtaskGenerator() = default;
 };
 
-class SameParamsSubtaskGenerator : public SubtaskGenerator {
+class AnySubtaskGenerator : public SubtaskGenerator {
+protected:
+    int max_states;
+    int max_transitions;
+    double max_time;
+    PickSplit tiebreak_split;
+    bool intersect_flaw_search_abstract_states;
+
+    AnySubtaskGenerator(const plugins::Options &opts)
+        : max_states(opts.get<int>("max_states")),
+          max_transitions(opts.get<int>("max_transitions")),
+          max_time(opts.get<double>("max_time")),
+          tiebreak_split(opts.get<PickSplit>("tiebreak_split")),
+          intersect_flaw_search_abstract_states(opts.get<bool>("intersect_flaw_search_abstract_states")) {
+    }
+};
+
+class SameParamsSubtaskGenerator : public AnySubtaskGenerator {
 protected:
     PickFlawedAbstractState pick_flawed_abstract_state;
     PickSplit pick_split;
@@ -86,7 +107,8 @@ protected:
     bool intersect_flaw_search_abstract_states;
 
     SameParamsSubtaskGenerator(const plugins::Options &opts)
-        : pick_flawed_abstract_state(opts.get<PickFlawedAbstractState>("pick_flawed_abstract_state")),
+        : AnySubtaskGenerator(opts),
+          pick_flawed_abstract_state(opts.get<PickFlawedAbstractState>("pick_flawed_abstract_state")),
           pick_split(opts.get<PickSplit>("pick_split")),
           filter_split(opts.get<FilterSplit>("filter_split")),
           tiebreak_split(opts.get<PickSplit>("tiebreak_split")),
@@ -151,20 +173,14 @@ public:
         utils::LogProxy &log) const override;
 };
 
-class DiversifiedSubtaskGenerator : public SubtaskGenerator {
-protected:
-    PickFlawedAbstractState pick_flawed_abstract_state;
-    PickSplit tiebreak_split;
-    bool intersect_flaw_search_abstract_states;
-
+class DiversifiedSubtaskGenerator : public AnySubtaskGenerator {
+public:
     DiversifiedSubtaskGenerator(const plugins::Options &opts)
-        : pick_flawed_abstract_state(opts.get<PickFlawedAbstractState>("pick_flawed_abstract_state")),
-          tiebreak_split(opts.get<PickSplit>("tiebreak_split")),
-          intersect_flaw_search_abstract_states(opts.get<bool>("intersect_flaw_search_abstract_states")) {
-    }
+        : AnySubtaskGenerator(opts) {}
 };
 
 class VarsOrdersSubtaskGenerator : public DiversifiedSubtaskGenerator {
+    PickFlawedAbstractState pick_flawed_abstract_state;
 public:
     explicit VarsOrdersSubtaskGenerator(const plugins::Options &opts);
 

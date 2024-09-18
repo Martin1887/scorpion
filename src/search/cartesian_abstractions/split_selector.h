@@ -72,7 +72,6 @@ inline std::ostream &operator<<(std::ostream &os, const PickSplit &s) {
     switch (s) {
     case PickSplit::RANDOM:
         return os << "random";
-        break;
     case PickSplit::MIN_UNWANTED:
         return os << "min_unwanted";
     case PickSplit::MAX_UNWANTED:

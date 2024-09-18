@@ -30,9 +30,6 @@ class SubtaskGenerator;
 */
 class CostSaturation {
     const std::vector<std::shared_ptr<SubtaskGenerator>> subtask_generators;
-    const int max_states;
-    const int max_non_looping_transitions;
-    const double max_time;
     const bool use_general_costs;
     const int max_concrete_states_per_abstract_state;
     const int max_state_expansions;
@@ -56,16 +53,12 @@ class CostSaturation {
     bool state_is_dead_end(const State &state) const;
     void build_abstractions(
         const SharedTasks &subtasks,
-        const utils::CountdownTimer &timer,
         const std::function<bool()> &should_abort);
     void print_statistics(utils::Duration init_time) const;
 
 public:
     CostSaturation(
         const std::vector<std::shared_ptr<SubtaskGenerator>> &subtask_generators,
-        int max_states,
-        int max_non_looping_transitions,
-        double max_time,
         bool use_general_costs,
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,

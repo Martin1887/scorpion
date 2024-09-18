@@ -180,22 +180,6 @@ void add_common_cegar_options(plugins::Feature &feature) {
         "subtasks",
         "subtask generators",
         "[landmarks(order=random), goals(order=random)]");
-    feature.add_option<int>(
-        "max_states",
-        "maximum sum of abstract states over all abstractions",
-        "infinity",
-        plugins::Bounds("1", "infinity"));
-    feature.add_option<int>(
-        "max_transitions",
-        "maximum sum of state-changing transitions (excluding self-loops) over "
-        "all abstractions",
-        "1M",
-        plugins::Bounds("0", "infinity"));
-    feature.add_option<double>(
-        "max_time",
-        "maximum time in seconds for building abstractions",
-        "infinity",
-        plugins::Bounds("0.0", "infinity"));
 
     add_memory_padding_option(feature);
     add_dot_graph_verbosity(feature);

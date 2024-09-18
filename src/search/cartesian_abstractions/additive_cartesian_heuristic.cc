@@ -27,9 +27,6 @@ static vector<CartesianHeuristicFunction> generate_heuristic_functions(
         utils::parse_rng_from_options(opts);
     CostSaturation cost_saturation(
         subtask_generators,
-        opts.get<int>("max_states"),
-        opts.get<int>("max_transitions"),
-        opts.get<double>("max_time"),
         opts.get<bool>("use_general_costs"),
         opts.get<int>("max_concrete_states_per_abstract_state"),
         opts.get<int>("max_state_expansions"),

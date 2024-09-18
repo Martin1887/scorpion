@@ -73,9 +73,6 @@ static vector<int> compute_saturated_costs(
 
 CostSaturation::CostSaturation(
     const vector<shared_ptr<SubtaskGenerator>> &subtask_generators,
-    int max_states,
-    int max_non_looping_transitions,
-    double max_time,
     bool use_general_costs,
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
@@ -87,9 +84,6 @@ CostSaturation::CostSaturation(
     utils::LogProxy &log,
     DotGraphVerbosity dot_graph_verbosity)
     : subtask_generators(subtask_generators),
-      max_states(max_states),
-      max_non_looping_transitions(max_non_looping_transitions),
-      max_time(max_time),
       use_general_costs(use_general_costs),
       max_concrete_states_per_abstract_state(max_concrete_states_per_abstract_state),
       max_state_expansions(max_state_expansions),
@@ -109,7 +103,7 @@ vector<CartesianHeuristicFunction> CostSaturation::generate_heuristic_functions(
     // For simplicity this is a member object. Make sure it is in a valid state.
     assert(heuristic_functions.empty());
 
-    utils::CountdownTimer timer(max_time);
+    utils::CountdownTimer timer{numeric_limits<double>::max()};
 
     TaskProxy task_proxy(*task);
 
@@ -122,20 +116,16 @@ vector<CartesianHeuristicFunction> CostSaturation::generate_heuristic_functions(
 
     function<bool()> should_abort =
         [&] () {
-            return num_states >= max_states ||
-                   num_non_looping_transitions >= max_non_looping_transitions ||
-                   timer.is_expired() ||
-                   !utils::extra_memory_padding_is_reserved() ||
+            return !utils::extra_memory_padding_is_reserved() ||
                    state_is_dead_end(initial_state);
         };
 
     utils::reserve_extra_memory_padding(memory_padding_mb);
     for (const shared_ptr<SubtaskGenerator> &subtask_generator : subtask_generators) {
         SharedTasks subtasks = subtask_generator->get_subtasks(task, log);
-        log << "Build abstractions for " << subtasks.size() << " subtasks in "
-            << timer.get_remaining_time() << endl;
+        log << "Build abstractions for " << subtasks.size() << " subtasks" << endl;
         cout << endl;
-        build_abstractions(subtasks, timer, should_abort);
+        build_abstractions(subtasks, should_abort);
         if (should_abort())
             break;
     }
@@ -192,19 +182,15 @@ bool CostSaturation::state_is_dead_end(const State &state) const {
 
 void CostSaturation::build_abstractions(
     const SharedTasks &subtasks,
-    const utils::CountdownTimer &timer,
     const function<bool()> &should_abort) {
-    int rem_subtasks = subtasks.size();
     for (Subtask subtask : subtasks) {
         shared_ptr<AbstractTask> saturated_subtask = get_remaining_costs_task(subtask.subtask);
-        assert(num_states < max_states);
 
         CEGAR cegar(
             saturated_subtask,
-            max(1, (max_states - num_states) / rem_subtasks),
-            max(1, (max_non_looping_transitions - num_non_looping_transitions) /
-                rem_subtasks),
-            timer.get_remaining_time() / rem_subtasks,
+            subtask.max_states,
+            subtask.max_transitions,
+            subtask.max_time,
             subtask.pick_flawed_abstract_state,
             subtask.pick_split,
             subtask.filter_split,
@@ -222,7 +208,6 @@ void CostSaturation::build_abstractions(
         unique_ptr<Abstraction> abstraction = cegar.extract_abstraction();
         num_states += abstraction->get_num_states();
         num_non_looping_transitions += abstraction->get_transition_system().get_num_non_loops();
-        assert(num_states <= max_states);
 
         vector<int> costs = task_properties::get_operator_costs(TaskProxy(*saturated_subtask));
         vector<int> init_distances = compute_distances(
@@ -259,7 +244,6 @@ void CostSaturation::build_abstractions(
         heuristic_functions.emplace_back(
             move(refinement_hierarchy),
             move(goal_distances));
-        --rem_subtasks;
 
         if (should_abort()) {
             break;

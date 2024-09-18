@@ -108,6 +108,66 @@ enum class PickFlawedAbstractState {
     // before the next flaw search).
     SEQUENCE_IN_ABSTRACTION_BATCH_BACKWARD,
 };
+inline std::ostream &operator<<(std::ostream &os, const PickFlawedAbstractState &s) {
+    switch (s) {
+    case PickFlawedAbstractState::FIRST:
+        return os << "first";
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH:
+        return os << "first_on_shortest_path";
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_UNWANTED_VALUES:
+        return os << "first_on_shortest_path_unwanted_values";
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD:
+        return os << "first_on_shortest_path_backward";
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
+        return os << "first_on_shortest_path_backward_wanted_values";
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE:
+        return os << "first_on_shortest_path_backward_wanted_values_refining_init_state";
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED:
+        return os << "first_on_shorest_path_bidirectional_interleaved";
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD:
+        return os << "first_on_shortest_path_bidirectional_backward_forward";
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_FORWARD_BACKWARD:
+        return os << "first_on_shortest_path_bidirectional_forward_backward";
+    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_CLOSEST_TO_GOAL:
+        return os << "first_on_shortest_path_bidirectional_closest_to_goal";
+    case PickFlawedAbstractState::RANDOM:
+        return os << "random";
+    case PickFlawedAbstractState::MIN_H:
+        return os << "min_h";
+    case PickFlawedAbstractState::MAX_H:
+        return os << "max_h";
+    case PickFlawedAbstractState::BATCH_MIN_H:
+        return os << "batch_min_h";
+    case PickFlawedAbstractState::SEQUENCE:
+        return os << "sequence";
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION:
+        return os << "sequence_in_abstraction";
+    case PickFlawedAbstractState::SEQUENCE_BACKWARD:
+        return os << "sequence_backward";
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BACKWARD:
+        return os << "sequence_in_abstraction_backward";
+    case PickFlawedAbstractState::SEQUENCE_BIDIRECTIONAL:
+        return os << "sequence_bidirectional";
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BIDIRECTIONAL:
+        return os << "sequence_in_abstraction_bidirectional";
+    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION:
+        return os << "sequence_iterative_in_abstraction";
+    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION_BACKWARD:
+        return os << "sequence_iterative_in_abstraction_backward";
+    case PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION_BIDIRECTIONAL:
+        return os << "sequence_iterative_in_abstraction_bidirectional";
+    case PickFlawedAbstractState::SEQUENCE_BATCH:
+        return os << "sequence_batch";
+    case PickFlawedAbstractState::SEQUENCE_BATCH_BACKWARD:
+        return os << "sequence_batch_backward";
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BATCH:
+        return os << "sequence_in_abstraction_batch";
+    case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BATCH_BACKWARD:
+        return os << "sequence_in_abstraction_batch_backward";
+    default:
+        return os << "invalid pick_flawed_abstract_state";
+    }
+}
 
 enum class InAbstractionFlawSearchKind {
     FALSE,
