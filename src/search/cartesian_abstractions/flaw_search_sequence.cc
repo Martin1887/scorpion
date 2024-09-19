@@ -795,7 +795,8 @@ SplitProperties FlawSearch::select_from_sequence_flaws(
                                                 bw_abstract_state,
                                                 n_forward,
                                                 n_backward,
-                                                solution);
+                                                solution,
+                                                rng);
             }
         default:
             Cost solution_cost = get_optimal_plan_cost(solution, task_proxy);
@@ -810,7 +811,8 @@ SplitProperties FlawSearch::select_from_sequence_flaws(
                                                 bw_abstract_state,
                                                 n_forward,
                                                 n_backward,
-                                                solution);
+                                                solution,
+                                                rng);
             } else if (diff_rate > 0) {
                 // Forward is higher.
                 return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, solution);
@@ -828,18 +830,27 @@ SplitProperties FlawSearch::sequence_splits_tiebreak(unique_ptr<Split> best_fw,
                                                      int n_forward,
                                                      int n_backward,
                                                      const Solution &solution,
+                                                     utils::RandomNumberGenerator &rng,
                                                      bool invalidate_cache) {
     Cost solution_cost = get_optimal_plan_cost(solution, task_proxy);
-    double tiebreak_diff_rate =
-        split_selector.rate_split(fw_abstract_state, *best_fw, split_selector.tiebreak_pick, solution_cost) -
-        split_selector.rate_split(bw_abstract_state, *best_bw, split_selector.tiebreak_pick, solution_cost);
-    if (abs(tiebreak_diff_rate) < EPSILON) {
-        // Preference for backward flaw.
-        return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution, invalidate_cache);
-    } else if (tiebreak_diff_rate > 0) {
-        return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, solution, invalidate_cache);
+    if (split_selector.tiebreak_pick == PickSplit::RANDOM) {
+        if (rng.random(2) == 0) {
+            return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, solution);
+        } else {
+            return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution);
+        }
     } else {
-        return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution, invalidate_cache);
+        double tiebreak_diff_rate =
+            split_selector.rate_split(fw_abstract_state, *best_fw, split_selector.tiebreak_pick, solution_cost) -
+            split_selector.rate_split(bw_abstract_state, *best_bw, split_selector.tiebreak_pick, solution_cost);
+        if (abs(tiebreak_diff_rate) < EPSILON) {
+            // Preference for backward flaw.
+            return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution, invalidate_cache);
+        } else if (tiebreak_diff_rate > 0) {
+            return return_best_sequence_split(move(best_fw), false, n_forward, n_backward, solution, invalidate_cache);
+        } else {
+            return return_best_sequence_split(move(best_bw), true, n_forward, n_backward, solution, invalidate_cache);
+        }
     }
 }
 
