@@ -77,6 +77,7 @@ CostSaturation::CostSaturation(
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
     int memory_padding_mb,
+    bool random_vars_order_tiebreak,
     bool print_h_distribution,
     bool print_useless_refinements,
     lp::LPSolverType lp_solver,
@@ -88,6 +89,7 @@ CostSaturation::CostSaturation(
       max_concrete_states_per_abstract_state(max_concrete_states_per_abstract_state),
       max_state_expansions(max_state_expansions),
       memory_padding_mb(memory_padding_mb),
+      random_vars_order_tiebreak(random_vars_order_tiebreak),
       print_h_distribution(print_h_distribution),
       print_useless_refinements(print_useless_refinements),
       lp_solver(lp_solver),
@@ -201,6 +203,7 @@ void CostSaturation::build_abstractions(
             max_state_expansions,
             subtask.intersect_flaw_search_abstract_states,
             lp_solver,
+            random_vars_order_tiebreak,
             rng,
             log,
             dot_graph_verbosity);

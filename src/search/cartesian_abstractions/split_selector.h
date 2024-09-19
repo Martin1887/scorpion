@@ -237,7 +237,7 @@ class SplitSelector {
     const PickSequenceFlaw sequence_tiebreak_pick;
 
     void precompute_landmarks_and_potentials(const PickSplit pick, lp::LPSolverType lp_solver);
-    void compute_vars_order(const PickSplit pick);
+    void compute_vars_order(const PickSplit pick, const bool random_vars_order_tiebreak);
 
     int get_num_unwanted_values(const AbstractState &state, const Split &split) const;
     double get_refinedness(const AbstractState &state, int var_id) const;
@@ -273,6 +273,7 @@ public:
         PickSequenceFlaw sequence_pick,
         PickSequenceFlaw sequence_tiebreak_pick,
         lp::LPSolverType lp_solver,
+        bool random_vars_order_tiebreak,
         bool debug);
     ~SplitSelector();
 

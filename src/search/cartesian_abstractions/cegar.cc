@@ -37,6 +37,7 @@ CEGAR::CEGAR(
     int max_state_expansions,
     bool intersect_flaw_search_abstract_states,
     lp::LPSolverType lp_solver,
+    bool random_vars_order_tiebreak,
     utils::RandomNumberGenerator &rng,
     utils::LogProxy &log,
     DotGraphVerbosity dot_graph_verbosity)
@@ -59,7 +60,7 @@ CEGAR::CEGAR(
         pick_flawed_abstract_state, pick_split, filter_split, tiebreak_split,
         sequence_split, sequence_tiebreak_split,
         max_concrete_states_per_abstract_state, max_state_expansions,
-        intersect_flaw_search_abstract_states, lp_solver, log);
+        intersect_flaw_search_abstract_states, lp_solver, random_vars_order_tiebreak, log);
 
     if (log.is_at_least_normal()) {
         log << "Start building abstraction." << endl;

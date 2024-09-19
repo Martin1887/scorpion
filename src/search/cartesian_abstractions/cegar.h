@@ -87,6 +87,7 @@ public:
         int max_state_expansions,
         bool intersect_flaw_search_abstract_states,
         lp::LPSolverType lp_solver,
+        bool random_vars_order_tiebreak,
         utils::RandomNumberGenerator &rng,
         utils::LogProxy &log,
         DotGraphVerbosity dot_graph_verbosity);

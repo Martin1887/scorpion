@@ -362,6 +362,7 @@ class FlawSearch {
                                              int n_forward,
                                              int n_backward,
                                              const Solution &solution,
+                                             utils::RandomNumberGenerator &rng,
                                              bool invalidate_cache = true);
     SplitProperties return_best_sequence_split(std::unique_ptr<Split> best,
                                                bool bw_dir,
@@ -413,6 +414,7 @@ public:
         int max_state_expansions,
         bool intersect_flaw_search_abstract_states,
         lp::LPSolverType lp_solver,
+        bool random_vars_order_tiebreak,
         const utils::LogProxy &log);
 
     SplitProperties get_split_and_direction(const Solution &solution,

@@ -144,6 +144,7 @@ unique_ptr<cartesian_abstractions::Abstraction> CartesianAbstractionGenerator::b
         max_state_expansions,
         subtask.intersect_flaw_search_abstract_states,
         lp_solver,
+        false,
         *rng,
         log,
         dot_graph_verbosity);

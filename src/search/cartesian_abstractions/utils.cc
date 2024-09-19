@@ -197,6 +197,11 @@ void add_common_cegar_options(plugins::Feature &feature) {
         plugins::Bounds("1", "infinity"));
 
     feature.add_option<bool>(
+        "random_vars_order_tiebreak",
+        "sort the variables with the same weight in random order",
+        "false");
+
+    feature.add_option<bool>(
         "print_h_distribution",
         "print h distribution in the concrete space",
         "false");

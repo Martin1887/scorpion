@@ -620,6 +620,7 @@ FlawSearch::FlawSearch(
     int max_state_expansions,
     bool intersect_flaw_search_abstract_states,
     lp::LPSolverType lp_solver,
+    bool random_vars_order_tiebreak,
     const utils::LogProxy &log) :
     task_proxy(*task),
     domain_sizes(get_domain_sizes(task_proxy)),
@@ -635,6 +636,7 @@ FlawSearch::FlawSearch(
                    sequence_split,
                    sequence_tiebreak_split,
                    lp_solver,
+                   random_vars_order_tiebreak,
                    log.is_at_least_debug()),
     rng(rng),
     pick_flawed_abstract_state(pick_flawed_abstract_state),

@@ -80,6 +80,7 @@ SplitSelector::SplitSelector(
     PickSequenceFlaw sequence_pick,
     PickSequenceFlaw sequence_tiebreak_pick,
     lp::LPSolverType lp_solver,
+    bool random_vars_order_tiebreak,
     bool debug)
     : task(task),
       task_proxy(*task),
@@ -103,8 +104,8 @@ SplitSelector::SplitSelector(
     }
     precompute_landmarks_and_potentials(first_pick, lp_solver);
     precompute_landmarks_and_potentials(tiebreak_pick, lp_solver);
-    compute_vars_order(first_pick);
-    compute_vars_order(tiebreak_pick);
+    compute_vars_order(first_pick, random_vars_order_tiebreak);
+    compute_vars_order(tiebreak_pick, random_vars_order_tiebreak);
 }
 
 // Define here to avoid include in header.
@@ -154,7 +155,7 @@ void SplitSelector::precompute_landmarks_and_potentials(const PickSplit pick, lp
     }
 }
 
-void SplitSelector::compute_vars_order(const PickSplit pick) {
+void SplitSelector::compute_vars_order(const PickSplit pick, const bool random_vars_order_tiebreak) {
     if (!vars_order.contains(pick)) {
         bool descending_order = (pick == PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN ||
                                  pick == PickSplit::MAX_POTENTIAL_VARS_ORDER);
@@ -168,7 +169,7 @@ void SplitSelector::compute_vars_order(const PickSplit pick) {
             std::random_device rd;
             std::mt19937 g(rd());
             std::shuffle(sortered_vars.begin(), sortered_vars.end(), g);
-            vars_order[PickSplit::RANDOM_VARS_ORDER] = invert_vector(sortered_vars);
+            vars_order[pick] = invert_vector(sortered_vars);
             break;
         }
         case PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN:
@@ -198,13 +199,27 @@ void SplitSelector::compute_vars_order(const PickSplit pick) {
             }
             // Remove the variables without landmarks.
             erase_if(vars_landmark_pos, [](pair<int, int> pair) {return pair.second == -1;});
+            auto tiebreak = vars_landmark_pos;
+            if (random_vars_order_tiebreak) {
+                std::random_device rd;
+                std::mt19937 g(rd());
+                std::shuffle(tiebreak.begin(), tiebreak.end(), g);
+            }
             if (descending_order) {
-                sort(vars_landmark_pos.begin(), vars_landmark_pos.end(), [](pair<int, int> a, pair<int, int> b) {
-                         return a.second < b.second;
+                sort(vars_landmark_pos.begin(), vars_landmark_pos.end(), [random_vars_order_tiebreak, &tiebreak](pair<int, int> a, pair<int, int> b) {
+                         if (random_vars_order_tiebreak && a.second == b.second) {
+                             return tiebreak[a.first] < tiebreak[b.first];
+                         } else {
+                             return a.second < b.second;
+                         }
                      });
             } else {
-                sort(vars_landmark_pos.begin(), vars_landmark_pos.end(), [](pair<int, int> a, pair<int, int> b) {
-                         return a.second > b.second;
+                sort(vars_landmark_pos.begin(), vars_landmark_pos.end(), [random_vars_order_tiebreak, &tiebreak](pair<int, int> a, pair<int, int> b) {
+                         if (random_vars_order_tiebreak && a.second == b.second) {
+                             return tiebreak[a.first] > tiebreak[b.first];
+                         } else {
+                             return a.second > b.second;
+                         }
                      });
             }
             for (pair<int, int> pair : vars_landmark_pos) {
@@ -236,13 +251,27 @@ void SplitSelector::compute_vars_order(const PickSplit pick) {
                 vars_potential.push_back(make_pair(i, *max_element(fact_potentials[i].begin(), fact_potentials[i].end())));
             }
 
+            auto tiebreak = vars_potential;
+            if (random_vars_order_tiebreak) {
+                std::random_device rd;
+                std::mt19937 g(rd());
+                std::shuffle(tiebreak.begin(), tiebreak.end(), g);
+            }
             if (descending_order) {
-                sort(vars_potential.begin(), vars_potential.end(), [](pair<int, double> a, pair<int, double> b) {
-                         return a.second > b.second;
+                sort(vars_potential.begin(), vars_potential.end(), [random_vars_order_tiebreak, &tiebreak](pair<int, int> a, pair<int, int> b) {
+                         if (random_vars_order_tiebreak && a.second == b.second) {
+                             return tiebreak[a.first] > tiebreak[b.first];
+                         } else {
+                             return a.second > b.second;
+                         }
                      });
             } else {
-                sort(vars_potential.begin(), vars_potential.end(), [](pair<int, double> a, pair<int, double> b) {
-                         return a.second < b.second;
+                sort(vars_potential.begin(), vars_potential.end(), [random_vars_order_tiebreak, &tiebreak](pair<int, int> a, pair<int, int> b) {
+                         if (random_vars_order_tiebreak && a.second == b.second) {
+                             return tiebreak[a.first] < tiebreak[b.first];
+                         } else {
+                             return a.second < b.second;
+                         }
                      });
             }
 
