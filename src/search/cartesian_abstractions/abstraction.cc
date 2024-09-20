@@ -244,7 +244,7 @@ SimulatedRefinement Abstraction::simulate_refinement(
         }
     }
 
-    ref.transition_system->rewire(states, v_id, *v1, *v2, var, true);
+    ref.transition_system->rewire(states, v_id, *v1, *v2, var, disambiguated, true);
 
     assert(init_id == 0);
     assert(get_initial_state().includes(concrete_initial_state));
