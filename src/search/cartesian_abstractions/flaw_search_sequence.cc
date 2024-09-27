@@ -9,6 +9,7 @@
 #include "transition_system.h"
 #include "utils.h"
 
+#include "../task_utils/cartesian_set_facts_proxy_iterator.h"
 #include "../task_utils/successor_generator.h"
 #include "../task_utils/task_properties.h"
 #include "../utils/countdown_timer.h"
@@ -64,7 +65,7 @@ unique_ptr<Split> FlawSearch::last_not_filtered_flaw(vector<LegacyFlaw> &flaws,
 
 void FlawSearch::get_deviation_splits(
     const AbstractState &abs_state,
-    const vector<CartesianState> &flaw_search_states,
+    const vector<reference_wrapper<const CartesianState>> &flaw_search_states,
     const vector<int> &unaffected_variables,
     const AbstractState &target_abs_state,
     const vector<int> &domain_sizes,
@@ -87,19 +88,20 @@ void FlawSearch::get_deviation_splits(
       pre(o)[v] and eff(o)[v] undefined: if s[v] \notin t[v], wanted = intersect(a[v], b[v]).
     */
     // Note: it could be faster to use an efficient hash map for this.
-    vector<vector<int>> fact_count(domain_sizes.size());
+    vector<vector<int>> fact_count{};
+    fact_count.reserve(domain_sizes.size());
     vector<bool> var_fact_count(domain_sizes.size());
     for (size_t var = 0; var < domain_sizes.size(); ++var) {
-        fact_count[var].resize(domain_sizes[var], 0);
+        fact_count.push_back(vector(domain_sizes[var], 0));
     }
     for (const CartesianState &fs_state : flaw_search_states) {
         for (int var : unaffected_variables) {
             // When disambiguation is implemented, `contains` will be possible
             // instead of `intersects`
             if (!target_abs_state.domain_subsets_intersect(fs_state, var)) {
-                for (int value : fs_state.get_cartesian_set().get_values(var)) {
-                    if (abs_state.contains(var, value)) {
-                        ++fact_count[var][value];
+                for (auto && [fact_var, fact_value] : fs_state.get_cartesian_set().iter(var)) {
+                    if (abs_state.contains(var, fact_value)) {
+                        ++fact_count[var][fact_value];
                         var_fact_count[var] = true;
                     }
                 }
@@ -125,9 +127,8 @@ void FlawSearch::get_deviation_splits(
                                                       fact_count[var][value], op_cost), true);
                         }
                     } else {
-                        vector<int> wanted_copy(wanted);
                         FlawSearch::add_split(splits, Split(
-                                                  abs_state.get_id(), var, value, move(wanted_copy),
+                                                  abs_state.get_id(), var, value, wanted,
                                                   fact_count[var][value], op_cost));
                     }
                 }
@@ -161,57 +162,70 @@ unique_ptr<Split> FlawSearch::create_split(
     for (auto &pair : get_f_optimal_transitions(abstract_state_id)) {
         int op_id = pair.first;
         const vector<int> &targets = pair.second;
-        OperatorProxy op = task_proxy.get_operators()[op_id];
+        const disambiguation::DisambiguatedOperator &op = (*ts.get_operators())[op_id];
 
         vector<bool> applicable(states.size(), true);
-        for (FactPair fact : ts.get_preconditions(op_id)) {
-            vector<int> state_value_count(domain_sizes[fact.var], 0);
+        const CartesianSet &pre = op.get_precondition().get_cartesian_set();
+        int n_vars = pre.n_vars();
+        for (int var = 0; var < n_vars; var++) {
+            vector<int> state_value_count(domain_sizes[var], 0);
             for (size_t i = 0; i < states.size(); ++i) {
                 const CartesianState &state = states[i];
-                if (!state.contains(fact.var, fact.value)) {
+                const CartesianSet &state_cartesian_set = state.get_cartesian_set();
+                if (!pre.intersects(state_cartesian_set, var)) {
                     // Applicability flaw
                     applicable[i] = false;
-                    for (int value : state.get_cartesian_set().get_values(fact.var)) {
-                        if (abstract_state.contains(fact.var, value)) {
-                            ++state_value_count[value];
+                    for (auto &&[fact_var, fact_value] : state_cartesian_set.iter(var)) {
+                        if (abstract_state.contains(var, fact_value)) {
+                            ++state_value_count[fact_value];
                         }
                     }
                 }
             }
-            for (int value = 0; value < domain_sizes[fact.var]; ++value) {
+            for (int value = 0; value < domain_sizes[var]; ++value) {
                 if (state_value_count[value] > 0) {
-                    assert(value != fact.value);
+                    assert(!pre.test(var, value));
                     if (split_unwanted_values) {
-                        add_split(splits, Split(
-                                      abstract_state_id, fact.var, fact.value,
-                                      {value}, state_value_count[value],
-                                      op.get_cost()), true);
+                        for (auto &&[fact_var, fact_value] : pre.iter(var)) {
+                            add_split(splits, Split(
+                                          abstract_state_id, var, fact_value,
+                                          {value}, state_value_count[value],
+                                          op.get_cost()), true);
+                        }
                     } else {
                         add_split(splits, Split(
-                                      abstract_state_id, fact.var, value,
-                                      {fact.value}, state_value_count[value],
+                                      abstract_state_id, var, value,
+                                      pre.get_values(var), state_value_count[value],
                                       op.get_cost()));
                     }
                 }
             }
         }
 
-        phmap::flat_hash_map<int, vector<CartesianState>> deviation_states_by_target;
+        phmap::flat_hash_map<int, vector<reference_wrapper<const CartesianState>>> deviation_states_by_target;
         for (size_t i = 0; i < states.size(); ++i) {
-            if (!applicable[i]) {
+            if (!applicable[i] /*&& !in_sequence*/) {
                 continue;
             }
             const CartesianState &state = states[i];
-            assert(state.is_applicable(op));
-            CartesianState succ_state(state.progress(op));
+            if (!in_sequence) {
+                assert(state.is_applicable(op));
+            }
             bool target_hit = false;
             for (int target : targets) {
                 if (!utils::extra_memory_padding_is_reserved()) {
                     return nullptr;
                 }
 
+                // TODO: Check this in the case of inapplicable operator.
+
                 // At most one of the f-optimal targets can include the successor state.
-                if (!target_hit && abstraction.get_state(target).intersects(succ_state)) {
+                // If the operator is not applicable, the intersection of the
+                // progression is used instead (a CartesianState must be generated
+                // anyway).
+                if (!target_hit &&
+                    ((applicable[i] && state.reach_with_op(abstraction.get_state(target), op)) ||
+                     (!applicable[i] && abstraction.get_state(target).get_cartesian_set().intersects(state.progress(op))))) {
                     // No flaw
                     target_hit = true;
                 } else {
@@ -223,7 +237,7 @@ unique_ptr<Split> FlawSearch::create_split(
 
         for (auto &pair : deviation_states_by_target) {
             int target = pair.first;
-            const vector<CartesianState> &deviation_states = pair.second;
+            const vector<reference_wrapper<const CartesianState>> &deviation_states = pair.second;
             if (!deviation_states.empty()) {
                 int num_vars = domain_sizes.size();
                 get_deviation_splits(
@@ -285,15 +299,15 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
 
                     if (split_unwanted_values) {
                         for (CartesianState state : states) {
-                            for (int value : state.get_cartesian_set().get_values(var)) {
-                                if (value != goal_value && abstract_state.contains(var, value)) {
+                            for (auto &&[fact_var, fact_value] : state.get_cartesian_set().iter(var)) {
+                                if (fact_value != goal_value && abstract_state.contains(var, fact_value)) {
                                     if (log.is_at_least_debug()) {
-                                        log << "add_split(var " << var << ", val " << value
+                                        log << "add_split(var " << var << ", val " << fact_value
                                             << "!=" << goal_value << ")" << endl;
                                     }
                                     add_split(splits, Split(
                                                   abstract_state_id, var, goal_value,
-                                                  {value}, 1), true);
+                                                  {fact_value}, 1), true);
                                 }
                             }
                         }
@@ -393,7 +407,7 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
     do {
         for (int i = max(start_abstract_state_index, 0); i < solution_size; i++) {
             Transition step = solution.at(i);
-            OperatorProxy op = task_proxy.get_operators()[step.op_id];
+            disambiguation::DisambiguatedOperator op = (*abstraction.get_transition_system().get_operators())[step.op_id];
             const AbstractState *next_abstract_state = &abstraction.get_state(step.target_id);
             if (flaw_search_state.is_applicable(op)) {
                 if (debug)
@@ -404,6 +418,8 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                     if (debug) {
                         log << "  Paths deviate." << endl;
                         log << "  Flaw-search state: " << next_flaw_search_state << endl;
+                        log << "  Previous abstract state: " << *abstract_state << endl;
+                        log << "  Op pre: " << op.get_precondition() << ", op effects: " << op.get_effects() << endl;
                     }
                     push_flaw_if_not_filtered(flaws,
                                               LegacyFlaw(move(flaw_search_state),
@@ -429,10 +445,7 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
             } else {
                 if (debug) {
                     log << "  Operator not applicable: " << op.get_name() << endl;
-                    log << "  Operator preconditions: " << endl;
-                    for (FactProxy precond : op.get_preconditions()) {
-                        log << "    " << precond.get_pair() << endl;
-                    }
+                    log << "  Operator preconditions: " << op.get_precondition().get_cartesian_set() << endl;
                     log << "  Abstract state: " << *abstract_state << endl;
                     log << "  Flaw-search state: " << flaw_search_state << endl;
                 }
@@ -455,6 +468,7 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                         if (debug) {
                             log << "  The state " << flaw_search_state << " does not intersects" << endl;
                             log << "  Abstract state: " << *abstract_state << endl;
+                            log << "  Op pre: " << op.get_precondition() << ", op effects: " << op.get_effects() << endl;
                         }
                         flaw_search_state = CartesianState(flaw_search_state.undeviate(*abstract_state));
                         if (debug)
@@ -549,7 +563,7 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
     GoalsProxy goals = task_proxy.get_goals();
     vector<FactPair> goals_facts = task_properties::get_fact_pairs(task_proxy.get_goals());
     CartesianState flaw_search_state = only_in_abstraction != InAbstractionFlawSearchKind::FALSE ?
-        CartesianState(abstract_state->get_cartesian_set())
+        CartesianState(abstract_state->clone_cartesian_set())
         :
         CartesianState(get_domain_sizes(task_proxy), move(goals_facts));
     if (intersect_flaw_search_abstract_states) {
@@ -564,7 +578,7 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
     // iterate over solution in reverse direction
     for (int i = solution.size() - 1; i >= 0; i--) {
         Transition step = solution.at(i);
-        OperatorProxy op = task_proxy.get_operators()[step.op_id];
+        disambiguation::DisambiguatedOperator op = (*abstraction.get_transition_system().get_operators())[step.op_id];
         if (flaw_search_state.is_backward_applicable(op)) {
             const AbstractState *next_abstract_state;
             if (i > 0) {
@@ -583,6 +597,8 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                 if (debug) {
                     log << "  Paths deviate." << endl;
                     log << "  Flaw-search state: " << next_flaw_search_state << endl;
+                    log << "  Previous abstract state: " << *abstract_state << endl;
+                    log << "  Op pre: " << op.get_precondition() << ", op effects: " << op.get_effects() << endl;
                 }
                 push_flaw_if_not_filtered(flaws,
                                           LegacyFlaw(move(flaw_search_state),

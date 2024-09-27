@@ -368,6 +368,10 @@ void ShortestPaths::update_incrementally_in_direction(
                 reconnected = true;
                 if (debug) {
                     log << "Reconnected" << endl;
+                    log << "Transition: " << (*virtual_shortest_path)[state] << endl;
+                    log << "distances[succ]: " << (*distances)[succ] << endl;
+                    log << "distances[state]: " << (*distances)[state] << endl;
+                    log << "add_costs: " << add_costs((*distances)[succ], operator_costs[op_id]) << endl;
                 }
                 break;
             }
@@ -435,6 +439,9 @@ void ShortestPaths::update_incrementally_in_direction(
         Cost &dist = (*distances)[state];
         assert(dist == DIRTY);
         Cost min_dist = INF_COSTS;
+        if (debug) {
+            log << "Dirty state: " << state << endl;
+        }
         for (const Transition &t : (*virtual_out)[state]) {
             int succ = t.target_id;
             int op_id = t.op_id;
@@ -442,9 +449,18 @@ void ShortestPaths::update_incrementally_in_direction(
                 Cost succ_dist = (*distances)[succ];
                 Cost cost = operator_costs[op_id];
                 Cost new_dist = add_costs(cost, succ_dist);
+                if (debug) {
+                    log << "Cost: " << cost << endl;
+                    log << "succ_dist: " << succ_dist << endl;
+                    log << "new_dist: " << new_dist << endl;
+                    log << "min_dist: " << min_dist << endl;
+                }
                 if (new_dist < min_dist) {
                     min_dist = new_dist;
                     (*virtual_shortest_path)[state] = Transition(op_id, succ);
+                    if (debug) {
+                        log << "New shortest path: " << (*virtual_shortest_path)[state] << endl;
+                    }
                 }
             }
         }
@@ -452,7 +468,20 @@ void ShortestPaths::update_incrementally_in_direction(
         if (min_dist != INF_COSTS) {
             open_queue.push(dist, state);
             ++num_orphans;
+            if (debug) {
+                log << "open_queue.push(" << dist << ", " << state << ")" << endl;
+            }
         }
+    }
+    if (debug) {
+        if (simulated) {
+            log << "Goal distances: " << simulated_goal_distances << endl;
+            log << "Init distances: " << simulated_init_distances << endl;
+        } else {
+            log << "Goal distances: " << goal_distances << endl;
+            log << "Init distances: " << init_distances << endl;
+        }
+        log << "Open queue size: " << open_queue.size() << endl;
     }
     while (!open_queue.empty()) {
         pair<Cost, int> top_pair = open_queue.pop();
@@ -475,6 +504,16 @@ void ShortestPaths::update_incrementally_in_direction(
                 open_queue.push(succ_g, succ);
             }
         }
+    }
+    if (debug) {
+        if (simulated) {
+            log << "Goal distances: " << simulated_goal_distances << endl;
+            log << "Init distances: " << simulated_init_distances << endl;
+        } else {
+            log << "Goal distances: " << goal_distances << endl;
+            log << "Init distances: " << init_distances << endl;
+        }
+        log << "Open queue size: " << open_queue.size() << endl;
     }
 }
 

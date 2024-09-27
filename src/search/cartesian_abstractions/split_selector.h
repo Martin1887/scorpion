@@ -161,12 +161,12 @@ struct Split {
     int op_cost;
     bool is_filtered;
 
-    Split(int abstract_state_id, int var_id, int value, std::vector<int> &&values, int count, int op_cost = -1, bool is_filtered = false)
+    Split(int abstract_state_id, int var_id, int value, std::vector<int> values, int count, int op_cost = -1, bool is_filtered = false)
         : count(count),
           abstract_state_id(abstract_state_id),
           var_id(var_id),
           value(value),
-          values(move(values)),
+          values(values),
           op_cost(op_cost),
           is_filtered(is_filtered) {
         assert(count >= 1);

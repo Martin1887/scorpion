@@ -12,6 +12,7 @@
 #include "../lp/lp_solver.h"
 #include "../potentials/potential_optimizer.h"
 #include "../plugins/plugin.h"
+#include "../task_utils/disambiguated_operator.h"
 #include "../task_utils/task_properties.h"
 #include "../utils/logging.h"
 #include "../utils/memory.h"
@@ -131,7 +132,7 @@ void SplitSelector::precompute_landmarks_and_potentials(const PickSplit pick, lp
                                    rng,
                                    log);
             int i = 0;
-            for (FactPair fact : fact_landmarks) {
+            for (const FactPair &fact : fact_landmarks) {
                 fact_landmarks_hadd_down.insert_or_assign(fact, i);
                 i++;
             }
@@ -640,7 +641,7 @@ bool SplitSelector::split_is_filtered(const Split &split,
             AbstractState v1 = AbstractState(-1, -1, move(cartesian_sets.first));
             AbstractState v2 = AbstractState(-1, -1, move(cartesian_sets.second));
 
-            OperatorsProxy ops = task_proxy.get_operators();
+            auto ops = abstraction.get_transition_system().get_operators();
             for (AbstractState abs : vector{v1, v2}) {
                 bool any_incoming = false;
                 bool any_outgoing = false;
@@ -649,7 +650,7 @@ bool SplitSelector::split_is_filtered(const Split &split,
                 if (check_incoming && (check_outgoing || abs.includes(task_properties::get_fact_pairs(task_proxy.get_goals())))) {
                     for (auto op_tr_pair : incoming) {
                         for (int target_state_id : op_tr_pair.second) {
-                            if (abstraction.get_state(target_state_id).progress(ops[op_tr_pair.first]).intersects(abs.get_cartesian_set())) {
+                            if (abstraction.get_state(target_state_id).progress((*ops)[op_tr_pair.first]).intersects(abs.get_cartesian_set())) {
                                 any_incoming = true;
                                 break;
                             }
@@ -664,8 +665,8 @@ bool SplitSelector::split_is_filtered(const Split &split,
                 if (check_outgoing && (check_incoming || abs.get_cartesian_set().test(split.var_id, task_proxy.get_initial_state()[split.var_id].get_value()))) {
                     for (auto op_tr_pair : outgoing) {
                         for (int target_state_id : op_tr_pair.second) {
-                            if (abs.is_applicable(ops[op_tr_pair.first]) &&
-                                abs.progress(ops[op_tr_pair.first]).intersects(abstraction.get_state(target_state_id).get_cartesian_set())) {
+                            if (abs.is_applicable((*ops)[op_tr_pair.first]) &&
+                                abs.progress((*ops)[op_tr_pair.first]).intersects(abstraction.get_state(target_state_id).get_cartesian_set())) {
                                 any_outgoing = true;
                                 break;
                             }

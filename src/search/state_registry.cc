@@ -3,6 +3,8 @@
 #include "per_state_information.h"
 #include "task_proxy.h"
 
+#include "task_utils/cartesian_state.h"
+#include "task_utils/disambiguated_operator.h"
 #include "task_utils/task_properties.h"
 #include "utils/logging.h"
 
@@ -106,6 +108,49 @@ State StateRegistry::get_successor_state(const State &predecessor, const Operato
                 FactPair effect_pair = effect.get_fact().get_pair();
                 state_packer.set(buffer, effect_pair.var, effect_pair.value);
             }
+        }
+        /*
+          NOTE: insert_id_or_pop_state possibly invalidates buffer, hence
+          we use lookup_state to retrieve the state using the correct buffer.
+        */
+        StateID id = insert_id_or_pop_state();
+        return lookup_state(id);
+    }
+}
+
+State StateRegistry::get_successor_state(const State &predecessor, const disambiguation::DisambiguatedOperator &op) {
+    assert(!op.is_axiom());
+    /*
+      TODO: ideally, we would not modify state_data_pool here and in
+      insert_id_or_pop_state, but only at one place, to avoid errors like
+      buffer becoming a dangling pointer. This used to be a bug before being
+      fixed in https://issues.fast-downward.org/issue1115.
+    */
+    state_data_pool.push_back(predecessor.get_buffer());
+    PackedStateBin *buffer = state_data_pool[state_data_pool.size() - 1];
+    /* Experiments for issue348 showed that for tasks with axioms it's faster
+       to compute successor states using unpacked data. */
+    if (task_properties::has_axioms(task_proxy)) {
+        predecessor.unpack();
+        vector<int> new_values = predecessor.get_unpacked_values();
+        for (FactPair effect : op.get_effects()) {
+            // TODO: effect conditions not supported for disambiguated operators.
+            new_values[effect.var] = effect.value;
+        }
+        axiom_evaluator.evaluate(new_values);
+        for (size_t i = 0; i < new_values.size(); ++i) {
+            state_packer.set(buffer, i, new_values[i]);
+        }
+        /*
+          NOTE: insert_id_or_pop_state possibly invalidates buffer, hence
+          we use lookup_state to retrieve the state using the correct buffer.
+        */
+        StateID id = insert_id_or_pop_state();
+        return lookup_state(id, move(new_values));
+    } else {
+        for (FactPair effect : op.get_effects()) {
+            // TODO: effect conditions not supported for disambiguated operators.
+            state_packer.set(buffer, effect.var, effect.value);
         }
         /*
           NOTE: insert_id_or_pop_state possibly invalidates buffer, hence

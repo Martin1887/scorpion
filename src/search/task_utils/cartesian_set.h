@@ -20,8 +20,8 @@ class CartesianSetFactsProxyIterator;
 */
 class CartesianSet {
     std::vector<Bitset> domain_subsets;
+    bool empty;
 
-private:
     void init_facts(const std::vector<FactPair> &facts);
     void init_facts(const PreconditionsProxy &facts);
 
@@ -47,21 +47,27 @@ public:
     }
 
     int count(int var) const;
+    int var_size(int var) const;
+    bool got_empty();
     bool is_empty() const;
     bool all_values_set(int var) const;
     std::vector<int> get_values(int var) const;
     utils::HashSet<int> get_values_set(int var) const;
     void set_values(int var, const std::vector<int> &values);
     void set_values(int var, const utils::HashSet<int> &values);
+    void set_values(int var, const CartesianSet &other);
+    bool inside_intersection(const CartesianSet &other, const CartesianSet &another, int var) const;
     bool intersects(const CartesianSet &other, int var) const;
     bool intersects(const CartesianSet &other) const;
     bool is_superset_of(const CartesianSet &other) const;
 
-    CartesianSetFactsProxyIterator begin(int var) const;
-
-    CartesianSetFactsProxyIterator begin() const;
-
-    CartesianSetFactsProxyIterator end() const;
+    CartesianSetFactsProxyIterator iter(int start, int end, bool inverse = false) const;
+    // Iterator for only the specified var.
+    CartesianSetFactsProxyIterator iter(int start) const;
+    // Iterator for all values.
+    CartesianSetFactsProxyIterator iter() const;
+    // Iterator over non matching values.
+    CartesianSetFactsProxyIterator inverse_iter() const;
 
     friend std::ostream &operator<<(
         std::ostream &os, const CartesianSet &cartesian_set);

@@ -1,5 +1,6 @@
 #include "ac3_disambiguation.h"
 
+#include "cartesian_set_facts_proxy_iterator.h"
 #include "../plugins/plugin.h"
 
 using namespace std;
@@ -37,17 +38,17 @@ bool AC3Disambiguation::arc_reduce(CartesianSet &disambiguated,
                                    const tuple<int, FactPair> &mutex,
                                    const set<tuple<int, FactPair>> &var_mutexes) const {
     bool change = false;
-    for (int x : disambiguated.get_values(var)) {
+    for (auto &&[x_var, x_value] : disambiguated.iter(var)) {
         bool all_mutex = true;
         int second_var = std::get<1>(mutex).var;
-        for (int y : disambiguated.get_values(second_var)) {
-            if (!var_mutexes.contains({x, FactPair(second_var, y)})) {
+        for (FactPair && y : disambiguated.iter(second_var)) {
+            if (!var_mutexes.contains({x_value, y})) {
                 all_mutex = false;
                 break;
             }
         }
         if (all_mutex) {
-            disambiguated.remove(var, x);
+            disambiguated.remove(var, x_value);
             change = true;
         }
     }

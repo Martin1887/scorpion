@@ -10,6 +10,8 @@
 #include "utils.h"
 
 #include "../plugins/plugin.h"
+#include "../task_utils/cartesian_set_facts_proxy_iterator.h"
+#include "../task_utils/disambiguated_operator.h"
 #include "../task_utils/successor_generator.h"
 #include "../task_utils/task_properties.h"
 #include "../utils/countdown_timer.h"
@@ -166,7 +168,7 @@ SearchStatus FlawSearch::step() {
         int op_id = pair.first;
         const vector<int> &targets = pair.second;
 
-        OperatorProxy op = task_proxy.get_operators()[op_id];
+        disambiguation::DisambiguatedOperator op = (*abstraction.get_transition_system().get_operators())[op_id];
 
         if (!task_properties::is_applicable(op, s)) {
             // Applicability flaw
@@ -197,7 +199,7 @@ SearchStatus FlawSearch::step() {
             } else if (succ_node.is_new()) {
                 // No flaw
                 (*cached_abstract_state_ids)[succ_state] = target;
-                succ_node.open(node, op, op.get_cost());
+                succ_node.open(node, op.get_operator(), op.get_cost());
                 open_list.push(succ_state.get_id());
 
                 if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST) {
@@ -236,20 +238,18 @@ void FlawSearch::add_split(vector<vector<Split>> &splits, Split &&new_split,
 }
 
 vector<int> FlawSearch::get_unaffected_variables(
-    const OperatorProxy &op, int num_variables) {
+    const disambiguation::DisambiguatedOperator &op, int num_variables) {
     vector<bool> affected(num_variables);
-    for (EffectProxy effect : op.get_effects()) {
-        FactPair fact = effect.get_fact().get_pair();
-        affected[fact.var] = true;
+    for (const FactPair &effect : op.get_effects()) {
+        affected[effect.var] = true;
     }
-    for (FactProxy precondition : op.get_preconditions()) {
-        FactPair fact = precondition.get_pair();
-        affected[fact.var] = true;
-    }
+    const CartesianSet &pre = op.get_precondition().get_cartesian_set();
     vector<int> unaffected_vars;
     unaffected_vars.reserve(num_variables);
     for (int var = 0; var < num_variables; ++var) {
-        if (!affected[var]) {
+        // If only one value is possible as precondition the var is affected
+        // (as for non-disambiguated operators).
+        if (!affected[var] && pre.count(var) != 1) {
             unaffected_vars.push_back(var);
         }
     }
@@ -279,7 +279,7 @@ unique_ptr<Split> FlawSearch::create_split(
     for (auto &pair : get_f_optimal_transitions(abstract_state_id)) {
         int op_id = pair.first;
         const vector<int> &targets = pair.second;
-        OperatorProxy op = task_proxy.get_operators()[op_id];
+        const disambiguation::DisambiguatedOperator &op = (*ts.get_operators())[op_id];
 
         vector<State> states;
         states.reserve(state_ids.size());
@@ -289,28 +289,34 @@ unique_ptr<Split> FlawSearch::create_split(
         }
 
         vector<bool> applicable(states.size(), true);
-        for (FactPair fact : ts.get_preconditions(op_id)) {
-            vector<int> state_value_count(domain_sizes[fact.var], 0);
+        const CartesianSet &pre = op.get_precondition().get_cartesian_set();
+        int n_vars = pre.n_vars();
+        for (int var = 0; var < n_vars; var++) {
+            vector<int> state_value_count(domain_sizes[var], 0);
             for (size_t i = 0; i < states.size(); ++i) {
                 const State &state = states[i];
-                int state_value = state[fact.var].get_value();
-                if (state_value != fact.value) {
+                int state_value = state[var].get_value();
+                if (!pre.test(var, state_value)) {
                     // Applicability flaw
                     applicable[i] = false;
                     ++state_value_count[state_value];
                 }
             }
-            for (int value = 0; value < domain_sizes[fact.var]; ++value) {
+            for (int value = 0; value < domain_sizes[var]; ++value) {
                 if (state_value_count[value] > 0) {
-                    assert(value != fact.value);
+                    assert(!pre.test(var, value));
                     if (split_unwanted_values) {
-                        add_split(splits, Split(
-                                      abstract_state_id, fact.var, fact.value,
-                                      {value}, state_value_count[value]), true);
+                        for (auto &&[fact_var, fact_value] : pre.iter(var)) {
+                            add_split(splits, Split(
+                                          abstract_state_id, var, fact_value,
+                                          {value}, state_value_count[value],
+                                          op.get_cost()), true);
+                        }
                     } else {
                         add_split(splits, Split(
-                                      abstract_state_id, fact.var, value,
-                                      {fact.value}, state_value_count[value]));
+                                      abstract_state_id, var, value,
+                                      pre.get_values(var), state_value_count[value],
+                                      op.get_cost()));
                     }
                 }
             }

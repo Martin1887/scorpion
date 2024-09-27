@@ -8,6 +8,8 @@
 #include "transition_system.h"
 #include "utils.h"
 
+#include "../task_utils/cartesian_set_facts_proxy_iterator.h"
+#include "../task_utils/disambiguated_operator.h"
 #include "../task_utils/successor_generator.h"
 #include "../task_utils/task_properties.h"
 #include "../utils/countdown_timer.h"
@@ -21,7 +23,7 @@ using namespace std;
 namespace cartesian_abstractions {
 void FlawSearch::get_deviation_backward_splits(
     const AbstractState &abs_state,
-    const vector<CartesianState> &flaw_search_states,
+    const vector<reference_wrapper<const CartesianState>> &flaw_search_states,
     const vector<int> &unaffected_variables,
     const AbstractState &source_abs_state,
     const vector<int> &domain_sizes,
@@ -44,19 +46,20 @@ void FlawSearch::get_deviation_backward_splits(
       eff(o)[v] and pre(o)[v] undefined: if s[v] \notin t[v], wanted = intersect(a[v], b[v]).
     */
     // Note: it could be faster to use an efficient hash map for this.
-    vector<vector<int>> fact_count(domain_sizes.size());
+    vector<vector<int>> fact_count{};
+    fact_count.reserve(domain_sizes.size());
     vector<bool> var_fact_count(domain_sizes.size());
     for (size_t var = 0; var < domain_sizes.size(); ++var) {
-        fact_count[var].resize(domain_sizes[var], 0);
+        fact_count.push_back(vector(domain_sizes[var], 0));
     }
     for (const CartesianState &flaw_search_st : flaw_search_states) {
         for (int var : unaffected_variables) {
             // When disambiguation is implemented, `contains` will be possible
             // instead of `intersects`
             if (!source_abs_state.domain_subsets_intersect(flaw_search_st, var)) {
-                for (int state_value : flaw_search_st.get_cartesian_set().get_values(var)) {
-                    if (abs_state.contains(var, state_value)) {
-                        ++fact_count[var][state_value];
+                for (const auto &&[fact_var, fact_value] : flaw_search_st.get_cartesian_set().iter(var)) {
+                    if (abs_state.contains(var, fact_value)) {
+                        ++fact_count[var][fact_value];
                         var_fact_count[var] = true;
                     }
                 }
@@ -83,9 +86,8 @@ void FlawSearch::get_deviation_backward_splits(
                                                       fact_count[var][value], op_cost), true);
                         }
                     } else {
-                        vector<int> wanted_copy(wanted);
                         FlawSearch::add_split(splits, Split(
-                                                  abs_state.get_id(), var, value, move(wanted_copy),
+                                                  abs_state.get_id(), var, value, wanted,
                                                   fact_count[var][value], op_cost));
                     }
                 }
@@ -122,16 +124,15 @@ unique_ptr<Split> FlawSearch::create_backward_split(
         }
         int op_id = pair.first;
         const vector<int> &sources = pair.second;
-        OperatorProxy op = task_proxy.get_operators()[op_id];
+        const disambiguation::DisambiguatedOperator &op = (*abstraction.get_transition_system().get_operators())[op_id];
         vector<int> eff_values(domain_sizes.size(), -1);
-        for (EffectProxy ef : op.get_effects()) {
-            eff_values[ef.get_fact().get_variable().get_id()] =
-                ef.get_fact().get_value();
+        for (const FactPair &ef : op.get_effects()) {
+            eff_values[ef.var] = ef.value;
         }
         // prevail conditions
-        for (FactProxy cond : op.get_preconditions()) {
-            if (eff_values[cond.get_variable().get_id()] == -1) {
-                eff_values[cond.get_variable().get_id()] = cond.get_value();
+        for (const auto &&[cond_var, cond_value] : op.get_precondition().get_cartesian_set().iter()) {
+            if (eff_values[cond_var] == -1) {
+                eff_values[cond_var] = cond_value;
             }
         }
 
@@ -147,6 +148,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
 
         for (size_t i = 0; i < states.size(); ++i) {
             const CartesianState &state = states[i];
+            const CartesianSet &state_cartesian_set = state.get_cartesian_set();
             for (int not_applicable : state.vars_not_backward_applicable(op)) {
                 if (log.is_at_least_debug()) {
                     log << "Not applicable!" << endl;
@@ -154,9 +156,9 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                 }
                 // Applicability flaw
                 applicable[i] = false;
-                for (int value : state.get_cartesian_set().get_values(not_applicable)) {
-                    if (abstract_state.contains(not_applicable, value)) {
-                        ++state_value_count[not_applicable][value];
+                for (const auto &&[fact_var, fact_value] : state_cartesian_set.iter(not_applicable)) {
+                    if (abstract_state.contains(not_applicable, fact_value)) {
+                        ++state_value_count[not_applicable][fact_value];
                     }
                 }
             }
@@ -186,32 +188,39 @@ unique_ptr<Split> FlawSearch::create_backward_split(
             }
         }
 
-        phmap::flat_hash_map<int, vector<CartesianState>> deviation_states_by_source;
+        phmap::flat_hash_map<int, vector<reference_wrapper<const CartesianState>>> deviation_states_by_source;
         for (size_t i = 0; i < states.size(); ++i) {
-            if (!applicable[i]) {
+            if (!applicable[i] /*&& !in_sequence*/) {
                 if (log.is_at_least_debug()) {
                     log << "Not applicable" << endl;
                 }
                 continue;
             }
             const CartesianState &state = states[i];
-            assert(state.is_backward_applicable(op));
-            CartesianState succ_state(state.regress(op));
+            if (!in_sequence) {
+                assert(state.is_backward_applicable(op));
+            }
             bool source_hit = false;
             for (int source : sources) {
                 if (!utils::extra_memory_padding_is_reserved()) {
                     return nullptr;
                 }
 
+                // TODO: Check this in the case of inapplicable operator.
+
                 // At most one of the f-optimal targets can include the successor state.
-                if (!source_hit && abstraction.get_state(source).intersects(succ_state)) {
+                // If the operator is not applicable, the intersection of the
+                // regression is used instead (a CartesianState must be generated
+                // anyway).
+                if (!source_hit &&
+                    ((applicable[i] && state.reach_backwards_with_op(abstraction.get_state(source), op)) ||
+                     (!applicable[i] && abstraction.get_state(source).get_cartesian_set().intersects(state.regress(op))))) {
                     // No flaw
                     source_hit = true;
                     if (log.is_at_least_debug()) {
                         log << "source_hit, state: " << state << ", source: "
                             << source << endl;
                         log << "source: " << abstraction.get_state(source) << endl;
-                        log << "succ_state: " << succ_state << endl;
                         log << "state: " << state << endl;
                     }
                 } else {
@@ -227,7 +236,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
 
         for (auto &pair : deviation_states_by_source) {
             int source = pair.first;
-            const vector<CartesianState> &deviation_states = pair.second;
+            const vector<reference_wrapper<const CartesianState>> &deviation_states = pair.second;
             if (!deviation_states.empty()) {
                 int num_vars = domain_sizes.size();
                 get_deviation_backward_splits(
@@ -288,15 +297,15 @@ unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
             if (split_unwanted_values) {
                 for (CartesianState state : states) {
                     if (!state.contains(var, init_value)) {
-                        for (int state_value : state.get_cartesian_set().get_values(var)) {
-                            if (abstract_state.contains(var, state_value)) {
+                        for (const auto &&[fact_var, fact_value] : state.get_cartesian_set().iter(var)) {
+                            if (abstract_state.contains(var, fact_value)) {
                                 if (log.is_at_least_debug()) {
-                                    log << "add_split(var " << var << ", val " << state_value
+                                    log << "add_split(var " << var << ", val " << fact_value
                                         << "!=" << init_value << ")" << endl;
                                 }
                                 add_split(splits, Split(
                                               abstract_state_id, var, init_value,
-                                              {state_value}, 1), true);
+                                              {fact_value}, 1), true);
                             }
                         }
                     }

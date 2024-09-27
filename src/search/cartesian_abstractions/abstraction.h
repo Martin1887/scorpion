@@ -101,6 +101,7 @@ class Abstraction {
 
 public:
     Abstraction(const std::shared_ptr<AbstractTask> &task,
+                const std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> &operators,
                 std::shared_ptr<MutexInformation> &mutex_information,
                 std::shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
                 utils::LogProxy &log);

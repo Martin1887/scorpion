@@ -8,6 +8,7 @@
 #include "algorithms/int_packer.h"
 #include "algorithms/segmented_vector.h"
 #include "algorithms/subscriber.h"
+#include "task_utils/cartesian_state.h"
 #include "utils/hash.h"
 
 #include <parallel_hashmap/phmap.h>
@@ -214,6 +215,7 @@ public:
       as it includes duplicate checking.
     */
     State get_successor_state(const State &predecessor, const OperatorProxy &op);
+    State get_successor_state(const State &predecessor, const disambiguation::DisambiguatedOperator &op);
 
     /*
       Returns the number of states registered so far.

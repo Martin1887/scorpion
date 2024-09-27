@@ -24,6 +24,7 @@ namespace cartesian_state {
 */
 class CartesianState {
 protected:
+    int n_vars;
     CartesianSet cartesian_set;
 
 public:
@@ -32,7 +33,7 @@ public:
 
     bool domain_subsets_intersect(const CartesianState &other, int var) const;
 
-    // Return if the variable is fully abstracted (all possible values)
+    // Return if the variable is fully abstracted (all possible values).
     bool is_fully_abstracted(int var) const;
 
     // Return the size of var's abstract domain for this state.
@@ -43,13 +44,16 @@ public:
     std::vector<int> count() const;
 
     bool is_spurious() const;
+    bool got_empty();
 
     bool contains(int var, int value) const;
 
     bool is_applicable(const OperatorProxy &op) const;
     bool is_applicable(const disambiguation::DisambiguatedOperator &op) const;
+    bool reach_with_op(const CartesianState &other, const disambiguation::DisambiguatedOperator &op) const;
     bool is_backward_applicable(const OperatorProxy &op) const;
     bool is_backward_applicable(const disambiguation::DisambiguatedOperator &op) const;
+    bool reach_backwards_with_op(const CartesianState &other, const disambiguation::DisambiguatedOperator &op) const;
     std::vector<int> vars_not_backward_applicable(const OperatorProxy &op) const;
     std::vector<int> vars_not_backward_applicable(const disambiguation::DisambiguatedOperator &op) const;
 
@@ -71,9 +75,11 @@ public:
     bool includes(const CartesianState &other) const;
     bool includes(const State &concrete_state) const;
     bool includes(const FactPair &fact) const;
+    bool includes(int var, int value) const;
     bool includes(const std::vector<FactPair> &facts) const;
 
-    CartesianSet get_cartesian_set() const;
+    const CartesianSet &get_cartesian_set() const;
+    CartesianSet clone_cartesian_set() const;
     void set_cartesian_set(CartesianSet &&other);
     CartesianState intersection(const CartesianState &other) const;
 

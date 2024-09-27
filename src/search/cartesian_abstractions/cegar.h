@@ -46,8 +46,7 @@ class CEGAR {
     std::shared_ptr<disambiguation::DisambiguationMethod> operators_disambiguation;
     std::shared_ptr<disambiguation::DisambiguationMethod> abstract_space_disambiguation;
     std::shared_ptr<disambiguation::DisambiguationMethod> flaw_search_states_disambiguation;
-    // TODO: disambiguate operators
-    // std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> operators;
+    std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> operators;
 
     std::unique_ptr<Abstraction> abstraction;
     // Transition system used for simulations, from which only transitions are

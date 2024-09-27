@@ -1,6 +1,10 @@
 #ifndef TASK_UTILS_TASK_PROPERTIES_H
 #define TASK_UTILS_TASK_PROPERTIES_H
 
+#include "cartesian_state.h"
+#include "cartesian_set_facts_proxy_iterator.h"
+#include "disambiguated_operator.h"
+
 #include "../per_task_information.h"
 #include "../task_proxy.h"
 
@@ -10,6 +14,13 @@ namespace task_properties {
 inline bool is_applicable(OperatorProxy op, const State &state) {
     for (FactProxy precondition : op.get_preconditions()) {
         if (state[precondition.get_variable()] != precondition)
+            return false;
+    }
+    return true;
+}
+inline bool is_applicable(disambiguation::DisambiguatedOperator op, const State &state) {
+    for (FactPair precondition : op.get_precondition().get_cartesian_set().iter()) {
+        if (state[precondition.var].get_pair() != precondition)
             return false;
     }
     return true;

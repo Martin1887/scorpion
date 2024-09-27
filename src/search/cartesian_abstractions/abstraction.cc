@@ -21,11 +21,12 @@ using namespace std;
 
 namespace cartesian_abstractions {
 Abstraction::Abstraction(const shared_ptr<AbstractTask> &task,
+                         const shared_ptr<vector<disambiguation::DisambiguatedOperator>> &operators,
                          shared_ptr<MutexInformation> &mutex_information,
                          shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
                          utils::LogProxy &log)
     : task_proxy(TaskProxy(*task)),
-      transition_system(utils::make_unique_ptr<TransitionSystem>(task_proxy.get_operators())),
+      transition_system(make_unique<TransitionSystem>(operators)),
       concrete_initial_state(task_proxy.get_initial_state()),
       goal_facts(task_properties::get_fact_pairs(task_proxy.get_goals())),
       mutex_information(mutex_information),
@@ -159,10 +160,10 @@ tuple<int, int, bool, Transitions, Transitions> Abstraction::refine(
 
     bool disambiguated = disambiguate_state(*v1) || disambiguate_state(*v2);
     if (disambiguated) {
-        if (v1->get_cartesian_set().is_empty()) {
+        if (v1->got_empty()) {
             n_removed_states++;
         }
-        if (v2->get_cartesian_set().is_empty()) {
+        if (v2->got_empty()) {
             n_removed_states++;
         }
     }
@@ -181,7 +182,7 @@ tuple<int, int, bool, Transitions, Transitions> Abstraction::refine(
     }
 
     tuple<Transitions, Transitions> old_incoming_outgoing =
-        transition_system->rewire(states, v_id, *v1, *v2, var, disambiguated);
+        transition_system->rewire(states, v_id, *v1, *v2);
 
     states.emplace_back();
     states[split_result.v1_id] = move(v1);
@@ -244,7 +245,7 @@ SimulatedRefinement Abstraction::simulate_refinement(
         }
     }
 
-    ref.transition_system->rewire(states, v_id, *v1, *v2, var, disambiguated, true);
+    ref.transition_system->rewire(states, v_id, *v1, *v2, true);
 
     assert(init_id == 0);
     assert(get_initial_state().includes(concrete_initial_state));

@@ -15,6 +15,9 @@ class AbstractTask;
 namespace additive_heuristic {
 class AdditiveHeuristic;
 }
+namespace disambiguation {
+class DisambiguatedOperator;
+}
 
 namespace plugins {
 class Feature;
@@ -31,8 +34,10 @@ create_additive_heuristic(const std::shared_ptr<AbstractTask> &task);
   can be reached in the delete-relaxation before 'fact' is reached the first
   time, plus 'fact' itself.
 */
-extern utils::HashSet<FactProxy> get_relaxed_possible_before(
-    const TaskProxy &task, const FactProxy &fact);
+extern std::vector<utils::HashSet<int>> get_relaxed_possible_before(
+    const std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> &ops,
+    const TaskProxy &task,
+    const FactProxy &fact);
 
 extern std::vector<int> get_domain_sizes(const TaskProxy &task);
 

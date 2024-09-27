@@ -8,6 +8,7 @@
 #include "utils.h"
 
 #include "../task_utils/cartesian_set.h"
+#include "../task_utils/disambiguated_operator.h"
 #include "../task_utils/disambiguation_method.h"
 #include "../task_utils/task_properties.h"
 #include "../utils/language.h"
@@ -21,6 +22,7 @@
 #include <unordered_map>
 
 using namespace std;
+using namespace disambiguation;
 
 namespace cartesian_abstractions {
 CEGAR::CEGAR(
@@ -53,13 +55,19 @@ CEGAR::CEGAR(
       operators_disambiguation(operators_disambiguation),
       abstract_space_disambiguation(abstract_space_disambiguation),
       flaw_search_states_disambiguation(flaw_search_states_disambiguation),
-      abstraction(make_unique<Abstraction>(task, mutex_information, abstract_space_disambiguation, log)),
-      simulated_transition_system(make_shared<TransitionSystem>(task_proxy.get_operators())),
+      simulated_transition_system(make_shared<TransitionSystem>(operators)),
       timer(max_time),
       max_time(max_time),
       log(log),
       dot_graph_verbosity(dot_graph_verbosity) {
     assert(max_states >= 1);
+    OperatorsProxy orig_ops = task_proxy.get_operators();
+    operators = make_shared<vector<DisambiguatedOperator>>();
+    operators->reserve(orig_ops.size());
+    for (OperatorProxy op : orig_ops) {
+        operators->push_back(DisambiguatedOperator(task_proxy, op, operators_disambiguation, mutex_information));
+    }
+    abstraction = make_unique<Abstraction>(task, operators, mutex_information, abstract_space_disambiguation, log);
     shortest_paths = make_unique<ShortestPaths>(
         task_properties::get_operator_costs(task_proxy), log);
     flaw_search = make_unique<FlawSearch>(
@@ -98,8 +106,8 @@ void CEGAR::separate_facts_unreachable_before_goal(bool refine_goals) const {
     assert(abstraction->get_num_states() == 1);
     assert(task_proxy.get_goals().size() == 1);
     FactProxy goal = task_proxy.get_goals()[0];
-    utils::HashSet<FactProxy> reachable_facts = get_relaxed_possible_before(
-        task_proxy, goal);
+    vector<utils::HashSet<int>> reachable_facts = get_relaxed_possible_before(
+        operators, task_proxy, goal);
     for (VariableProxy var : task_proxy.get_variables()) {
         if (!may_keep_refining())
             break;
@@ -107,7 +115,7 @@ void CEGAR::separate_facts_unreachable_before_goal(bool refine_goals) const {
         vector<int> unreachable_values;
         for (int value = 0; value < var.get_domain_size(); ++value) {
             FactProxy fact = var.get_fact(value);
-            if (reachable_facts.count(fact) == 0)
+            if (reachable_facts[var_id].count(fact.get_value()) == 0)
                 unreachable_values.push_back(value);
         }
         if (!unreachable_values.empty() &&
@@ -128,7 +136,7 @@ void CEGAR::separate_facts_unreachable_before_goal(bool refine_goals) const {
       state.
     */
     assert(abstraction->get_initial_state().includes(task_proxy.get_initial_state()));
-    assert(reachable_facts.count(goal));
+    assert(reachable_facts[goal.get_pair().var].count(goal.get_pair().value));
     if (refine_goals && may_keep_refining()) {
         abstraction->refine(abstraction->get_initial_state(), goal.get_variable().get_id(), {goal.get_value()});
     }

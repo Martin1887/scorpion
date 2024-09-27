@@ -9,6 +9,14 @@
 
 struct FactPair;
 
+namespace cartesian_state {
+class CartesianState;
+}
+
+namespace disambiguation {
+class DisambiguatedOperator;
+}
+
 namespace utils {
 class LogProxy;
 }
@@ -18,9 +26,7 @@ namespace cartesian_abstractions {
   Rewire transitions after each split.
 */
 class TransitionSystem {
-    const std::vector<std::vector<FactPair>> preconditions_by_operator;
-    const std::vector<std::vector<FactPair>> postconditions_by_operator;
-    OperatorsProxy operators;
+    const std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> operators;
 
     // Transitions from and to other abstract states.
     std::vector<Transitions> incoming;
@@ -34,34 +40,27 @@ class TransitionSystem {
 
     void enlarge_vectors_by_one();
 
-    int get_precondition_value(int op_id, int var) const;
-    int get_postcondition_value(int op_id, int var) const;
-
     void add_transition(int src_id, int op_id, int target_id);
     void add_loop(int state_id, int op_id);
 
     void rewire_incoming_transitions(
         const Transitions &old_incoming, const AbstractStates &states,
-        int v_id, const AbstractState &v1, const AbstractState &v2, int var,
-        const bool disambiguated);
+        int v_id, const AbstractState &v1, const AbstractState &v2);
     void rewire_outgoing_transitions(
         const Transitions &old_outgoing, const AbstractStates &states,
-        int v_id, const AbstractState &v1, const AbstractState &v2, int var,
-        const bool disambiguated);
+        int v_id, const AbstractState &v1, const AbstractState &v2);
     void rewire_loops(
         const Loops &old_loops,
-        const AbstractState &v1, const AbstractState &v2, int var,
-        const bool disambiguated,
+        const AbstractState &v1, const AbstractState &v2,
         const bool simulated = false);
 
 public:
-    explicit TransitionSystem(const OperatorsProxy &ops);
+    explicit TransitionSystem(const std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> &ops);
 
     // Update transition system after v has been split for var into v1 and v2.
     std::tuple<Transitions, Transitions> rewire(
         const AbstractStates &states, int v_id,
-        const AbstractState &v1, const AbstractState &v2, int var,
-        const bool disambiguated,
+        const AbstractState &v1, const AbstractState &v2,
         const bool simulated = false);
     // Add self-loops to single abstract state in trivial abstraction.
     void add_loops_in_trivial_abstraction(const AbstractState &init,
@@ -77,12 +76,13 @@ public:
                                const std::vector<Transitions> &new_outgoing,
                                const std::vector<Loops> &new_loops);
 
-    const std::vector<FactPair> &get_preconditions(int op_id) const;
+    const cartesian_state::CartesianState &get_preconditions(int op_id) const;
 
     int get_num_states() const;
     int get_num_operators() const;
     int get_num_non_loops() const;
     int get_num_loops() const;
+    const std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> &get_operators() const;
 
     void print_statistics(utils::LogProxy &log) const;
     void dump() const;

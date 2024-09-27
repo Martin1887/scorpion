@@ -11,6 +11,8 @@
 #include "../plugins/plugin.h"
 #include "../heuristics/additive_heuristic.h"
 #include "../task_utils/ac3_disambiguation.h"
+#include "../task_utils/cartesian_set_facts_proxy_iterator.h"
+#include "../task_utils/disambiguated_operator.h"
 #include "../task_utils/disambiguation_method.h"
 #include "../task_utils/task_properties.h"
 #include "../utils/logging.h"
@@ -39,33 +41,47 @@ unique_ptr<additive_heuristic::AdditiveHeuristic> create_additive_heuristic(
 }
 
 static bool operator_applicable(
-    const OperatorProxy &op, const utils::HashSet<FactProxy> &facts) {
-    for (FactProxy precondition : op.get_preconditions()) {
-        if (facts.count(precondition) == 0)
+    const DisambiguatedOperator &op, const std::vector<utils::HashSet<int>> &facts) {
+    const CartesianSet &pre = op.get_precondition().get_cartesian_set();
+    int var = -1;
+
+    for (auto &var_facts : facts) {
+        var++;
+        if (pre.all_values_set(var)) {
+            continue;
+        }
+        bool some_exists = false;
+        for (auto &&[fact_var, fact_value] : pre.iter(var)) {
+            if (var_facts.count(fact_value) == 1) {
+                some_exists = true;
+                break;
+            }
+        }
+        if (!some_exists) {
             return false;
+        }
     }
     return true;
 }
 
 static bool operator_achieves_fact(
-    const OperatorProxy &op, const FactProxy &fact) {
-    for (EffectProxy effect : op.get_effects()) {
-        if (effect.get_fact() == fact)
-            return true;
-    }
-    return false;
+    const DisambiguatedOperator &op, int var, int value) {
+    return op.get_var_effect(var) == value;
 }
 
-static utils::HashSet<FactProxy> compute_possibly_before_facts(
-    const TaskProxy &task, const FactProxy &last_fact) {
-    utils::HashSet<FactProxy> pb_facts;
+static std::vector<utils::HashSet<int>> compute_possibly_before_facts(
+    const shared_ptr<vector<DisambiguatedOperator>> &ops,
+    const TaskProxy &task,
+    const FactProxy &last_fact) {
+    std::vector<utils::HashSet<int>> pb_facts{task.get_variables().size(), utils::HashSet<int>()};
 
     // Add facts from initial state.
     for (FactProxy fact : task.get_initial_state())
-        pb_facts.insert(fact);
+        pb_facts[fact.get_pair().var].insert(fact.get_pair().value);
 
-    // Until no more facts can be added:
-    size_t last_num_reached = 0;
+    bool updated = true;
+    int last_fact_var = last_fact.get_pair().var;
+    int last_fact_value = last_fact.get_pair().value;
     /*
       Note: This can be done more efficiently by maintaining the number
       of unsatisfied preconditions for each operator and a queue of
@@ -74,16 +90,19 @@ static utils::HashSet<FactProxy> compute_possibly_before_facts(
       TODO: Find out if this code is time critical, and change it if it
       is.
     */
-    while (last_num_reached != pb_facts.size()) {
-        last_num_reached = pb_facts.size();
-        for (OperatorProxy op : task.get_operators()) {
+    while (updated) {
+        updated = false;
+        for (DisambiguatedOperator &op : *ops) {
             // Ignore operators that achieve last_fact.
-            if (operator_achieves_fact(op, last_fact))
+            if (operator_achieves_fact(op, last_fact_var, last_fact_value)) {
                 continue;
+            }
             // Add all facts that are achieved by an applicable operator.
             if (operator_applicable(op, pb_facts)) {
-                for (EffectProxy effect : op.get_effects()) {
-                    pb_facts.insert(effect.get_fact());
+                for (const FactPair &effect : op.get_effects()) {
+                    if (pb_facts[effect.var].insert(effect.value).second) {
+                        updated = true;
+                    }
                 }
             }
         }
@@ -91,11 +110,13 @@ static utils::HashSet<FactProxy> compute_possibly_before_facts(
     return pb_facts;
 }
 
-utils::HashSet<FactProxy> get_relaxed_possible_before(
-    const TaskProxy &task, const FactProxy &fact) {
-    utils::HashSet<FactProxy> reachable_facts =
-        compute_possibly_before_facts(task, fact);
-    reachable_facts.insert(fact);
+std::vector<utils::HashSet<int>> get_relaxed_possible_before(
+    const shared_ptr<vector<DisambiguatedOperator>> &ops,
+    const TaskProxy &task,
+    const FactProxy &fact) {
+    std::vector<utils::HashSet<int>> reachable_facts =
+        compute_possibly_before_facts(ops, task, fact);
+    reachable_facts[fact.get_pair().var].insert(fact.get_pair().value);
     return reachable_facts;
 }
 
