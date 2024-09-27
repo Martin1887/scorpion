@@ -175,15 +175,14 @@ bool CartesianState::reach_with_op(const CartesianState &other, const disambigua
         return false;
     }
     const CartesianSet &other_set = other.get_cartesian_set();
-    // const CartesianSet &pre = op.get_precondition().get_cartesian_set();
+    const CartesianSet &pre = op.get_precondition().get_cartesian_set();
     for (int var = 0; var < n_vars; var++) {
         int ef = op.get_var_effect(var);
         if (ef != -1) {
             if (!other_set.test(var, ef)) {
                 return false;
             }
-            // } else if (!other_set.inside_intersection(pre, cartesian_set, var)) {
-        } else if (!other_set.intersects(cartesian_set, var)) {
+        } else if (!other_set.intersects_intersection(pre, cartesian_set, var)) {
             return false;
         }
     }

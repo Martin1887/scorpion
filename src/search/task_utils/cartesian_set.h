@@ -56,7 +56,7 @@ public:
     void set_values(int var, const std::vector<int> &values);
     void set_values(int var, const utils::HashSet<int> &values);
     void set_values(int var, const CartesianSet &other);
-    bool inside_intersection(const CartesianSet &other, const CartesianSet &another, int var) const;
+    bool intersects_intersection(const CartesianSet &other, const CartesianSet &another, int var) const;
     bool intersects(const CartesianSet &other, int var) const;
     bool intersects(const CartesianSet &other) const;
     bool is_superset_of(const CartesianSet &other) const;

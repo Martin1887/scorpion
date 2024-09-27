@@ -189,15 +189,15 @@ void CartesianSet::set_values(int var, const CartesianSet &other) {
     }
 }
 
-bool CartesianSet::inside_intersection(const CartesianSet &other, const CartesianSet &another, int var) const {
+bool CartesianSet::intersects_intersection(const CartesianSet &other, const CartesianSet &another, int var) const {
     int len = var_size(var);
     for (int value = 0; value < len; value++) {
-        if (test(var, value) && (!other.test(var, value) || !another.test(var, value))) {
-            return false;
+        if (test(var, value) && other.test(var, value) && another.test(var, value)) {
+            return true;
         }
     }
 
-    return !empty;
+    return false;
 }
 
 bool CartesianSet::intersects(const CartesianSet &other, int var) const {
