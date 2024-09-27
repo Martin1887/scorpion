@@ -17,5 +17,6 @@
     cmake
     clang-tools
     valgrind
+    qcachegrind
   ];
 }
