@@ -217,15 +217,10 @@ unique_ptr<Split> FlawSearch::create_split(
                     return nullptr;
                 }
 
-                // TODO: Check this in the case of inapplicable operator.
-
                 // At most one of the f-optimal targets can include the successor state.
-                // If the operator is not applicable, the intersection of the
-                // progression is used instead (a CartesianState must be generated
-                // anyway).
                 if (!target_hit &&
                     ((applicable[i] && state.reach_with_op(abstraction.get_state(target), op)) ||
-                     (!applicable[i] && abstraction.get_state(target).get_cartesian_set().intersects(state.progress(op))))) {
+                     (!applicable[i] && state.reach_with_inapplicable_op(abstraction.get_state(target), op)))) {
                     // No flaw
                     target_hit = true;
                 } else {

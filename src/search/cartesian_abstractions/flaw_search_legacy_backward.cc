@@ -206,15 +206,10 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                     return nullptr;
                 }
 
-                // TODO: Check this in the case of inapplicable operator.
-
                 // At most one of the f-optimal targets can include the successor state.
-                // If the operator is not applicable, the intersection of the
-                // regression is used instead (a CartesianState must be generated
-                // anyway).
                 if (!source_hit &&
                     ((applicable[i] && state.reach_backwards_with_op(abstraction.get_state(source), op)) ||
-                     (!applicable[i] && abstraction.get_state(source).get_cartesian_set().intersects(state.regress(op))))) {
+                     (!applicable[i] && state.reach_backwards_with_inapplicable_op(abstraction.get_state(source), op)))) {
                     // No flaw
                     source_hit = true;
                     if (log.is_at_least_debug()) {

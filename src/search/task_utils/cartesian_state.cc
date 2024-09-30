@@ -225,6 +225,38 @@ bool CartesianState::reach_with_op(const CartesianSet &other_set, const Cartesia
     return true;
 }
 
+bool CartesianState::reach_with_inapplicable_op(const CartesianState &other, const disambiguation::DisambiguatedOperator &op) const {
+    if (other.is_spurious()) {
+        return false;
+    }
+    const CartesianSet &other_set = other.get_cartesian_set();
+    const CartesianSet &pre = op.get_precondition().get_cartesian_set();
+    for (int var = 0; var < n_vars; var++) {
+        if (!reach_with_inapplicable_op(other_set, pre, op, var)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+bool CartesianState::reach_with_inapplicable_op(const CartesianSet &other_set, const CartesianSet &pre, const disambiguation::DisambiguatedOperator &op, int var) const {
+    int ef = op.get_var_effect(var);
+    if (ef != -1) {
+        if (!other_set.test(var, ef)) {
+            return false;
+        }
+    } else if (cartesian_set.intersects(pre, var)) {
+        if (!other_set.intersects_intersection(pre, cartesian_set, var)) {
+            return false;
+        }
+    } else if (!other_set.intersects(pre, var)) {
+        // The var is set to the value of pre when it does not intersect.
+        return false;
+    }
+
+    return true;
+}
+
 bool CartesianState::reach_backwards_with_op(const CartesianState &other, const disambiguation::DisambiguatedOperator &op) const {
     if (other.is_spurious()) {
         return false;
@@ -236,7 +268,25 @@ bool CartesianState::reach_backwards_with_op(const CartesianState &other, const 
             if (!pre.intersects(other_set, var)) {
                 return false;
             }
-        } else if (!cartesian_set.intersects(other_set)) {
+        } else if (!cartesian_set.intersects(other_set, var)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+bool CartesianState::reach_backwards_with_inapplicable_op(const CartesianState &other, const disambiguation::DisambiguatedOperator &op) const {
+    if (other.is_spurious()) {
+        return false;
+    }
+    const CartesianSet &pre = op.get_precondition().get_cartesian_set();
+    const CartesianSet &other_set = other.get_cartesian_set();
+    for (int var = 0; var < n_vars; var++) {
+        if (op.has_effect(var) || !cartesian_set.intersects(pre, var)) {
+            if (!pre.intersects(other_set, var)) {
+                return false;
+            }
+        } else if (!cartesian_set.intersects(other_set, var)) {
             return false;
         }
     }
