@@ -24,7 +24,6 @@ namespace cartesian_state {
 */
 class CartesianState {
 protected:
-    int n_vars;
     CartesianSet cartesian_set;
 
 public:
@@ -63,11 +62,11 @@ public:
     std::vector<int> vars_not_backward_applicable(const disambiguation::DisambiguatedOperator &op) const;
 
     // Return the Cartesian set in which applying "op" can lead to this state.
-    CartesianSet regress(const OperatorProxy &op) const;
-    CartesianSet regress(const disambiguation::DisambiguatedOperator &op) const;
-    CartesianSet progress(const OperatorProxy &op) const;
-    CartesianSet progress(const disambiguation::DisambiguatedOperator &op) const;
-    CartesianSet undeviate(const CartesianState &mapped) const;
+    void regress(const OperatorProxy &op);
+    void regress(const disambiguation::DisambiguatedOperator &op);
+    void progress(const OperatorProxy &op);
+    void progress(const disambiguation::DisambiguatedOperator &op);
+    void undeviate(const CartesianState &mapped);
 
     /*
       Separate the "wanted" values from the other values in the abstract domain

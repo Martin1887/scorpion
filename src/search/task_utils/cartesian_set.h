@@ -20,6 +20,7 @@ class CartesianSetFactsProxyIterator;
 */
 class CartesianSet {
     std::vector<Bitset> domain_subsets;
+    int n_vars;
     bool empty;
 
     void init_facts(const std::vector<FactPair> &facts);
@@ -33,7 +34,7 @@ public:
     explicit CartesianSet(const std::vector<int> &domain_sizes, const std::vector<FactPair> &facts);
     explicit CartesianSet(const std::vector<int> &domain_sizes, const PreconditionsProxy &facts);
 
-    int n_vars() const;
+    int get_n_vars() const;
     void add(int var, int value);
     void set_single_value(int var, int value);
     void remove(int var, int value);
@@ -79,7 +80,7 @@ public:
 
 namespace utils {
 inline void feed(HashState &hash_state, const cartesian_set::CartesianSet &val) {
-    int n_vars = val.n_vars();
+    int n_vars = val.get_n_vars();
     feed(hash_state, n_vars);
     for (int var = 0; var < n_vars; var++) {
         feed(hash_state, val.get_values(var));

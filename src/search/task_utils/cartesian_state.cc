@@ -14,13 +14,11 @@ using namespace std;
 
 namespace cartesian_state {
 CartesianState::CartesianState(CartesianSet &&cartesian_set)
-    : n_vars(cartesian_set.n_vars()),
-      cartesian_set(move(cartesian_set)) {
+    : cartesian_set(move(cartesian_set)) {
 }
 CartesianState::CartesianState(
     const vector<int> &domain_sizes, vector<FactPair> facts)
-    : n_vars(domain_sizes.size()),
-      cartesian_set(domain_sizes, facts) {
+    : cartesian_set(domain_sizes, facts) {
 }
 
 bool CartesianState::is_fully_abstracted(int var) const {
@@ -33,6 +31,7 @@ int CartesianState::count(int var) const {
 
 vector<int> CartesianState::count() const {
     vector<int> states;
+    int n_vars = cartesian_set.get_n_vars();
     for (int var = 0; var < n_vars; var++) {
         states.push_back(cartesian_set.count(var));
     }
@@ -132,7 +131,8 @@ bool CartesianState::is_backward_applicable(const DisambiguatedOperator &op) con
         }
     }
     const CartesianSet &preconds = op.get_precondition().get_cartesian_set();
-    for (int var = 0; var < preconds.n_vars(); var++) {
+    int n_vars = cartesian_set.get_n_vars();
+    for (int var = 0; var < n_vars; var++) {
         if (!op.has_effect(var) && !cartesian_set.intersects(preconds, var)) {
             return false;
         }
@@ -171,7 +171,7 @@ vector<int> CartesianState::vars_not_backward_applicable(const DisambiguatedOper
         }
     }
     const CartesianSet &preconds = op.get_precondition().get_cartesian_set();
-    for (int var = 0; var < preconds.n_vars(); var++) {
+    for (int var = 0; var < preconds.get_n_vars(); var++) {
         if (!op.has_effect(var) && !cartesian_set.intersects(preconds, var)) {
             // Vars are pushed at most once in this loop and without effects
             // they cannot be already in the not applicable vector.
@@ -188,6 +188,7 @@ bool CartesianState::reach_with_op(const CartesianState &other, const disambigua
     }
     const CartesianSet &other_set = other.get_cartesian_set();
     const CartesianSet &pre = op.get_precondition().get_cartesian_set();
+    int n_vars = cartesian_set.get_n_vars();
     for (int var = 0; var < n_vars; var++) {
         if (!reach_with_op(other_set, pre, op, var)) {
             return false;
@@ -231,6 +232,7 @@ bool CartesianState::reach_with_inapplicable_op(const CartesianState &other, con
     }
     const CartesianSet &other_set = other.get_cartesian_set();
     const CartesianSet &pre = op.get_precondition().get_cartesian_set();
+    int n_vars = cartesian_set.get_n_vars();
     for (int var = 0; var < n_vars; var++) {
         if (!reach_with_inapplicable_op(other_set, pre, op, var)) {
             return false;
@@ -263,6 +265,7 @@ bool CartesianState::reach_backwards_with_op(const CartesianState &other, const 
     }
     const CartesianSet &pre = op.get_precondition().get_cartesian_set();
     const CartesianSet &other_set = other.get_cartesian_set();
+    int n_vars = cartesian_set.get_n_vars();
     for (int var = 0; var < n_vars; var++) {
         if (op.has_effect(var)) {
             if (!pre.intersects(other_set, var)) {
@@ -281,6 +284,7 @@ bool CartesianState::reach_backwards_with_inapplicable_op(const CartesianState &
     }
     const CartesianSet &pre = op.get_precondition().get_cartesian_set();
     const CartesianSet &other_set = other.get_cartesian_set();
+    int n_vars = cartesian_set.get_n_vars();
     for (int var = 0; var < n_vars; var++) {
         if (op.has_effect(var) || !cartesian_set.intersects(pre, var)) {
             if (!pre.intersects(other_set, var)) {
@@ -294,77 +298,68 @@ bool CartesianState::reach_backwards_with_inapplicable_op(const CartesianState &
     return true;
 }
 
-CartesianSet CartesianState::regress(const OperatorProxy &op) const {
-    CartesianSet regression(cartesian_set);
+void CartesianState::regress(const OperatorProxy &op) {
     for (EffectProxy effect : op.get_effects()) {
         int var_id = effect.get_fact().get_variable().get_id();
-        regression.add_all(var_id);
+        cartesian_set.add_all(var_id);
     }
     for (FactProxy precondition : op.get_preconditions()) {
         int var_id = precondition.get_variable().get_id();
-        regression.set_single_value(var_id, precondition.get_value());
+        cartesian_set.set_single_value(var_id, precondition.get_value());
     }
-    return regression;
 }
-CartesianSet CartesianState::regress(const DisambiguatedOperator &op) const {
-    CartesianSet regression(cartesian_set);
+void CartesianState::regress(const DisambiguatedOperator &op) {
     // If the operator has no effects in the variable, then the intersection
     // with preconds is set except that intersection is empty
     // (inapplicable operator), setting  preconditions otherwise.
     // Removing effects is not needed because preconditions have
     // value for all variables.
     const CartesianSet &preconds = op.get_precondition().get_cartesian_set();
+    int n_vars = cartesian_set.get_n_vars();
     for (int var = 0; var < n_vars; var++) {
-        if (op.has_effect(var) || !regression.intersects(preconds, var)) {
-            regression.set_values(var, preconds);
+        if (op.has_effect(var) || !cartesian_set.intersects(preconds, var)) {
+            cartesian_set.set_values(var, preconds);
         } else {
-            regression.set_values(var, cartesian_set.var_intersection(preconds, var));
+            cartesian_set.set_values(var, cartesian_set.var_intersection(preconds, var));
         }
     }
-    return regression;
 }
 
-CartesianSet CartesianState::progress(const OperatorProxy &op) const {
-    CartesianSet progression(cartesian_set);
+void CartesianState::progress(const OperatorProxy &op) {
     // Preconditions are also set because the operator could be not applicable.
     for (FactProxy precondition : op.get_preconditions()) {
         int var_id = precondition.get_variable().get_id();
-        progression.set_single_value(var_id, precondition.get_value());
+        cartesian_set.set_single_value(var_id, precondition.get_value());
     }
     for (EffectProxy effect : op.get_effects()) {
         int var_id = effect.get_fact().get_variable().get_id();
-        progression.set_single_value(var_id, effect.get_fact().get_value());
+        cartesian_set.set_single_value(var_id, effect.get_fact().get_value());
     }
-    return progression;
 }
-CartesianSet CartesianState::progress(const DisambiguatedOperator &op) const {
-    CartesianSet progression(cartesian_set);
+void CartesianState::progress(const DisambiguatedOperator &op) {
     // Not met preconditions are also set because the operator could be inapplicable.
     const CartesianSet &preconds = op.get_precondition().get_cartesian_set();
-    for (int var = 0; var < preconds.n_vars(); var++) {
-        if (!progression.intersects(preconds, var)) {
-            progression.set_values(var, preconds);
+    int n_vars = cartesian_set.get_n_vars();
+    for (int var = 0; var < n_vars; var++) {
+        if (!cartesian_set.intersects(preconds, var)) {
+            cartesian_set.set_values(var, preconds);
         }
     }
     for (const FactPair &effect : op.get_effects()) {
-        progression.set_single_value(effect.var, effect.value);
+        cartesian_set.set_single_value(effect.var, effect.value);
     }
-    return progression;
 }
 
-CartesianSet CartesianState::undeviate(const CartesianState &mapped) const {
-    CartesianSet undeviated(cartesian_set);
-
+void CartesianState::undeviate(const CartesianState &mapped) {
+    int n_vars = cartesian_set.get_n_vars();
     for (int var = 0; var < n_vars; var++) {
         if (!domain_subsets_intersect(mapped, var)) {
-            undeviated.remove_all(var);
+            cartesian_set.remove_all(var);
             for (auto &&[fact_var, fact_value] : mapped.get_cartesian_set().iter(var)) {
-                undeviated.add(var, fact_value);
+                cartesian_set.add(var, fact_value);
             }
         }
     }
-
-    return undeviated;
 }
 
 bool CartesianState::domain_subsets_intersect(const CartesianState &other, int var) const {

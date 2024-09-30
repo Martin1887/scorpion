@@ -28,7 +28,7 @@ void DisambiguatedOperator::disambiguate_effects(const EffectsProxy &ep,
     CartesianState ef_cartesian_state(move(effects_cartesian_set));
     method->disambiguate(ef_cartesian_state, *mutex_information);
     const CartesianSet &ef_set = ef_cartesian_state.get_cartesian_set();
-    int n_vars = ef_set.n_vars();
+    int n_vars = ef_set.get_n_vars();
     for (int var = 0; var < n_vars; var++) {
         if (ef_set.count(var) == 1) {
             set_effect_value(var, (*ef_set.iter(var).begin()).value);
@@ -42,7 +42,7 @@ DisambiguatedOperator::DisambiguatedOperator(TaskProxy task,
                                              shared_ptr<MutexInformation> &mutex_information)
     : op(_op),
       precondition(CartesianSet(task, op.get_preconditions())),
-      effect_per_var(precondition.get_cartesian_set().n_vars(), -1),
+      effect_per_var(precondition.get_cartesian_set().get_n_vars(), -1),
       effects() {
     method->disambiguate(precondition, *mutex_information);
     disambiguate_effects(op.get_effects(), method, mutex_information);

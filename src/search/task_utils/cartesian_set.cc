@@ -6,7 +6,7 @@ using namespace std;
 
 namespace cartesian_set {
 void CartesianSet::init_facts(const vector<FactPair> &facts) {
-    vector<bool> reset_vars(n_vars(), false);
+    vector<bool> reset_vars(n_vars, false);
     empty = true;
     for (FactPair fact : facts) {
         empty = false;
@@ -19,7 +19,7 @@ void CartesianSet::init_facts(const vector<FactPair> &facts) {
     }
 }
 void CartesianSet::init_facts(const PreconditionsProxy &facts) {
-    vector<bool> reset_vars(n_vars(), false);
+    vector<bool> reset_vars(n_vars, false);
     empty = true;
     for (FactProxy fact : facts) {
         empty = false;
@@ -40,6 +40,7 @@ CartesianSet::CartesianSet(const TaskProxy &task) {
         domain.set();
         domain_subsets.push_back(std::move(domain));
     }
+    n_vars = domain_subsets.size();
 }
 CartesianSet::CartesianSet(const TaskProxy &task, const vector<FactPair> &facts)
     : CartesianSet(task) {
@@ -57,6 +58,7 @@ CartesianSet::CartesianSet(const vector<int> &domain_sizes) {
         domain.set();
         domain_subsets.push_back(move(domain));
     }
+    n_vars = domain_subsets.size();
 }
 CartesianSet::CartesianSet(const vector<int> &domain_sizes, const vector<FactPair> &facts)
     : CartesianSet(domain_sizes) {
@@ -67,8 +69,8 @@ CartesianSet::CartesianSet(const vector<int> &domain_sizes, const PreconditionsP
     init_facts(facts);
 }
 
-int CartesianSet::n_vars() const {
-    return domain_subsets.size();
+int CartesianSet::get_n_vars() const {
+    return n_vars;
 }
 
 void CartesianSet::add(int var, int value) {
@@ -127,7 +129,7 @@ int CartesianSet::var_size(int var) const {
 
 bool CartesianSet::got_empty() {
     // TODO: Naive implementation.
-    for (int var = 0; var < n_vars(); var++) {
+    for (int var = 0; var < n_vars; var++) {
         if (count(var) == 0) {
             empty = true;
             break;
@@ -234,10 +236,10 @@ CartesianSetFactsProxyIterator CartesianSet::iter(int start) const {
     return iter(start, start + 1);
 }
 CartesianSetFactsProxyIterator CartesianSet::iter() const {
-    return iter(0, n_vars());
+    return iter(0, n_vars);
 }
 CartesianSetFactsProxyIterator CartesianSet::inverse_iter() const {
-    return iter(0, n_vars(), true);
+    return iter(0, n_vars, true);
 }
 
 ostream &operator<<(ostream &os, const CartesianSet &cartesian_set) {
@@ -267,10 +269,10 @@ ostream &operator<<(ostream &os, const CartesianSet &cartesian_set) {
 }
 
 bool CartesianSet::operator==(const CartesianSet &other) const {
-    if (n_vars() != other.n_vars()) {
+    if (n_vars != other.n_vars) {
         return false;
     }
-    for (int var = 0; var < n_vars(); var++) {
+    for (int var = 0; var < n_vars; var++) {
         if (get_values(var) != other.get_values(var)) {
             return false;
         }

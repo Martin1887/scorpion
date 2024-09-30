@@ -290,7 +290,7 @@ unique_ptr<Split> FlawSearch::create_split(
 
         vector<bool> applicable(states.size(), true);
         const CartesianSet &pre = op.get_precondition().get_cartesian_set();
-        int n_vars = pre.n_vars();
+        int n_vars = pre.get_n_vars();
         for (int var = 0; var < n_vars; var++) {
             vector<int> state_value_count(domain_sizes[var], 0);
             for (size_t i = 0; i < states.size(); ++i) {

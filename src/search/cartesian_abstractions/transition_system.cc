@@ -196,7 +196,7 @@ tuple<Transitions, Transitions> TransitionSystem::rewire(
     const CartesianSet &v_set = states[v_id]->get_cartesian_set();
     const CartesianSet &v1_set = v1.get_cartesian_set();
     const CartesianSet &v2_set = v2.get_cartesian_set();
-    int n_vars = v_set.n_vars();
+    int n_vars = v_set.get_n_vars();
     for (int var = 0; var < n_vars; var++) {
         if (!v_set.is_equal_in_var(v1_set, var) || !v_set.is_equal_in_var(v2_set, var)) {
             modified_vars.push_back(var);

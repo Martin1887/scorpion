@@ -166,7 +166,7 @@ unique_ptr<Split> FlawSearch::create_split(
 
         vector<bool> applicable(states.size(), true);
         const CartesianSet &pre = op.get_precondition().get_cartesian_set();
-        int n_vars = pre.n_vars();
+        int n_vars = pre.get_n_vars();
         for (int var = 0; var < n_vars; var++) {
             vector<int> state_value_count(domain_sizes[var], 0);
             for (size_t i = 0; i < states.size(); ++i) {
@@ -401,42 +401,44 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
     int solution_size = (int)solution.size();
     do {
         for (int i = max(start_abstract_state_index, 0); i < solution_size; i++) {
-            Transition step = solution.at(i);
-            disambiguation::DisambiguatedOperator op = (*abstraction.get_transition_system().get_operators())[step.op_id];
+            const Transition &step = solution.at(i);
+            const disambiguation::DisambiguatedOperator &op = (*abstraction.get_transition_system().get_operators())[step.op_id];
             const AbstractState *next_abstract_state = &abstraction.get_state(step.target_id);
             if (flaw_search_state.is_applicable(op)) {
-                if (debug)
+                if (debug) {
                     log << "  Move to " << *next_abstract_state << " with "
                         << op.get_name() << endl;
-                CartesianState next_flaw_search_state(flaw_search_state.progress(op));
-                if (!next_abstract_state->intersects(next_flaw_search_state)) {
+                }
+                if (!flaw_search_state.reach_with_op(*next_abstract_state, op)) {
                     if (debug) {
                         log << "  Paths deviate." << endl;
-                        log << "  Flaw-search state: " << next_flaw_search_state << endl;
+                        log << "  Flaw-search state: " << flaw_search_state << endl;
                         log << "  Previous abstract state: " << *abstract_state << endl;
                         log << "  Op pre: " << op.get_precondition() << ", op effects: " << op.get_effects() << endl;
                     }
                     push_flaw_if_not_filtered(flaws,
-                                              LegacyFlaw(move(flaw_search_state),
+                                              LegacyFlaw(flaw_search_state,
                                                          abstract_state->get_id(),
                                                          false),
                                               solution,
                                               false,
                                               first_filtered_flaw,
                                               force_push_filtered_flaws);
+                    flaw_search_state.progress(op);
                     if (!in_sequence ||
                         (split_selector.sequence_pick == PickSequenceFlaw::FIRST_FLAW && !flaws.empty())) {
                         return flaws;
                     } else {
-                        next_flaw_search_state = CartesianState(next_flaw_search_state.undeviate(*next_abstract_state));
+                        flaw_search_state.undeviate(*next_abstract_state);
                         if (debug) {
-                            log << "  Undeviated state: " << next_flaw_search_state << endl;
+                            log << "  Undeviated state: " << flaw_search_state << endl;
                             log << "  Abstract state: " << *next_abstract_state << endl;
                         }
                     }
+                } else {
+                    flaw_search_state.progress(op);
                 }
                 abstract_state = next_abstract_state;
-                flaw_search_state = move(next_flaw_search_state);
             } else {
                 if (debug) {
                     log << "  Operator not applicable: " << op.get_name() << endl;
@@ -445,7 +447,7 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                     log << "  Flaw-search state: " << flaw_search_state << endl;
                 }
                 push_flaw_if_not_filtered(flaws,
-                                          LegacyFlaw(move(flaw_search_state),
+                                          LegacyFlaw(flaw_search_state,
                                                      abstract_state->get_id(),
                                                      false),
                                           solution,
@@ -458,14 +460,14 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                 } else {
                     abstract_state = &abstraction.get_state(step.target_id);
                     // Apply the operator as if it were applicable (and undeviate if needed).
-                    flaw_search_state = CartesianState(flaws.back().flaw_search_state.progress(op));
+                    flaw_search_state.progress(op);
                     if (!abstract_state->intersects(flaw_search_state)) {
                         if (debug) {
                             log << "  The state " << flaw_search_state << " does not intersects" << endl;
                             log << "  Abstract state: " << *abstract_state << endl;
                             log << "  Op pre: " << op.get_precondition() << ", op effects: " << op.get_effects() << endl;
                         }
-                        flaw_search_state = CartesianState(flaw_search_state.undeviate(*abstract_state));
+                        flaw_search_state.undeviate(*abstract_state);
                         if (debug)
                             log << "  Undeviated state: " << flaw_search_state << endl;
                     }
@@ -572,8 +574,8 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
 
     // iterate over solution in reverse direction
     for (int i = solution.size() - 1; i >= 0; i--) {
-        Transition step = solution.at(i);
-        disambiguation::DisambiguatedOperator op = (*abstraction.get_transition_system().get_operators())[step.op_id];
+        const Transition &step = solution.at(i);
+        const disambiguation::DisambiguatedOperator &op = (*abstraction.get_transition_system().get_operators())[step.op_id];
         if (flaw_search_state.is_backward_applicable(op)) {
             const AbstractState *next_abstract_state;
             if (i > 0) {
@@ -584,25 +586,25 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
             if (debug)
                 log << "  Move from " << *abstract_state << " to " << *next_abstract_state << " with "
                     << op.get_name() << endl;
-            CartesianState next_flaw_search_state(CartesianState(flaw_search_state.regress(op)));
             if (debug)
-                log << "  In flaw-search space move from " << flaw_search_state << " to "
-                    << next_flaw_search_state << " with " << op.get_name() << endl;
-            if (!next_abstract_state->intersects(next_flaw_search_state)) {
+                log << "  In flaw-search space move to "
+                    << flaw_search_state << " with " << op.get_name() << endl;
+            if (!flaw_search_state.reach_backwards_with_op(*next_abstract_state, op)) {
                 if (debug) {
                     log << "  Paths deviate." << endl;
-                    log << "  Flaw-search state: " << next_flaw_search_state << endl;
+                    log << "  Flaw-search state: " << flaw_search_state << endl;
                     log << "  Previous abstract state: " << *abstract_state << endl;
                     log << "  Op pre: " << op.get_precondition() << ", op effects: " << op.get_effects() << endl;
                 }
                 push_flaw_if_not_filtered(flaws,
-                                          LegacyFlaw(move(flaw_search_state),
+                                          LegacyFlaw(flaw_search_state,
                                                      abstract_state->get_id(),
                                                      false),
                                           solution,
                                           true,
                                           first_filtered_flaw,
                                           force_push_filtered_flaws);
+                flaw_search_state.regress(op);
                 if (!in_sequence ||
                     (!flaws.empty() &&
                      (only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION ||
@@ -610,14 +612,15 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                       split_selector.sequence_pick == PickSequenceFlaw::CLOSEST_TO_GOAL_FLAW))) {
                     return flaws;
                 } else {
-                    next_flaw_search_state = CartesianState(next_flaw_search_state.undeviate(*next_abstract_state));
+                    flaw_search_state.undeviate(*next_abstract_state);
                     if (debug) {
-                        log << "  Undeviated state: " << next_flaw_search_state << endl;
+                        log << "  Undeviated state: " << flaw_search_state << endl;
                     }
                 }
+            } else {
+                flaw_search_state.regress(op);
             }
             abstract_state = next_abstract_state;
-            flaw_search_state = move(next_flaw_search_state);
             if (intersect_flaw_search_abstract_states) {
                 flaw_search_state = flaw_search_state.intersection(*abstract_state);
                 if (debug)
@@ -627,7 +630,7 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
             if (debug)
                 log << "  Operator not backward applicable: " << op.get_name() << endl;
             push_flaw_if_not_filtered(flaws,
-                                      LegacyFlaw(move(flaw_search_state),
+                                      LegacyFlaw(flaw_search_state,
                                                  abstract_state->get_id(),
                                                  false),
                                       solution,
@@ -647,13 +650,13 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                     abstract_state = initial_abstract_state;
                 }
                 // Apply the operator as if it were applicable (and undeviate if needed).
-                flaw_search_state = CartesianState(flaws.back().flaw_search_state.regress(op));
+                flaw_search_state.regress(op);
                 if (!abstract_state->intersects(flaw_search_state)) {
                     if (debug) {
                         log << "  The state " << flaw_search_state << " does not intersects" << endl;
                         log << "  Abstract state: " << *abstract_state << endl;
                     }
-                    flaw_search_state = CartesianState(flaw_search_state.undeviate(*abstract_state));
+                    flaw_search_state.undeviate(*abstract_state);
                     if (debug)
                         log << "  Undeviated state: " << flaw_search_state << endl;
                 }

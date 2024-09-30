@@ -11,7 +11,8 @@ bool AC3Disambiguation::disambiguate(CartesianState &partial_state,
     bool changed = false;
     CartesianSet disambiguated = partial_state.get_cartesian_set();
 
-    for (int var = 0; var < disambiguated.n_vars(); var++) {
+    int n_vars = disambiguated.get_n_vars();
+    for (int var = 0; var < n_vars; var++) {
         set<tuple<int, FactPair>> var_mutexes = mutexes.get_var_mutexes(var);
         // Initially, worklist=var_mutexes, but it changes.
         set<tuple<int, FactPair>> worklist = var_mutexes;

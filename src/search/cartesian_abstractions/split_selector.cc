@@ -650,7 +650,7 @@ bool SplitSelector::split_is_filtered(const Split &split,
                 if (check_incoming && (check_outgoing || abs.includes(task_properties::get_fact_pairs(task_proxy.get_goals())))) {
                     for (auto op_tr_pair : incoming) {
                         for (int target_state_id : op_tr_pair.second) {
-                            if (abstraction.get_state(target_state_id).progress((*ops)[op_tr_pair.first]).intersects(abs.get_cartesian_set())) {
+                            if (abstraction.get_state(target_state_id).reach_with_op(abs, (*ops)[op_tr_pair.first])) {
                                 any_incoming = true;
                                 break;
                             }
@@ -666,7 +666,7 @@ bool SplitSelector::split_is_filtered(const Split &split,
                     for (auto op_tr_pair : outgoing) {
                         for (int target_state_id : op_tr_pair.second) {
                             if (abs.is_applicable((*ops)[op_tr_pair.first]) &&
-                                abs.progress((*ops)[op_tr_pair.first]).intersects(abstraction.get_state(target_state_id).get_cartesian_set())) {
+                                abs.reach_with_op(abstraction.get_state(target_state_id), (*ops)[op_tr_pair.first])) {
                                 any_outgoing = true;
                                 break;
                             }
