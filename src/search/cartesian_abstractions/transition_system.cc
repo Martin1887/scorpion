@@ -78,7 +78,8 @@ void TransitionSystem::force_new_transitions(const std::vector<Transitions> &new
 
 void TransitionSystem::rewire_incoming_transitions(
     const Transitions &old_incoming, const AbstractStates &states, int v_id,
-    const AbstractState &v1, const AbstractState &v2) {
+    const AbstractState &v1, const AbstractState &v2,
+    const vector<int> &modified_vars) {
     /* State v has been split into v1 and v2. Now for all transitions
        u->v we need to add transitions u->v1, u->v2, or both. */
     int v1_id = v1.get_id();
@@ -98,11 +99,10 @@ void TransitionSystem::rewire_incoming_transitions(
         int op_id = transition.op_id;
         int u_id = transition.target_id;
         const AbstractState &u = *states[u_id];
-        // TODO: Faster comparing postconditions for each var?!
-        if (u.reach_with_op(v1, (*operators)[op_id])) {
+        if (u.reach_with_op(v1, (*operators)[op_id], modified_vars)) {
             add_transition(u_id, op_id, v1_id);
         }
-        if (u.reach_with_op(v2, (*operators)[op_id])) {
+        if (u.reach_with_op(v2, (*operators)[op_id], modified_vars)) {
             add_transition(u_id, op_id, v2_id);
         }
     }
@@ -110,7 +110,8 @@ void TransitionSystem::rewire_incoming_transitions(
 
 void TransitionSystem::rewire_outgoing_transitions(
     const Transitions &old_outgoing, const AbstractStates &states, int v_id,
-    const AbstractState &v1, const AbstractState &v2) {
+    const AbstractState &v1, const AbstractState &v2,
+    const vector<int> &modified_vars) {
     /* State v has been split into v1 and v2. Now for all transitions
        v->w we need to add transitions v1->w, v2->w, or both. */
     int v1_id = v1.get_id();
@@ -130,11 +131,12 @@ void TransitionSystem::rewire_outgoing_transitions(
         int op_id = transition.op_id;
         int w_id = transition.target_id;
         const AbstractState &w = *states[w_id];
-        // TODO: Faster comparing preconditions for each var?!
-        if (v1.is_applicable((*operators)[op_id]) && v1.reach_with_op(w, (*operators)[op_id])) {
+        if (v1.is_applicable((*operators)[op_id], modified_vars) &&
+            v1.reach_with_op(w, (*operators)[op_id], modified_vars)) {
             add_transition(v1_id, op_id, w_id);
         }
-        if (v2.is_applicable((*operators)[op_id]) && v2.reach_with_op(w, (*operators)[op_id])) {
+        if (v2.is_applicable((*operators)[op_id], modified_vars) &&
+            v2.reach_with_op(w, (*operators)[op_id], modified_vars)) {
             add_transition(v2_id, op_id, w_id);
         }
     }
@@ -142,6 +144,7 @@ void TransitionSystem::rewire_outgoing_transitions(
 
 void TransitionSystem::rewire_loops(
     const Loops &old_loops, const AbstractState &v1, const AbstractState &v2,
+    const vector<int> &modified_vars,
     const bool simulated) {
     /* State v has been split into v1 and v2. Now for all self-loops
        v->v we need to add one or two of the transitions v1->v1, v1->v2,
@@ -149,13 +152,12 @@ void TransitionSystem::rewire_loops(
     int v1_id = v1.get_id();
     int v2_id = v2.get_id();
     for (int op_id : old_loops) {
-        // TODO: Faster comparing preconditions for each var?!
-        bool applicable_v1 = v1.is_applicable((*operators)[op_id]);
-        bool applicable_v2 = v2.is_applicable((*operators)[op_id]);
-        bool reach_v1_from_v1 = v1.reach_with_op(v1, (*operators)[op_id]);
-        bool reach_v2_from_v1 = v1.reach_with_op(v2, (*operators)[op_id]);
-        bool reach_v1_from_v2 = v2.reach_with_op(v1, (*operators)[op_id]);
-        bool reach_v2_from_v2 = v2.reach_with_op(v2, (*operators)[op_id]);
+        bool applicable_v1 = v1.is_applicable((*operators)[op_id], modified_vars);
+        bool applicable_v2 = v2.is_applicable((*operators)[op_id], modified_vars);
+        bool reach_v1_from_v1 = v1.reach_with_op(v1, (*operators)[op_id], modified_vars);
+        bool reach_v2_from_v1 = v1.reach_with_op(v2, (*operators)[op_id], modified_vars);
+        bool reach_v1_from_v2 = v2.reach_with_op(v1, (*operators)[op_id], modified_vars);
+        bool reach_v2_from_v2 = v2.reach_with_op(v2, (*operators)[op_id], modified_vars);
         if (!simulated) {
             if (reach_v1_from_v1 && applicable_v1) {
                 add_loop(v1_id, op_id);
@@ -190,13 +192,23 @@ tuple<Transitions, Transitions> TransitionSystem::rewire(
     assert(incoming[v1_id].empty() && outgoing[v1_id].empty() && loops[v1_id].empty());
     assert(incoming[v2_id].empty() && outgoing[v2_id].empty() && loops[v2_id].empty());
 
-    // TODO: Different vars in each state for faster checks.
+    vector<int> modified_vars{};
+    const CartesianSet &v_set = states[v_id]->get_cartesian_set();
+    const CartesianSet &v1_set = v1.get_cartesian_set();
+    const CartesianSet &v2_set = v2.get_cartesian_set();
+    int n_vars = v_set.n_vars();
+    for (int var = 0; var < n_vars; var++) {
+        if (!v_set.is_equal_in_var(v1_set, var) || !v_set.is_equal_in_var(v2_set, var)) {
+            modified_vars.push_back(var);
+        }
+    }
+
     // Remove old transitions and add new transitions.
-    rewire_incoming_transitions(old_incoming, states, v_id, v1, v2);
-    rewire_outgoing_transitions(old_outgoing, states, v_id, v1, v2);
+    rewire_incoming_transitions(old_incoming, states, v_id, v1, v2, modified_vars);
+    rewire_outgoing_transitions(old_outgoing, states, v_id, v1, v2, modified_vars);
     // For a simulated rewire, loops can be omitted because they will not be
     // used in future iterations.
-    rewire_loops(old_loops, v1, v2, simulated);
+    rewire_loops(old_loops, v1, v2, modified_vars, simulated);
 
     return {old_incoming, old_outgoing};
 }

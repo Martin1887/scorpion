@@ -46,11 +46,13 @@ public:
     bool is_spurious() const;
     bool got_empty();
 
-    bool contains(int var, int value) const;
-
     bool is_applicable(const OperatorProxy &op) const;
     bool is_applicable(const disambiguation::DisambiguatedOperator &op) const;
+    bool is_applicable(const disambiguation::DisambiguatedOperator &op, const std::vector<int> &vars) const;
+    bool is_applicable(const disambiguation::DisambiguatedOperator &op, int var) const;
     bool reach_with_op(const CartesianState &other, const disambiguation::DisambiguatedOperator &op) const;
+    bool reach_with_op(const CartesianState &other, const disambiguation::DisambiguatedOperator &op, const std::vector<int> &vars) const;
+    bool reach_with_op(const CartesianSet &other_set, const CartesianSet &pre, const disambiguation::DisambiguatedOperator &op, int var) const;
     bool is_backward_applicable(const OperatorProxy &op) const;
     bool is_backward_applicable(const disambiguation::DisambiguatedOperator &op) const;
     bool reach_backwards_with_op(const CartesianState &other, const disambiguation::DisambiguatedOperator &op) const;
@@ -72,6 +74,7 @@ public:
         int var, const std::vector<int> &wanted) const;
 
     bool intersects(const CartesianState &other) const;
+    bool intersects(const CartesianState &other, int var) const;
     bool includes(const CartesianState &other) const;
     bool includes(const State &concrete_state) const;
     bool includes(const FactPair &fact) const;

@@ -45,13 +45,16 @@ class TransitionSystem {
 
     void rewire_incoming_transitions(
         const Transitions &old_incoming, const AbstractStates &states,
-        int v_id, const AbstractState &v1, const AbstractState &v2);
+        int v_id, const AbstractState &v1, const AbstractState &v2,
+        const std::vector<int> &modified_vars);
     void rewire_outgoing_transitions(
         const Transitions &old_outgoing, const AbstractStates &states,
-        int v_id, const AbstractState &v1, const AbstractState &v2);
+        int v_id, const AbstractState &v1, const AbstractState &v2,
+        const std::vector<int> &modified_vars);
     void rewire_loops(
         const Loops &old_loops,
         const AbstractState &v1, const AbstractState &v2,
+        const std::vector<int> &modified_vars,
         const bool simulated = false);
 
 public:

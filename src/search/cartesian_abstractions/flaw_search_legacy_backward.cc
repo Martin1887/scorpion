@@ -58,7 +58,7 @@ void FlawSearch::get_deviation_backward_splits(
             // instead of `intersects`
             if (!source_abs_state.domain_subsets_intersect(flaw_search_st, var)) {
                 for (const auto &&[fact_var, fact_value] : flaw_search_st.get_cartesian_set().iter(var)) {
-                    if (abs_state.contains(var, fact_value)) {
+                    if (abs_state.includes(var, fact_value)) {
                         ++fact_count[var][fact_value];
                         var_fact_count[var] = true;
                     }
@@ -71,13 +71,13 @@ void FlawSearch::get_deviation_backward_splits(
         vector<int> wanted;
         if (var_fact_count[var]) {
             for (int value = 0; value < domain_sizes[var]; ++value) {
-                if (abs_state.contains(var, value) &&
-                    source_abs_state.contains(var, value)) {
+                if (abs_state.includes(var, value) &&
+                    source_abs_state.includes(var, value)) {
                     wanted.push_back(value);
                 }
             }
             for (int value = 0; value < domain_sizes[var]; ++value) {
-                if (fact_count[var][value] && !source_abs_state.contains(var, value)) {
+                if (fact_count[var][value] && !source_abs_state.includes(var, value)) {
                     assert(!wanted.empty());
                     if (split_unwanted_values) {
                         for (int want : wanted) {
@@ -157,7 +157,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                 // Applicability flaw
                 applicable[i] = false;
                 for (const auto &&[fact_var, fact_value] : state_cartesian_set.iter(not_applicable)) {
-                    if (abstract_state.contains(not_applicable, fact_value)) {
+                    if (abstract_state.includes(not_applicable, fact_value)) {
                         ++state_value_count[not_applicable][fact_value];
                     }
                 }
@@ -296,9 +296,9 @@ unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
 
             if (split_unwanted_values) {
                 for (CartesianState state : states) {
-                    if (!state.contains(var, init_value)) {
+                    if (!state.includes(var, init_value)) {
                         for (const auto &&[fact_var, fact_value] : state.get_cartesian_set().iter(var)) {
-                            if (abstract_state.contains(var, fact_value)) {
+                            if (abstract_state.includes(var, fact_value)) {
                                 if (log.is_at_least_debug()) {
                                     log << "add_split(var " << var << ", val " << fact_value
                                         << "!=" << init_value << ")" << endl;
@@ -313,7 +313,7 @@ unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
             } else {
                 vector<int> other_values{};
                 for (int value = 0; value < domain_sizes[var]; value++) {
-                    if (value != init_value && abstract_state.contains(var, value)) {
+                    if (value != init_value && abstract_state.includes(var, value)) {
                         other_values.push_back(value);
                     }
                 }

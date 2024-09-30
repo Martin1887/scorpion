@@ -402,7 +402,7 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
                 int goal_value = goal.get_value();
                 if (goal.get_variable().get_id() == var) {
                     for (int value = 0; value < domain_sizes[var]; value++) {
-                        if (value != goal_value && abstract_state.contains(var, value)) {
+                        if (value != goal_value && abstract_state.includes(var, value)) {
                             other_values.push_back(value);
                         }
                     }
@@ -411,7 +411,7 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
                         for (StateID state_id : state_ids) {
                             State state = state_registry->lookup_state(state_id);
                             int state_value = state[var].get_value();
-                            if (state_value != goal_value && abstract_state.contains(var, state_value)) {
+                            if (state_value != goal_value && abstract_state.includes(var, state_value)) {
                                 if (log.is_at_least_debug()) {
                                     log << "add_split(var " << var << ", val " << state_value
                                         << "!=" << goal_value << ")" << endl;

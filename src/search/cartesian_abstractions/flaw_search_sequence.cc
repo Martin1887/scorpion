@@ -100,7 +100,7 @@ void FlawSearch::get_deviation_splits(
             // instead of `intersects`
             if (!target_abs_state.domain_subsets_intersect(fs_state, var)) {
                 for (auto && [fact_var, fact_value] : fs_state.get_cartesian_set().iter(var)) {
-                    if (abs_state.contains(var, fact_value)) {
+                    if (abs_state.includes(var, fact_value)) {
                         ++fact_count[var][fact_value];
                         var_fact_count[var] = true;
                     }
@@ -112,13 +112,13 @@ void FlawSearch::get_deviation_splits(
         vector<int> wanted;
         if (var_fact_count[var]) {
             for (int value = 0; value < domain_sizes[var]; ++value) {
-                if (abs_state.contains(var, value) &&
-                    target_abs_state.contains(var, value)) {
+                if (abs_state.includes(var, value) &&
+                    target_abs_state.includes(var, value)) {
                     wanted.push_back(value);
                 }
             }
             for (int value = 0; value < domain_sizes[var]; ++value) {
-                if (fact_count[var][value] && !target_abs_state.contains(var, value)) {
+                if (fact_count[var][value] && !target_abs_state.includes(var, value)) {
                     assert(!wanted.empty());
                     if (split_unwanted_values) {
                         for (int want : wanted) {
@@ -176,7 +176,7 @@ unique_ptr<Split> FlawSearch::create_split(
                     // Applicability flaw
                     applicable[i] = false;
                     for (auto &&[fact_var, fact_value] : state_cartesian_set.iter(var)) {
-                        if (abstract_state.contains(var, fact_value)) {
+                        if (abstract_state.includes(var, fact_value)) {
                             ++state_value_count[fact_value];
                         }
                     }
@@ -292,7 +292,7 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
                 int goal_value = goal.get_value();
                 if (goal.get_variable().get_id() == var) {
                     for (int value = 0; value < domain_sizes[var]; value++) {
-                        if (value != goal_value && abstract_state.contains(var, value)) {
+                        if (value != goal_value && abstract_state.includes(var, value)) {
                             other_values.push_back(value);
                         }
                     }
@@ -300,7 +300,7 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
                     if (split_unwanted_values) {
                         for (CartesianState state : states) {
                             for (auto &&[fact_var, fact_value] : state.get_cartesian_set().iter(var)) {
-                                if (fact_value != goal_value && abstract_state.contains(var, fact_value)) {
+                                if (fact_value != goal_value && abstract_state.includes(var, fact_value)) {
                                     if (log.is_at_least_debug()) {
                                         log << "add_split(var " << var << ", val " << fact_value
                                             << "!=" << goal_value << ")" << endl;

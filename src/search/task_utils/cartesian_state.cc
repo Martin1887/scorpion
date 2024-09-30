@@ -48,10 +48,6 @@ bool CartesianState::got_empty() {
     return cartesian_set.got_empty();
 }
 
-bool CartesianState::contains(int var, int value) const {
-    return cartesian_set.test(var, value);
-}
-
 pair<CartesianSet, CartesianSet> CartesianState::split_domain(
     int var, const vector<int> &wanted) const {
     int num_wanted = wanted.size();
@@ -88,6 +84,22 @@ bool CartesianState::is_applicable(const OperatorProxy &op) const {
 }
 bool CartesianState::is_applicable(const DisambiguatedOperator &op) const {
     return !is_spurious() && intersects(op.get_precondition());
+}
+bool CartesianState::is_applicable(const DisambiguatedOperator &op, const vector<int> &vars) const {
+    if (is_spurious()) {
+        return false;
+    } else {
+        for (int var : vars) {
+            if (!is_applicable(op, var)) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+bool CartesianState::is_applicable(const DisambiguatedOperator &op, int var) const {
+    return intersects(op.get_precondition(), var);
 }
 bool CartesianState::is_backward_applicable(const OperatorProxy &op) const {
     unordered_set<int> effect_vars{};
@@ -177,12 +189,7 @@ bool CartesianState::reach_with_op(const CartesianState &other, const disambigua
     const CartesianSet &other_set = other.get_cartesian_set();
     const CartesianSet &pre = op.get_precondition().get_cartesian_set();
     for (int var = 0; var < n_vars; var++) {
-        int ef = op.get_var_effect(var);
-        if (ef != -1) {
-            if (!other_set.test(var, ef)) {
-                return false;
-            }
-        } else if (!other_set.intersects_intersection(pre, cartesian_set, var)) {
+        if (!reach_with_op(other_set, pre, op, var)) {
             return false;
         }
     }
@@ -190,6 +197,33 @@ bool CartesianState::reach_with_op(const CartesianState &other, const disambigua
     return true;
 }
 
+bool CartesianState::reach_with_op(const CartesianState &other, const disambiguation::DisambiguatedOperator &op, const vector<int> &vars) const {
+    if (other.is_spurious()) {
+        return false;
+    }
+    const CartesianSet &other_set = other.get_cartesian_set();
+    const CartesianSet &pre = op.get_precondition().get_cartesian_set();
+    for (int var : vars) {
+        if (!reach_with_op(other_set, pre, op, var)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool CartesianState::reach_with_op(const CartesianSet &other_set, const CartesianSet &pre, const disambiguation::DisambiguatedOperator &op, int var) const {
+    int ef = op.get_var_effect(var);
+    if (ef != -1) {
+        if (!other_set.test(var, ef)) {
+            return false;
+        }
+    } else if (!other_set.intersects_intersection(pre, cartesian_set, var)) {
+        return false;
+    }
+
+    return true;
+}
 
 bool CartesianState::reach_backwards_with_op(const CartesianState &other, const disambiguation::DisambiguatedOperator &op) const {
     if (other.is_spurious()) {
@@ -317,6 +351,9 @@ bool CartesianState::includes(const CartesianState &other) const {
 
 bool CartesianState::intersects(const CartesianState &other) const {
     return cartesian_set.intersects(other.cartesian_set);
+}
+bool CartesianState::intersects(const CartesianState &other, int var) const {
+    return cartesian_set.intersects(other.cartesian_set, var);
 }
 const CartesianSet &CartesianState::get_cartesian_set() const {
     return cartesian_set;

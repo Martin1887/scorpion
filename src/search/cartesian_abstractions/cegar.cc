@@ -236,7 +236,7 @@ void CEGAR::refinement_loop() {
             for (int i = 0; i < var.get_domain_size(); i++) {
                 int var_value = var.get_fact(i).get_value();
                 if (var_value != fact.value &&
-                    abstraction->get_initial_state().contains(fact.var, var_value)) {
+                    abstraction->get_initial_state().includes(fact.var, var_value)) {
                     other_values.push_back(var_value);
                 }
             }

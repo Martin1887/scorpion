@@ -60,6 +60,7 @@ public:
     bool intersects(const CartesianSet &other, int var) const;
     bool intersects(const CartesianSet &other) const;
     bool is_superset_of(const CartesianSet &other) const;
+    bool is_equal_in_var(const CartesianSet &other, int var) const;
 
     CartesianSetFactsProxyIterator iter(int start, int end, bool inverse = false) const;
     // Iterator for only the specified var.

@@ -56,12 +56,12 @@ void FlawSearch::get_deviation_splits(
     }
     for (size_t var = 0; var < domain_sizes.size(); ++var) {
         for (int value = 0; value < domain_sizes[var]; ++value) {
-            if (fact_count[var][value] && !target_abs_state.contains(var, value)) {
+            if (fact_count[var][value] && !target_abs_state.includes(var, value)) {
                 // Note: we could precompute the "wanted" vector, but not the split.
                 vector<int> wanted;
                 for (int value = 0; value < domain_sizes[var]; ++value) {
-                    if (abs_state.contains(var, value) &&
-                        target_abs_state.contains(var, value)) {
+                    if (abs_state.includes(var, value) &&
+                        target_abs_state.includes(var, value)) {
                         wanted.push_back(value);
                     }
                 }

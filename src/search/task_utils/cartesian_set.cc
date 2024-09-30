@@ -223,6 +223,10 @@ bool CartesianSet::is_superset_of(const CartesianSet &other) const {
     return true;
 }
 
+bool CartesianSet::is_equal_in_var(const CartesianSet &other, int var) const {
+    return domain_subsets[var] == other.domain_subsets[var];
+}
+
 CartesianSetFactsProxyIterator CartesianSet::iter(int start, int end, bool inverse) const {
     return CartesianSetFactsProxyIterator(this, start, end, inverse);
 }
