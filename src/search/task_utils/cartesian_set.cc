@@ -191,6 +191,14 @@ void CartesianSet::set_values(int var, const CartesianSet &other) {
     }
 }
 
+void CartesianSet::set_intersection_values(int var, const CartesianSet &other) {
+    for (auto &&[var, value] : iter(var)) {
+        if (!other.test(var, value)) {
+            remove(var, value);
+        }
+    }
+}
+
 bool CartesianSet::intersects_intersection(const CartesianSet &other, const CartesianSet &another, int var) const {
     int len = var_size(var);
     for (int value = 0; value < len; value++) {

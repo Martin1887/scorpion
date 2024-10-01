@@ -125,15 +125,15 @@ bool CartesianState::is_backward_applicable(const DisambiguatedOperator &op) con
     if (is_spurious()) {
         return false;
     }
-    for (const FactPair &fact : op.get_effects()) {
-        if (!includes(fact)) {
-            return false;
-        }
-    }
     const CartesianSet &preconds = op.get_precondition().get_cartesian_set();
     int n_vars = cartesian_set.get_n_vars();
     for (int var = 0; var < n_vars; var++) {
-        if (!op.has_effect(var) && !cartesian_set.intersects(preconds, var)) {
+        int effect_value = op.get_var_effect(var);
+        if (effect_value != -1) {
+            if (!includes(var, effect_value)) {
+                return false;
+            }
+        } else if (!cartesian_set.intersects(preconds, var)) {
             return false;
         }
     }
@@ -164,17 +164,16 @@ vector<int> CartesianState::vars_not_backward_applicable(const OperatorProxy &op
 }
 vector<int> CartesianState::vars_not_backward_applicable(const DisambiguatedOperator &op) const {
     vector<int> not_applicable{};
-    for (const FactPair &fact : op.get_effects()) {
-        if (!includes(fact)) {
-            // Effects can have at most 1 value at each var.
-            not_applicable.push_back(fact.var);
-        }
-    }
     const CartesianSet &preconds = op.get_precondition().get_cartesian_set();
-    for (int var = 0; var < preconds.get_n_vars(); var++) {
-        if (!op.has_effect(var) && !cartesian_set.intersects(preconds, var)) {
-            // Vars are pushed at most once in this loop and without effects
-            // they cannot be already in the not applicable vector.
+    int n_vars = preconds.get_n_vars();
+    not_applicable.reserve(n_vars);
+    for (int var = 0; var < n_vars; var++) {
+        int effect_value = op.get_var_effect(var);
+        if (effect_value != -1) {
+            if (!includes(var, effect_value)) {
+                not_applicable.push_back(var);
+            }
+        } else if (!cartesian_set.intersects(preconds, var)) {
             not_applicable.push_back(var);
         }
     }
@@ -320,7 +319,7 @@ void CartesianState::regress(const DisambiguatedOperator &op) {
         if (op.has_effect(var) || !cartesian_set.intersects(preconds, var)) {
             cartesian_set.set_values(var, preconds);
         } else {
-            cartesian_set.set_values(var, cartesian_set.var_intersection(preconds, var));
+            cartesian_set.set_intersection_values(var, preconds);
         }
     }
 }
