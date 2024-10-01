@@ -87,50 +87,54 @@ void FlawSearch::get_deviation_splits(
       pre(o)[v] undefined, eff(o)[v] defined: no split possible since regression adds whole domain.
       pre(o)[v] and eff(o)[v] undefined: if s[v] \notin t[v], wanted = intersect(a[v], b[v]).
     */
-    // Note: it could be faster to use an efficient hash map for this.
-    vector<vector<int>> fact_count{};
-    fact_count.reserve(domain_sizes.size());
-    vector<bool> var_fact_count(domain_sizes.size());
-    for (size_t var = 0; var < domain_sizes.size(); ++var) {
-        fact_count.push_back(vector(domain_sizes[var], 0));
-    }
-    for (const CartesianState &fs_state : flaw_search_states) {
-        for (int var : unaffected_variables) {
-            // When disambiguation is implemented, `contains` will be possible
-            // instead of `intersects`
-            if (!target_abs_state.domain_subsets_intersect(fs_state, var)) {
-                for (auto && [fact_var, fact_value] : fs_state.get_cartesian_set().iter(var)) {
-                    if (abs_state.includes(var, fact_value)) {
-                        ++fact_count[var][fact_value];
-                        var_fact_count[var] = true;
-                    }
-                }
-            }
+    int biggest_var_size = 0;
+    for (int var : unaffected_variables) {
+        if (domain_sizes[var] > biggest_var_size) {
+            biggest_var_size = domain_sizes[var];
         }
     }
-    for (size_t var = 0; var < domain_sizes.size(); ++var) {
-        vector<int> wanted;
-        if (var_fact_count[var]) {
-            for (int value = 0; value < domain_sizes[var]; ++value) {
-                if (abs_state.includes(var, value) &&
-                    target_abs_state.includes(var, value)) {
-                    wanted.push_back(value);
+    // Create the vectors in the heap only once and reuse it for all vars.
+    vector<int> wanted;
+    wanted.reserve(biggest_var_size);
+    vector<bool> var_intersects(flaw_search_states.size(), false);
+    for (int var : unaffected_variables) {
+        bool wanted_computed = false;
+        int i = 0;
+        for (auto &fs_state : flaw_search_states) {
+            var_intersects[i] = target_abs_state.domain_subsets_intersect(fs_state, var);
+            i++;
+        }
+        for (int value = 0; value < domain_sizes[var]; ++value) {
+            int count = 0;
+            i = 0;
+            for (auto &fs_state : flaw_search_states) {
+                if (!var_intersects[i] && fs_state.get().includes(var, value) && !target_abs_state.includes(var, value) && abs_state.includes(var, value)) {
+                    ++count;
                 }
+                i++;
             }
-            for (int value = 0; value < domain_sizes[var]; ++value) {
-                if (fact_count[var][value] && !target_abs_state.includes(var, value)) {
-                    assert(!wanted.empty());
-                    if (split_unwanted_values) {
-                        for (int want : wanted) {
-                            FlawSearch::add_split(splits, Split(
-                                                      abs_state.get_id(), var, want, {value},
-                                                      fact_count[var][value], op_cost), true);
+            if (count) {
+                if (!wanted_computed) {
+                    wanted_computed = true;
+                    wanted.clear();
+                    for (int value = 0; value < domain_sizes[var]; ++value) {
+                        if (abs_state.includes(var, value) &&
+                            target_abs_state.includes(var, value)) {
+                            wanted.push_back(value);
                         }
-                    } else {
-                        FlawSearch::add_split(splits, Split(
-                                                  abs_state.get_id(), var, value, wanted,
-                                                  fact_count[var][value], op_cost));
                     }
+                }
+                assert(!wanted.empty());
+                if (split_unwanted_values) {
+                    for (int want : wanted) {
+                        FlawSearch::add_split(splits, Split(
+                                                  abs_state.get_id(), var, want, {value},
+                                                  count, op_cost), true);
+                    }
+                } else {
+                    FlawSearch::add_split(splits, Split(
+                                              abs_state.get_id(), var, value, wanted,
+                                              count, op_cost));
                 }
             }
         }
@@ -138,7 +142,7 @@ void FlawSearch::get_deviation_splits(
 }
 
 unique_ptr<Split> FlawSearch::create_split(
-    const vector<CartesianState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
+    const vector<reference_wrapper<const CartesianState>> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
@@ -225,14 +229,12 @@ unique_ptr<Split> FlawSearch::create_split(
                     target_hit = true;
                 } else {
                     // Deviation flaw
-                    deviation_states_by_target[target].push_back(state);
+                    deviation_states_by_target[target].push_back(ref(state));
                 }
             }
         }
 
-        for (auto &pair : deviation_states_by_target) {
-            int target = pair.first;
-            const vector<reference_wrapper<const CartesianState>> &deviation_states = pair.second;
+        for (auto &&[target, deviation_states] : deviation_states_by_target) {
             if (!deviation_states.empty()) {
                 int num_vars = domain_sizes.size();
                 get_deviation_splits(
@@ -264,7 +266,7 @@ unique_ptr<Split> FlawSearch::create_split(
 }
 
 unique_ptr<Split> FlawSearch::create_split_from_goal_state(
-    const vector<CartesianState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
+    const vector<reference_wrapper<const CartesianState>> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 

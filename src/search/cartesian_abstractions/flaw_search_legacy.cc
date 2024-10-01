@@ -100,26 +100,27 @@ unique_ptr<Split> FlawSearch::create_split_from_flaw(const LegacyFlaw &flaw,
                                                      Cost solution_cost,
                                                      const bool backward,
                                                      const bool split_unwanted_values) {
+    const vector<reference_wrapper<const CartesianState>> flawed_states = {ref(flaw.flaw_search_state)};
     if (backward) {
         if (flaw.split_last_state) {
-            return create_backward_split_from_init_state({flaw.flaw_search_state},
+            return create_backward_split_from_init_state(flawed_states,
                                                          flaw.abstract_state_id,
                                                          solution_cost,
                                                          split_unwanted_values);
         } else {
-            return create_backward_split({flaw.flaw_search_state},
+            return create_backward_split(flawed_states,
                                          flaw.abstract_state_id,
                                          solution_cost,
                                          split_unwanted_values);
         }
     } else {
         if (flaw.split_last_state) {
-            return create_split_from_goal_state({flaw.flaw_search_state},
+            return create_split_from_goal_state(flawed_states,
                                                 flaw.abstract_state_id,
                                                 solution_cost,
                                                 split_unwanted_values);
         } else {
-            return create_split({flaw.flaw_search_state},
+            return create_split(flawed_states,
                                 flaw.abstract_state_id,
                                 solution_cost,
                                 split_unwanted_values);

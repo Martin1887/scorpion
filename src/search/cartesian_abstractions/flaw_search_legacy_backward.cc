@@ -21,83 +21,8 @@
 using namespace std;
 
 namespace cartesian_abstractions {
-void FlawSearch::get_deviation_backward_splits(
-    const AbstractState &abs_state,
-    const vector<reference_wrapper<const CartesianState>> &flaw_search_states,
-    const vector<int> &unaffected_variables,
-    const AbstractState &source_abs_state,
-    const vector<int> &domain_sizes,
-    const int op_cost,
-    vector<vector<Split>> &splits,
-    bool split_unwanted_values) {
-    /*
-      For each fact in the flaw-search state that is not contained in the
-      source abstract state, loop over all values in the domain of the
-      corresponding variable. The values that are in both the current and
-      the source abstract state are the "wanted" ones, i.e., the ones that
-      we want to split off. This test can be specialized for applicability and
-      deviation flaws. Here, we consider deviation flaws.
-
-      Let the desired abstract transition be (a, o, t) and the deviation be
-      (a, o, b). We distinguish three cases for each variable v:
-
-      eff(o)[v] defined: no split possible since o is applicable in s.
-      eff(o)[v] undefined, pre(o)[v] defined: no split possible since regression adds whole domain.
-      eff(o)[v] and pre(o)[v] undefined: if s[v] \notin t[v], wanted = intersect(a[v], b[v]).
-    */
-    // Note: it could be faster to use an efficient hash map for this.
-    vector<vector<int>> fact_count{};
-    fact_count.reserve(domain_sizes.size());
-    vector<bool> var_fact_count(domain_sizes.size());
-    for (size_t var = 0; var < domain_sizes.size(); ++var) {
-        fact_count.push_back(vector(domain_sizes[var], 0));
-    }
-    for (const CartesianState &flaw_search_st : flaw_search_states) {
-        for (int var : unaffected_variables) {
-            // When disambiguation is implemented, `contains` will be possible
-            // instead of `intersects`
-            if (!source_abs_state.domain_subsets_intersect(flaw_search_st, var)) {
-                for (const auto &&[fact_var, fact_value] : flaw_search_st.get_cartesian_set().iter(var)) {
-                    if (abs_state.includes(var, fact_value)) {
-                        ++fact_count[var][fact_value];
-                        var_fact_count[var] = true;
-                    }
-                }
-            }
-        }
-    }
-    for (size_t var = 0; var < domain_sizes.size(); ++var) {
-        // the `wanted` vector is the same for all values of the variable
-        vector<int> wanted;
-        if (var_fact_count[var]) {
-            for (int value = 0; value < domain_sizes[var]; ++value) {
-                if (abs_state.includes(var, value) &&
-                    source_abs_state.includes(var, value)) {
-                    wanted.push_back(value);
-                }
-            }
-            for (int value = 0; value < domain_sizes[var]; ++value) {
-                if (fact_count[var][value] && !source_abs_state.includes(var, value)) {
-                    assert(!wanted.empty());
-                    if (split_unwanted_values) {
-                        for (int want : wanted) {
-                            FlawSearch::add_split(splits, Split(
-                                                      abs_state.get_id(), var, want, {value},
-                                                      fact_count[var][value], op_cost), true);
-                        }
-                    } else {
-                        FlawSearch::add_split(splits, Split(
-                                                  abs_state.get_id(), var, value, wanted,
-                                                  fact_count[var][value], op_cost));
-                    }
-                }
-            }
-        }
-    }
-}
-
 unique_ptr<Split> FlawSearch::create_backward_split(
-    const vector<CartesianState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
+    const vector<reference_wrapper<const CartesianState>> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
@@ -224,17 +149,15 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                         log << "Deviation states by source, state: " << state
                             << ", source: " << source << endl;
                     }
-                    deviation_states_by_source[source].push_back(state);
+                    deviation_states_by_source[source].push_back(ref(state));
                 }
             }
         }
 
-        for (auto &pair : deviation_states_by_source) {
-            int source = pair.first;
-            const vector<reference_wrapper<const CartesianState>> &deviation_states = pair.second;
+        for (auto &&[source, deviation_states] : deviation_states_by_source) {
             if (!deviation_states.empty()) {
                 int num_vars = domain_sizes.size();
-                get_deviation_backward_splits(
+                get_deviation_splits(
                     abstract_state, deviation_states,
                     get_unaffected_variables(op, num_vars),
                     abstraction.get_state(source), domain_sizes, op.get_cost(),
@@ -263,7 +186,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
 }
 
 unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
-    const vector<CartesianState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
+    const vector<reference_wrapper<const CartesianState>> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 

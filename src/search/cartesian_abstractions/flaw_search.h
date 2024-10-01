@@ -222,16 +222,6 @@ class FlawSearch {
         bool split_unwanted_values);
 
 
-    static void get_deviation_backward_splits(
-        const AbstractState &abs_state,
-        const std::vector<std::reference_wrapper<const CartesianState>> &flaw_search_states,
-        const std::vector<int> &unaffected_variables,
-        const AbstractState &source_abs_state,
-        const std::vector<int> &domain_sizes,
-        const int op_cost,
-        std::vector<std::vector<Split>> &splits,
-        bool split_unwanted_values);
-
     int get_abstract_state_id(const State &state) const;
     Cost get_h_value(int abstract_state_id) const;
     void add_flaw(int abs_id, const State &state);
@@ -249,13 +239,13 @@ class FlawSearch {
         const std::vector<StateID> &state_ids, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
 
     std::unique_ptr<Split> create_split(
-        const std::vector<CartesianState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
+        const std::vector<std::reference_wrapper<const CartesianState>> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
     std::unique_ptr<Split> create_split_from_goal_state(
-        const std::vector<CartesianState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
+        const std::vector<std::reference_wrapper<const CartesianState>> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
     std::unique_ptr<Split> create_backward_split(
-        const std::vector<CartesianState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
+        const std::vector<std::reference_wrapper<const CartesianState>> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
     std::unique_ptr<Split> create_backward_split_from_init_state(
-        const std::vector<CartesianState> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
+        const std::vector<std::reference_wrapper<const CartesianState>> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values);
 
     FlawedState get_flawed_state_with_min_h();
     std::unique_ptr<Split> get_single_split(const utils::CountdownTimer &cegar_timer, Cost solution_cost);
