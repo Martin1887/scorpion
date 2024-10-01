@@ -163,43 +163,50 @@ unique_ptr<Split> FlawSearch::create_split(
     } else {
         splits = vector<vector<Split>>(task_proxy.get_variables().size());
     }
+    // Create the vectors only once to save memory allocations and set values in each iter.
+    vector<bool> applicable(states.size(), true);
+    vector<bool> var_intersects(states.size(), true);
     for (auto &pair : get_f_optimal_transitions(abstract_state_id)) {
+        fill(applicable.begin(), applicable.end(), true);
         int op_id = pair.first;
         const vector<int> &targets = pair.second;
         const disambiguation::DisambiguatedOperator &op = (*ts.get_operators())[op_id];
 
-        vector<bool> applicable(states.size(), true);
         const CartesianSet &pre = op.get_precondition().get_cartesian_set();
         int n_vars = pre.get_n_vars();
         for (int var = 0; var < n_vars; var++) {
-            vector<int> state_value_count(domain_sizes[var], 0);
-            for (size_t i = 0; i < states.size(); ++i) {
-                const CartesianState &state = states[i];
-                const CartesianSet &state_cartesian_set = state.get_cartesian_set();
-                if (!pre.intersects(state_cartesian_set, var)) {
-                    // Applicability flaw
+            int i = 0;
+            for (const CartesianState &state : states) {
+                var_intersects[i] = pre.intersects(state.get_cartesian_set(), var);
+                if (!var_intersects[i]) {
                     applicable[i] = false;
-                    for (auto &&[fact_var, fact_value] : state_cartesian_set.iter(var)) {
-                        if (abstract_state.includes(var, fact_value)) {
-                            ++state_value_count[fact_value];
-                        }
-                    }
                 }
+                i++;
             }
             for (int value = 0; value < domain_sizes[var]; ++value) {
-                if (state_value_count[value] > 0) {
+                int count = 0;
+                int i = 0;
+                for (const CartesianState &state : states) {
+                    if (!var_intersects[i] &&
+                        state.includes(var, value) &&
+                        abstract_state.includes(var, value)) {
+                        count++;
+                    }
+                    i++;
+                }
+                if (count) {
                     assert(!pre.test(var, value));
                     if (split_unwanted_values) {
                         for (auto &&[fact_var, fact_value] : pre.iter(var)) {
                             add_split(splits, Split(
                                           abstract_state_id, var, fact_value,
-                                          {value}, state_value_count[value],
+                                          {value}, count,
                                           op.get_cost()), true);
                         }
                     } else {
                         add_split(splits, Split(
                                       abstract_state_id, var, value,
-                                      pre.get_values(var), state_value_count[value],
+                                      pre.get_values(var), count,
                                       op.get_cost()));
                     }
                 }
@@ -295,7 +302,7 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
                     }
 
                     if (split_unwanted_values) {
-                        for (CartesianState state : states) {
+                        for (const CartesianState &state : states) {
                             for (auto &&[fact_var, fact_value] : state.get_cartesian_set().iter(var)) {
                                 if (fact_value != goal_value && abstract_state.includes(var, fact_value)) {
                                     if (log.is_at_least_debug()) {

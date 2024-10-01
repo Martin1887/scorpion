@@ -140,6 +140,22 @@ bool CartesianState::is_backward_applicable(const DisambiguatedOperator &op) con
 
     return true;
 }
+bool CartesianState::is_backward_applicable(const DisambiguatedOperator &op, int var) const {
+    if (is_spurious()) {
+        return false;
+    }
+    const CartesianSet &preconds = op.get_precondition().get_cartesian_set();
+    int effect_value = op.get_var_effect(var);
+    if (effect_value != -1) {
+        if (!includes(var, effect_value)) {
+            return false;
+        }
+    } else if (!cartesian_set.intersects(preconds, var)) {
+        return false;
+    }
+
+    return true;
+}
 vector<int> CartesianState::vars_not_backward_applicable(const OperatorProxy &op) const {
     vector<int> not_applicable{};
     unordered_set<int> effect_vars{};

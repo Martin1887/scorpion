@@ -56,6 +56,7 @@ public:
     bool reach_with_inapplicable_op(const CartesianSet &other_set, const CartesianSet &pre, const disambiguation::DisambiguatedOperator &op, int var) const;
     bool is_backward_applicable(const OperatorProxy &op) const;
     bool is_backward_applicable(const disambiguation::DisambiguatedOperator &op) const;
+    bool is_backward_applicable(const disambiguation::DisambiguatedOperator &op, int var) const;
     bool reach_backwards_with_op(const CartesianState &other, const disambiguation::DisambiguatedOperator &op) const;
     bool reach_backwards_with_inapplicable_op(const CartesianState &other, const disambiguation::DisambiguatedOperator &op) const;
     std::vector<int> vars_not_backward_applicable(const OperatorProxy &op) const;

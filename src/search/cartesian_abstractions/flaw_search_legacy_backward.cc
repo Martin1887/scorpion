@@ -42,7 +42,12 @@ unique_ptr<Split> FlawSearch::create_backward_split(
     } else {
         splits = vector<vector<Split>>(task_proxy.get_variables().size());
     }
+    // Create the vectors only once to save memory allocations and set values in each iter.
+    vector<bool> applicable(states.size(), true);
+    vector<bool> var_applicable(states.size(), true);
+    vector<int> eff_values;
     for (auto &pair : get_f_optimal_backward_transitions(abstract_state_id)) {
+        fill(applicable.begin(), applicable.end(), true);
         if (log.is_at_least_debug()) {
             log << "Optimal backward transition(s): " << pair.first << ", "
                 << pair.second << endl;
@@ -50,64 +55,71 @@ unique_ptr<Split> FlawSearch::create_backward_split(
         int op_id = pair.first;
         const vector<int> &sources = pair.second;
         const disambiguation::DisambiguatedOperator &op = (*abstraction.get_transition_system().get_operators())[op_id];
-        vector<int> eff_values(domain_sizes.size(), -1);
-        for (const FactPair &ef : op.get_effects()) {
-            eff_values[ef.var] = ef.value;
-        }
-        // prevail conditions
-        for (const auto &&[cond_var, cond_value] : op.get_precondition().get_cartesian_set().iter()) {
-            if (eff_values[cond_var] == -1) {
-                eff_values[cond_var] = cond_value;
-            }
-        }
+        const CartesianSet &pre_set = op.get_precondition().get_cartesian_set();
 
         if (log.is_at_least_debug()) {
             log << "Operator: " << op.get_name() << endl;
         }
 
-        vector<bool> applicable(states.size(), true);
-        vector<vector<int>> state_value_count{};
-        for (size_t var = 0; var < domain_sizes.size(); var++) {
-            state_value_count.push_back(vector<int>(domain_sizes[var], 0));
-        }
-
-        for (size_t i = 0; i < states.size(); ++i) {
-            const CartesianState &state = states[i];
-            const CartesianSet &state_cartesian_set = state.get_cartesian_set();
-            for (int not_applicable : state.vars_not_backward_applicable(op)) {
-                if (log.is_at_least_debug()) {
-                    log << "Not applicable!" << endl;
-                    log << "State: " << state << ", var: " << not_applicable << endl;
+        int n_vars = domain_sizes.size();
+        for (int var = 0; var < n_vars; var++) {
+            int eff_value = op.get_var_effect(var);
+            int i = 0;
+            for (const CartesianState &state : states) {
+                var_applicable[i] = state.is_backward_applicable(op, var);
+                if (!var_applicable[i]) {
+                    applicable[i] = false;
                 }
-                // Applicability flaw
-                applicable[i] = false;
-                for (const auto &&[fact_var, fact_value] : state_cartesian_set.iter(not_applicable)) {
-                    if (abstract_state.includes(not_applicable, fact_value)) {
-                        ++state_value_count[not_applicable][fact_value];
-                    }
-                }
+                i++;
             }
-        }
-        for (size_t var = 0; var < domain_sizes.size(); var++) {
-            int eff_value = eff_values[var];
             for (int value = 0; value < domain_sizes[var]; ++value) {
-                if (state_value_count[var][value] > 0) {
-                    assert(value != eff_value);
-                    if (log.is_at_least_debug()) {
-                        log << "add_split(var " << var << ", val " << value
-                            << "!=" << eff_value << ", state_value_count: "
-                            << state_value_count[var][value] << ")" << endl;
+                int count = 0;
+                int i = 0;
+                for (const CartesianState &state : states) {
+                    if (!var_applicable[i] &&
+                        state.includes(var, value) &&
+                        abstract_state.includes(var, value)) {
+                        count++;
                     }
-                    if (split_unwanted_values) {
-                        add_split(splits, Split(
-                                      abstract_state_id, var, eff_value,
-                                      {value}, state_value_count[var][value],
-                                      op.get_cost()), true);
+                    i++;
+                }
+                if (count) {
+                    if (eff_value != -1) {
+                        if (log.is_at_least_debug()) {
+                            log << "add_split(var " << var << ", val " << value
+                                << "!=" << eff_value << ", state_value_count: "
+                                << count << ")" << endl;
+                        }
+                        if (split_unwanted_values) {
+                            add_split(splits, Split(
+                                          abstract_state_id, var, eff_value,
+                                          {value}, count,
+                                          op.get_cost()), true);
+                        } else {
+                            add_split(splits, Split(
+                                          abstract_state_id, var, value,
+                                          {eff_value}, count,
+                                          op.get_cost()));
+                        }
                     } else {
-                        add_split(splits, Split(
-                                      abstract_state_id, var, value,
-                                      {eff_value}, state_value_count[var][value],
-                                      op.get_cost()));
+                        if (log.is_at_least_debug()) {
+                            log << "add_split(var " << var << ", val " << value
+                                << "!=" << eff_value << ", state_value_count: "
+                                << count << ")" << endl;
+                        }
+                        if (split_unwanted_values) {
+                            for (auto &&[cond_var, cond_value] : pre_set.iter(var)) {
+                                add_split(splits, Split(
+                                              abstract_state_id, var, cond_value,
+                                              {value}, count,
+                                              op.get_cost()), true);
+                            }
+                        } else {
+                            add_split(splits, Split(
+                                          abstract_state_id, var, value,
+                                          pre_set.get_values(var), count,
+                                          op.get_cost()));
+                        }
                     }
                 }
             }
@@ -213,7 +225,7 @@ unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
             int init_value = init_state[var].get_value();
 
             if (split_unwanted_values) {
-                for (CartesianState state : states) {
+                for (const CartesianState &state : states) {
                     if (!state.includes(var, init_value)) {
                         for (const auto &&[fact_var, fact_value] : state.get_cartesian_set().iter(var)) {
                             if (abstract_state.includes(var, fact_value)) {
