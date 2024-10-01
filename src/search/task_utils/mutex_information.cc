@@ -1,6 +1,7 @@
 #include "mutex_information.h"
 
 #include "../utils/collections.h"
+#include "parallel_hashmap/phmap.h"
 
 using namespace std;
 
@@ -14,16 +15,17 @@ bool MutexInformation::are_facts_mutex(const FactPair &fact1, const FactPair &fa
     return bool(mutexes[fact1.var][fact1.value].count(fact2));
 }
 
-const set<tuple<int, FactPair>> MutexInformation::get_var_mutexes(const int var) {
+const mutex_set_for_value MutexInformation::get_var_mutexes(const int var) {
     if (!var_mutex_set.contains(var)) {
         vector<set<FactPair>> vec = mutexes[var];
-        set<tuple<int, FactPair>> mutex_set{};
-        for (int value = 0; value < static_cast<int>(vec.size()); value++) {
-            for (FactPair mutex : vec[value]) {
-                mutex_set.insert(make_tuple(value, mutex));
+        mutex_set_for_value mutex_set{};
+        int size = vec.size();
+        for (int value = 0; value < size; value++) {
+            for (const FactPair &mutex : vec[value]) {
+                mutex_set.insert({value, mutex});
             }
         }
-        var_mutex_set.insert({var, move(mutex_set)});
+        var_mutex_set.insert({var, std::move(mutex_set)});
     }
     return var_mutex_set.at(var);
 }

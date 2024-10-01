@@ -12,10 +12,10 @@ class AC3Disambiguation : public DisambiguationMethod {
     bool arc_reduce(CartesianSet &disambiguated,
                     int var,
                     const std::tuple<int, FactPair> &mutex,
-                    const std::set<std::tuple<int, FactPair>> &var_mutexes) const;
+                    const mutex_set_for_value &var_mutexes) const;
     void add_new_mutexes(const std::tuple<int, FactPair> &removed_mutex,
-                         const std::set<std::tuple<int, FactPair>> &var_mutexes,
-                         std::set<std::tuple<int, FactPair>> worklist) const;
+                         const mutex_set_for_value &var_mutexes,
+                         mutex_set_for_value &worklist) const;
 public:
     AC3Disambiguation(const plugins::Options &) {}
     virtual bool disambiguate(CartesianState &, MutexInformation &) const override;
