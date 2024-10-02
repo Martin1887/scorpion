@@ -55,7 +55,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
         int op_id = pair.first;
         const vector<int> &sources = pair.second;
         const disambiguation::DisambiguatedOperator &op = (*abstraction.get_transition_system().get_operators())[op_id];
-        const CartesianSet &pre_set = op.get_precondition().get_cartesian_set();
+        const CartesianSet &post_set = op.get_post().get_cartesian_set();
 
         if (log.is_at_least_debug()) {
             log << "Operator: " << op.get_name() << endl;
@@ -63,7 +63,8 @@ unique_ptr<Split> FlawSearch::create_backward_split(
 
         int n_vars = domain_sizes.size();
         for (int var = 0; var < n_vars; var++) {
-            int eff_value = op.get_var_effect(var);
+            int eff_value = op.get_effect(var);
+            bool has_effect = eff_value != -1;
             int i = 0;
             for (const CartesianState &state : states) {
                 var_applicable[i] = state.is_backward_applicable(op, var);
@@ -84,7 +85,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                     i++;
                 }
                 if (count) {
-                    if (eff_value != -1) {
+                    if (has_effect) {
                         if (log.is_at_least_debug()) {
                             log << "add_split(var " << var << ", val " << value
                                 << "!=" << eff_value << ", state_value_count: "
@@ -108,7 +109,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                                 << count << ")" << endl;
                         }
                         if (split_unwanted_values) {
-                            for (auto &&[cond_var, cond_value] : pre_set.iter(var)) {
+                            for (auto &&[cond_var, cond_value] : post_set.iter(var)) {
                                 add_split(splits, Split(
                                               abstract_state_id, var, cond_value,
                                               {value}, count,
@@ -117,7 +118,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                         } else {
                             add_split(splits, Split(
                                           abstract_state_id, var, value,
-                                          pre_set.get_values(var), count,
+                                          post_set.get_values(var), count,
                                           op.get_cost()));
                         }
                     }
@@ -127,6 +128,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
 
         phmap::flat_hash_map<int, vector<reference_wrapper<const CartesianState>>> deviation_states_by_source;
         for (size_t i = 0; i < states.size(); ++i) {
+            // Retrieving deviation flaws on states with inapplicable flaws work worse.
             if (!applicable[i] /*&& !in_sequence*/) {
                 if (log.is_at_least_debug()) {
                     log << "Not applicable" << endl;

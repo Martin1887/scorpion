@@ -239,17 +239,14 @@ void FlawSearch::add_split(vector<vector<Split>> &splits, Split &&new_split,
 
 vector<int> FlawSearch::get_unaffected_variables(
     const disambiguation::DisambiguatedOperator &op, int num_variables) {
-    vector<bool> affected(num_variables);
-    for (const FactPair &effect : op.get_effects()) {
-        affected[effect.var] = true;
-    }
-    const CartesianSet &pre = op.get_precondition().get_cartesian_set();
+    const CartesianSet &post = op.get_post().get_cartesian_set();
     vector<int> unaffected_vars;
     unaffected_vars.reserve(num_variables);
     for (int var = 0; var < num_variables; ++var) {
-        // If only one value is possible as precondition the var is affected
+        // If only one value is possible as precondition or the operator has
+        // effect (post count == 1) the var is affected
         // (as for non-disambiguated operators).
-        if (!affected[var] && pre.count(var) != 1) {
+        if (post.count(var) != 1) {
             unaffected_vars.push_back(var);
         }
     }

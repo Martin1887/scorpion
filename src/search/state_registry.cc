@@ -128,14 +128,19 @@ State StateRegistry::get_successor_state(const State &predecessor, const disambi
     */
     state_data_pool.push_back(predecessor.get_buffer());
     PackedStateBin *buffer = state_data_pool[state_data_pool.size() - 1];
+    const CartesianSet &post = op.get_post().get_cartesian_set();
+    int n_vars = post.get_n_vars();
     /* Experiments for issue348 showed that for tasks with axioms it's faster
        to compute successor states using unpacked data. */
     if (task_properties::has_axioms(task_proxy)) {
         predecessor.unpack();
         vector<int> new_values = predecessor.get_unpacked_values();
-        for (FactPair effect : op.get_effects()) {
+        for (int var = 0; var < n_vars; var++) {
             // TODO: effect conditions not supported for disambiguated operators.
-            new_values[effect.var] = effect.value;
+            int eff_value = op.get_effect(var);
+            if (eff_value != -1) {
+                new_values[var] = eff_value;
+            }
         }
         axiom_evaluator.evaluate(new_values);
         for (size_t i = 0; i < new_values.size(); ++i) {
@@ -148,9 +153,12 @@ State StateRegistry::get_successor_state(const State &predecessor, const disambi
         StateID id = insert_id_or_pop_state();
         return lookup_state(id, move(new_values));
     } else {
-        for (FactPair effect : op.get_effects()) {
+        for (int var = 0; var < n_vars; var++) {
             // TODO: effect conditions not supported for disambiguated operators.
-            state_packer.set(buffer, effect.var, effect.value);
+            int eff_value = op.get_effect(var);
+            if (eff_value != -1) {
+                state_packer.set(buffer, var, eff_value);
+            }
         }
         /*
           NOTE: insert_id_or_pop_state possibly invalidates buffer, hence

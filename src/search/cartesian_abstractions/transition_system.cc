@@ -45,7 +45,7 @@ void TransitionSystem::add_loops_in_trivial_abstraction(const AbstractState &ini
     assert(get_num_states() == 0);
     enlarge_vectors_by_one();
     int init_id = 0;
-    for (disambiguation::DisambiguatedOperator op : *operators) {
+    for (const disambiguation::DisambiguatedOperator &op : *operators) {
         // The initial abstract state could be disambiguated.
         if (!op.is_redundant() && (!disambiguated ||
                                    (init.is_applicable(op) &&

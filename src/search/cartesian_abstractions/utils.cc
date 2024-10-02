@@ -64,11 +64,6 @@ static bool operator_applicable(
     return true;
 }
 
-static bool operator_achieves_fact(
-    const DisambiguatedOperator &op, int var, int value) {
-    return op.get_var_effect(var) == value;
-}
-
 static std::vector<utils::HashSet<int>> compute_possibly_before_facts(
     const shared_ptr<vector<DisambiguatedOperator>> &ops,
     const TaskProxy &task,
@@ -82,26 +77,24 @@ static std::vector<utils::HashSet<int>> compute_possibly_before_facts(
     bool updated = true;
     int last_fact_var = last_fact.get_pair().var;
     int last_fact_value = last_fact.get_pair().value;
-    /*
-      Note: This can be done more efficiently by maintaining the number
-      of unsatisfied preconditions for each operator and a queue of
-      unhandled effects.
+    int n_vars = task.get_variables().size();
 
-      TODO: Find out if this code is time critical, and change it if it
-      is.
-    */
     while (updated) {
         updated = false;
         for (DisambiguatedOperator &op : *ops) {
+            const CartesianSet &post = op.get_post().get_cartesian_set();
             // Ignore operators that achieve last_fact.
-            if (operator_achieves_fact(op, last_fact_var, last_fact_value)) {
+            if (op.has_effect(last_fact_var) && post.test(last_fact_var, last_fact_value)) {
                 continue;
             }
             // Add all facts that are achieved by an applicable operator.
             if (operator_applicable(op, pb_facts)) {
-                for (const FactPair &effect : op.get_effects()) {
-                    if (pb_facts[effect.var].insert(effect.value).second) {
-                        updated = true;
+                for (int var = 0; var < n_vars; var++) {
+                    int effect = op.get_effect(var);
+                    if (effect != -1) {
+                        if (pb_facts[var].insert(effect).second) {
+                            updated = true;
+                        }
                     }
                 }
             }

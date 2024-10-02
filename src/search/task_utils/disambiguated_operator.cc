@@ -10,28 +10,22 @@ using namespace std;
 
 
 namespace disambiguation {
-void DisambiguatedOperator::set_effect_value(int var, int value) {
-    effects.push_back(FactPair {var, value});
-    effect_per_var[var] = value;
-}
-
 void DisambiguatedOperator::disambiguate_effects(const EffectsProxy &ep,
                                                  shared_ptr<DisambiguationMethod> &method,
                                                  shared_ptr<MutexInformation> &mutex_information) {
-    // Effects are set as a single value over precondition's CartesianSet.
-    // If any variable ends with a single value, it is an actual effect.
-    CartesianSet effects_cartesian_set(precondition.get_cartesian_set());
+    CartesianSet pre = precondition.get_cartesian_set();
+    CartesianSet effects_cartesian_set(pre);
     for (auto &&ef : ep) {
-        effects_cartesian_set.set_single_value(ef.get_fact().get_variable().get_id(),
-                                               ef.get_fact().get_value());
+        FactPair fact = ef.get_fact().get_pair();
+        effects_cartesian_set.set_single_value(fact.var, fact.value);
     }
-    CartesianState ef_cartesian_state(move(effects_cartesian_set));
-    method->disambiguate(ef_cartesian_state, *mutex_information);
-    const CartesianSet &ef_set = ef_cartesian_state.get_cartesian_set();
-    int n_vars = ef_set.get_n_vars();
+    post.set_cartesian_set(move(effects_cartesian_set));
+    method->disambiguate(post, *mutex_information);
+    const CartesianSet &post_set = post.get_cartesian_set();
+    int n_vars = post_set.get_n_vars();
     for (int var = 0; var < n_vars; var++) {
-        if (ef_set.count(var) == 1) {
-            set_effect_value(var, (*ef_set.iter(var).begin()).value);
+        if (post.count(var) == 1) {
+            effect_in_var[var] = (*post_set.iter(var).begin()).value;
         }
     }
 }
@@ -42,15 +36,17 @@ DisambiguatedOperator::DisambiguatedOperator(TaskProxy task,
                                              shared_ptr<MutexInformation> &mutex_information)
     : op(_op),
       precondition(CartesianSet(task, op.get_preconditions())),
-      effect_per_var(precondition.get_cartesian_set().get_n_vars(), -1),
-      effects() {
+      // Empty CartesianSets because they are set in disambiguate_effects after
+      // desambiguating preconditions, the initialization here is required by C++.
+      post(CartesianSet({})),
+      effect_in_var(task.get_variables().size(), -1) {
     method->disambiguate(precondition, *mutex_information);
     disambiguate_effects(op.get_effects(), method, mutex_information);
 }
 
 
 bool DisambiguatedOperator::is_redundant() const {
-    return precondition.is_spurious() || effects.empty();
+    return precondition.is_spurious() || post.is_spurious();
 }
 
 int DisambiguatedOperator::get_id() const {
@@ -77,19 +73,14 @@ const CartesianState &DisambiguatedOperator::get_precondition() const {
     return precondition;
 }
 
-const vector<FactPair> &DisambiguatedOperator::get_effects() const {
-    return effects;
+const CartesianState &DisambiguatedOperator::get_post() const {
+    return post;
 }
 
-bool DisambiguatedOperator::has_effect(int variable) const {
-    return effect_per_var[variable] != -1;
+bool DisambiguatedOperator::has_effect(int var) const {
+    return effect_in_var[var] != -1;
 }
-
-int DisambiguatedOperator::get_var_effect(int variable) const {
-    return effect_per_var[variable];
-}
-
-void DisambiguatedOperator::set_spurious() {
-    effects.clear();
+int DisambiguatedOperator::get_effect(int var) const {
+    return effect_in_var[var];
 }
 }

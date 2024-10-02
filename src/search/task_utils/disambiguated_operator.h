@@ -17,21 +17,17 @@ private:
     OperatorProxy op;
 
     CartesianState precondition;
-    std::vector<int> effect_per_var;
-    // TODO: Effects as a Cartesian set with multiple values per var.
-    std::vector<FactPair> effects;
+    CartesianState post;
+    std::vector<int> effect_in_var;
 
     void disambiguate_effects(const EffectsProxy &ep,
                               std::shared_ptr<DisambiguationMethod> &method,
                               std::shared_ptr<MutexInformation> &mutex_information);
-    void set_effect_value(int var, int value);
 public:
     DisambiguatedOperator(TaskProxy task,
                           const OperatorProxy &_op,
                           std::shared_ptr<DisambiguationMethod> &method,
                           std::shared_ptr<MutexInformation> &mutex_information);
-
-    void set_spurious();
 
     bool is_redundant() const;
 
@@ -44,16 +40,10 @@ public:
     bool is_axiom() const;
 
     const OperatorProxy get_operator() const;
-
-    // Return if the operator has an effect over var (it should not have
-    // effect if the value is a prevail).
-    bool has_effect(int variable) const;
-
-    int get_var_effect(int variable) const;
-
     const CartesianState &get_precondition() const;
-
-    const std::vector<FactPair> &get_effects() const;
+    const CartesianState &get_post() const;
+    bool has_effect(int var) const;
+    int get_effect(int var) const;
 };
 }
 #endif
