@@ -175,7 +175,8 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                     abstract_state, deviation_states,
                     get_unaffected_variables(op, num_vars),
                     abstraction.get_state(source), domain_sizes, op.get_cost(),
-                    splits, split_unwanted_values);
+                    op.get_precondition().get_cartesian_set(),
+                    splits, split_unwanted_values, true);
             }
         }
     }

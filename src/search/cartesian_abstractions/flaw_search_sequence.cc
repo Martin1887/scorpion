@@ -70,8 +70,10 @@ void FlawSearch::get_deviation_splits(
     const AbstractState &target_abs_state,
     const vector<int> &domain_sizes,
     const int op_cost,
+    const CartesianSet &pre,
     vector<vector<Split>> &splits,
-    bool split_unwanted_values) {
+    bool split_unwanted_values,
+    bool backward) {
     /*
       For each fact in the concrete state that is not contained in the
       target abstract state, loop over all values in the domain of the
@@ -87,6 +89,7 @@ void FlawSearch::get_deviation_splits(
       pre(o)[v] undefined, eff(o)[v] defined: no split possible since regression adds whole domain.
       pre(o)[v] and eff(o)[v] undefined: if s[v] \notin t[v], wanted = intersect(a[v], b[v]).
     */
+    const CartesianSet &target_set = target_abs_state.get_cartesian_set();
     int biggest_var_size = 0;
     for (int var : unaffected_variables) {
         if (domain_sizes[var] > biggest_var_size) {
@@ -96,22 +99,20 @@ void FlawSearch::get_deviation_splits(
     // Create the vectors in the heap only once and reuse it for all vars.
     vector<int> wanted;
     wanted.reserve(biggest_var_size);
-    vector<bool> var_intersects(flaw_search_states.size(), false);
     for (int var : unaffected_variables) {
         bool wanted_computed = false;
-        int i = 0;
-        for (auto &fs_state : flaw_search_states) {
-            var_intersects[i] = target_abs_state.domain_subsets_intersect(fs_state, var);
-            i++;
-        }
         for (int value = 0; value < domain_sizes[var]; ++value) {
             int count = 0;
-            i = 0;
             for (auto &fs_state : flaw_search_states) {
-                if (!var_intersects[i] && fs_state.get().includes(var, value) && !target_abs_state.includes(var, value) && abs_state.includes(var, value)) {
+                // In regression the value may be not in the target state or in
+                // the precondition to get a deviation,
+                // e.g.: (1,2,3), pre: (1,2,5), post: (1,2,5), fs_state: (3,5),
+                // 3 is not in the precondition and it is a deviation despite
+                // being in the target state.
+                bool target_contains = (backward ? target_set.test(var, value) && pre.test(var, value) : target_set.test(var, value));
+                if (!target_contains && fs_state.get().includes(var, value) && abs_state.includes(var, value)) {
                     ++count;
                 }
-                i++;
             }
             if (count) {
                 if (!wanted_computed) {
@@ -249,6 +250,7 @@ unique_ptr<Split> FlawSearch::create_split(
                     abstract_state, deviation_states,
                     get_unaffected_variables(op, num_vars),
                     abstraction.get_state(target), domain_sizes, op.get_cost(),
+                    op.get_precondition().get_cartesian_set(),
                     splits, split_unwanted_values);
             }
         }
@@ -416,7 +418,7 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
             const AbstractState *next_abstract_state = &abstraction.get_state(step.target_id);
             if (flaw_search_state.is_applicable(op)) {
                 if (debug) {
-                    log << "  Move to " << *next_abstract_state << " with "
+                    log << endl << "  Move to " << *next_abstract_state << " with "
                         << op.get_name() << endl;
                 }
                 if (!flaw_search_state.reach_with_op(*next_abstract_state, op)) {
@@ -424,7 +426,7 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                         log << "  Paths deviate." << endl;
                         log << "  Flaw-search state: " << flaw_search_state << endl;
                         log << "  Previous abstract state: " << *abstract_state << endl;
-                        log << "  Op pre: " << op.get_precondition() << ", op post: " << op.get_post() << endl;
+                        log << "  Op pre: " << op.get_precondition() << endl << "  Op post: " << op.get_post() << endl;
                     }
                     push_flaw_if_not_filtered(flaws,
                                               LegacyFlaw(flaw_search_state,
@@ -594,18 +596,18 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                 next_abstract_state = initial_abstract_state;
             }
             if (debug) {
-                log << "  Move from " << *abstract_state << " to " << *next_abstract_state << " with "
+                log << endl << "  Move from " << *abstract_state << " to " << *next_abstract_state << " with "
                     << op.get_name() << endl;
                 log << "  In flaw-search space move from "
                     << flaw_search_state << " with " << op.get_name() << endl;
-                log << "  Op pre: " << op.get_precondition() << endl << "Op post: " << op.get_post() << endl;
+                log << "  Op pre: " << op.get_precondition() << endl << "  Op post: " << op.get_post() << endl;
             }
             if (!flaw_search_state.reach_backwards_with_op(*next_abstract_state, op)) {
                 if (debug) {
                     log << "  Paths deviate." << endl;
                     log << "  Flaw-search state: " << flaw_search_state << endl;
                     log << "  Previous abstract state: " << *abstract_state << endl;
-                    log << "  Op pre: " << op.get_precondition() << endl << "Op post: " << op.get_post() << endl;
+                    log << "  Op pre: " << op.get_precondition() << endl << "  Op post: " << op.get_post() << endl;
                     log << "  Abstract state: " << *next_abstract_state << endl;
                 }
                 push_flaw_if_not_filtered(flaws,

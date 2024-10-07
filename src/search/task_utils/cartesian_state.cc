@@ -259,7 +259,7 @@ bool CartesianState::reach_backwards_with_op(const CartesianState &other, const 
             if (!pre.intersects(other_set, var)) {
                 return false;
             }
-        } else if (!cartesian_set.intersects(other_set, var)) {
+        } else if (!cartesian_set.intersects_intersection(pre, other_set, var)) {
             return false;
         }
     }
@@ -278,7 +278,7 @@ bool CartesianState::reach_backwards_with_inapplicable_op(const CartesianState &
             if (!pre.intersects(other_set, var)) {
                 return false;
             }
-        } else if (!cartesian_set.intersects(other_set, var)) {
+        } else if (!cartesian_set.intersects_intersection(pre, other_set, var)) {
             return false;
         }
     }

@@ -218,8 +218,10 @@ class FlawSearch {
         const AbstractState &target_abs_state,
         const std::vector<int> &domain_sizes,
         const int op_cost,
+        const CartesianSet &pre,
         std::vector<std::vector<Split>> &splits,
-        bool split_unwanted_values);
+        bool split_unwanted_values,
+        bool backward = false);
 
 
     int get_abstract_state_id(const State &state) const;
