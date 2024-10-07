@@ -205,20 +205,18 @@ class FlawSearch {
     static void get_deviation_splits(
         const AbstractState &abs_state,
         const std::vector<State> &conc_states,
-        const std::vector<int> &unaffected_variables,
         const AbstractState &target_abs_state,
         const std::vector<int> &domain_sizes,
+        const disambiguation::DisambiguatedOperator &op,
         std::vector<std::vector<Split>> &splits,
         bool split_unwanted_values);
 
     static void get_deviation_splits(
         const AbstractState &abs_state,
         const std::vector<std::reference_wrapper<const CartesianState>> &flaw_search_states,
-        const std::vector<int> &unaffected_variables,
         const AbstractState &target_abs_state,
         const std::vector<int> &domain_sizes,
-        const int op_cost,
-        const CartesianSet &pre,
+        const disambiguation::DisambiguatedOperator &op,
         std::vector<std::vector<Split>> &splits,
         bool split_unwanted_values,
         bool backward = false);
@@ -361,9 +359,6 @@ public:
 
     static void add_split(std::vector<std::vector<Split>> &splits, Split &&new_split,
                           bool split_unwanted_values = false);
-
-    static std::vector<int> get_unaffected_variables(
-        const disambiguation::DisambiguatedOperator &op, int num_variables);
 
     void print_statistics() const;
 

@@ -23,9 +23,9 @@ namespace cartesian_abstractions {
 void FlawSearch::get_deviation_splits(
     const AbstractState &abs_state,
     const vector<State> &conc_states,
-    const vector<int> &unaffected_variables,
     const AbstractState &target_abs_state,
     const vector<int> &domain_sizes,
+    const disambiguation::DisambiguatedOperator &op,
     vector<vector<Split>> &splits,
     bool split_unwanted_values) {
     /*
@@ -49,9 +49,11 @@ void FlawSearch::get_deviation_splits(
         fact_count[var].resize(domain_sizes[var], 0);
     }
     for (const State &conc_state : conc_states) {
-        for (int var : unaffected_variables) {
-            int state_value = conc_state[var].get_value();
-            ++fact_count[var][state_value];
+        for (size_t var = 0; var < domain_sizes.size(); ++var) {
+            if (!op.has_effect(var)) {
+                int state_value = conc_state[var].get_value();
+                ++fact_count[var][state_value];
+            }
         }
     }
     for (size_t var = 0; var < domain_sizes.size(); ++var) {

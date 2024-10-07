@@ -66,11 +66,9 @@ unique_ptr<Split> FlawSearch::last_not_filtered_flaw(vector<LegacyFlaw> &flaws,
 void FlawSearch::get_deviation_splits(
     const AbstractState &abs_state,
     const vector<reference_wrapper<const CartesianState>> &flaw_search_states,
-    const vector<int> &unaffected_variables,
     const AbstractState &target_abs_state,
     const vector<int> &domain_sizes,
-    const int op_cost,
-    const CartesianSet &pre,
+    const disambiguation::DisambiguatedOperator &op,
     vector<vector<Split>> &splits,
     bool split_unwanted_values,
     bool backward) {
@@ -90,52 +88,80 @@ void FlawSearch::get_deviation_splits(
       pre(o)[v] and eff(o)[v] undefined: if s[v] \notin t[v], wanted = intersect(a[v], b[v]).
     */
     const CartesianSet &target_set = target_abs_state.get_cartesian_set();
+    const CartesianSet &pre = op.get_precondition().get_cartesian_set();
+    int op_cost = op.get_cost();
     int biggest_var_size = 0;
-    for (int var : unaffected_variables) {
-        if (domain_sizes[var] > biggest_var_size) {
+    int n_vars = target_set.get_n_vars();
+    for (int var = 0; var < n_vars; var++) {
+        if (!op.has_effect(var) && domain_sizes[var] > biggest_var_size) {
             biggest_var_size = domain_sizes[var];
         }
     }
     // Create the vectors in the heap only once and reuse it for all vars.
     vector<int> wanted;
     wanted.reserve(biggest_var_size);
-    for (int var : unaffected_variables) {
-        bool wanted_computed = false;
-        for (int value = 0; value < domain_sizes[var]; ++value) {
-            int count = 0;
-            for (auto &fs_state : flaw_search_states) {
-                // In regression the value may be not in the target state or in
-                // the precondition to get a deviation,
-                // e.g.: (1,2,3), pre: (1,2,5), post: (1,2,5), fs_state: (3,5),
-                // 3 is not in the precondition and it is a deviation despite
-                // being in the target state.
-                bool target_contains = (backward ? target_set.test(var, value) && pre.test(var, value) : target_set.test(var, value));
-                if (!target_contains && fs_state.get().includes(var, value) && abs_state.includes(var, value)) {
-                    ++count;
+    vector<bool> var_intersects;
+    bool multiple_states = flaw_search_states.size() > 1;
+    if (multiple_states) {
+        var_intersects = vector<bool>(flaw_search_states.size(), false);
+    }
+    for (int var = 0; var < n_vars; var++) {
+        if (!op.has_effect(var)) {
+            bool var_intersects_in_state;
+            if (multiple_states) {
+                int i = 0;
+                for (auto &fs_state : flaw_search_states) {
+                    var_intersects[i] = target_abs_state.domain_subsets_intersect(fs_state, var);
+                    i++;
                 }
+            } else {
+                var_intersects_in_state = target_abs_state.domain_subsets_intersect(flaw_search_states[0], var);
             }
-            if (count) {
-                if (!wanted_computed) {
-                    wanted_computed = true;
-                    wanted.clear();
-                    for (int value = 0; value < domain_sizes[var]; ++value) {
-                        if (abs_state.includes(var, value) &&
-                            target_abs_state.includes(var, value)) {
-                            wanted.push_back(value);
+            bool wanted_computed = false;
+            for (int value = 0; value < domain_sizes[var]; ++value) {
+                int count = 0;
+                int i = 0;
+                for (auto &fs_state : flaw_search_states) {
+                    // In regression the value may be not in the target state or in
+                    // the precondition to get a deviation,
+                    // e.g.: (1,2,3), pre: (1,2,5), post: (1,2,5), fs_state: (3,5),
+                    // 3 is not in the precondition and it is a deviation despite
+                    // being in the target state.
+                    bool var_intersects_in_this;
+                    if (multiple_states) {
+                        var_intersects_in_this = var_intersects[i];
+                    } else {
+                        var_intersects_in_this = var_intersects_in_state;
+                    }
+                    bool target_contains = (backward ? target_set.test(var, value) && pre.test(var, value) : target_set.test(var, value));
+                    if (!var_intersects_in_this && !target_contains && fs_state.get().includes(var, value) && abs_state.includes(var, value)) {
+                        ++count;
+                    }
+                    i++;
+                }
+                if (count) {
+                    if (!wanted_computed) {
+                        wanted_computed = true;
+                        wanted.clear();
+                        for (int value = 0; value < domain_sizes[var]; ++value) {
+                            if (abs_state.includes(var, value) &&
+                                target_abs_state.includes(var, value)) {
+                                wanted.push_back(value);
+                            }
                         }
                     }
-                }
-                assert(!wanted.empty());
-                if (split_unwanted_values) {
-                    for (int want : wanted) {
+                    assert(!wanted.empty());
+                    if (split_unwanted_values) {
+                        for (int want : wanted) {
+                            FlawSearch::add_split(splits, Split(
+                                                      abs_state.get_id(), var, want, {value},
+                                                      count, op_cost), true);
+                        }
+                    } else {
                         FlawSearch::add_split(splits, Split(
-                                                  abs_state.get_id(), var, want, {value},
-                                                  count, op_cost), true);
+                                                  abs_state.get_id(), var, value, wanted,
+                                                  count, op_cost));
                     }
-                } else {
-                    FlawSearch::add_split(splits, Split(
-                                              abs_state.get_id(), var, value, wanted,
-                                              count, op_cost));
                 }
             }
         }
@@ -245,12 +271,9 @@ unique_ptr<Split> FlawSearch::create_split(
 
         for (auto &&[target, deviation_states] : deviation_states_by_target) {
             if (!deviation_states.empty()) {
-                int num_vars = domain_sizes.size();
                 get_deviation_splits(
                     abstract_state, deviation_states,
-                    get_unaffected_variables(op, num_vars),
-                    abstraction.get_state(target), domain_sizes, op.get_cost(),
-                    op.get_precondition().get_cartesian_set(),
+                    abstraction.get_state(target), domain_sizes, op,
                     splits, split_unwanted_values);
             }
         }

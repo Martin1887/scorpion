@@ -170,12 +170,9 @@ unique_ptr<Split> FlawSearch::create_backward_split(
 
         for (auto &&[source, deviation_states] : deviation_states_by_source) {
             if (!deviation_states.empty()) {
-                int num_vars = domain_sizes.size();
                 get_deviation_splits(
                     abstract_state, deviation_states,
-                    get_unaffected_variables(op, num_vars),
-                    abstraction.get_state(source), domain_sizes, op.get_cost(),
-                    op.get_precondition().get_cartesian_set(),
+                    abstraction.get_state(source), domain_sizes, op,
                     splits, split_unwanted_values, true);
             }
         }

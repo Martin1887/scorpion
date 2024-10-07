@@ -237,22 +237,6 @@ void FlawSearch::add_split(vector<vector<Split>> &splits, Split &&new_split,
     }
 }
 
-vector<int> FlawSearch::get_unaffected_variables(
-    const disambiguation::DisambiguatedOperator &op, int num_variables) {
-    const CartesianSet &post = op.get_post().get_cartesian_set();
-    vector<int> unaffected_vars;
-    unaffected_vars.reserve(num_variables);
-    for (int var = 0; var < num_variables; ++var) {
-        // If only one value is possible as precondition or the operator has
-        // effect (post count == 1) the var is affected
-        // (as for non-disambiguated operators).
-        if (post.count(var) != 1) {
-            unaffected_vars.push_back(var);
-        }
-    }
-    return unaffected_vars;
-}
-
 // TODO: Add comment about split considering multiple transitions.
 unique_ptr<Split> FlawSearch::create_split(
     const vector<StateID> &state_ids, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
@@ -349,11 +333,9 @@ unique_ptr<Split> FlawSearch::create_split(
             int target = pair.first;
             const vector<State> &deviation_states = pair.second;
             if (!deviation_states.empty()) {
-                int num_vars = domain_sizes.size();
                 get_deviation_splits(
                     abstract_state, deviation_states,
-                    get_unaffected_variables(op, num_vars),
-                    abstraction.get_state(target), domain_sizes, splits,
+                    abstraction.get_state(target), domain_sizes, op, splits,
                     split_unwanted_values);
             }
         }
