@@ -117,8 +117,10 @@ public:
     const TransitionSystem &get_transition_system() const;
     std::unique_ptr<RefinementHierarchy> extract_refinement_hierarchy();
 
-    /* Needed for CEGAR::separate_facts_unreachable_before_goal(). */
-    void mark_all_states_as_goals();
+    /* Needed for CEGAR::separate_facts_unreachable_before_goal().
+     * With desambiguation some states can to not be a goal, so inclusion
+     * must be checked. */
+    void mark_all_goal_states_as_goals();
 
     // Split state into two child states.
     std::tuple<int, int, bool, Transitions, Transitions> refine(

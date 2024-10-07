@@ -123,7 +123,7 @@ void CEGAR::separate_facts_unreachable_before_goal(bool refine_goals) const {
             abstraction->refine(abstraction->get_initial_state(), var_id, unreachable_values);
         }
     }
-    abstraction->mark_all_states_as_goals();
+    abstraction->mark_all_goal_states_as_goals();
     /*
       Split off the goal fact from the initial state. Then the new initial
       state is the only non-goal state and no goal state will have to be split

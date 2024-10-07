@@ -83,13 +83,15 @@ unique_ptr<RefinementHierarchy> Abstraction::extract_refinement_hierarchy() {
     return move(refinement_hierarchy);
 }
 
-void Abstraction::mark_all_states_as_goals() {
+void Abstraction::mark_all_goal_states_as_goals() {
     if (log.is_at_least_debug()) {
         log << "Mark all states as goals." << endl;
     }
     goals.clear();
     for (const auto &state : states) {
-        goals.insert(state->get_id());
+        if (state->includes(goal_facts)) {
+            goals.insert(state->get_id());
+        }
     }
 }
 
@@ -187,6 +189,12 @@ tuple<int, int, bool, Transitions, Transitions> Abstraction::refine(
     states.emplace_back();
     states[split_result.v1_id] = move(v1);
     states[split_result.v2_id] = move(v2);
+
+    if (log.is_at_least_debug()) {
+        for (int goal : goals) {
+            log << *states[goal] << endl;
+        }
+    }
 
     assert(init_id == 0);
     assert(get_initial_state().includes(concrete_initial_state));
