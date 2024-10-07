@@ -64,7 +64,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
         int n_vars = domain_sizes.size();
         for (int var = 0; var < n_vars; var++) {
             int eff_value = op.get_effect(var);
-            bool has_effect = eff_value != -1;
+            bool has_effect = eff_value != disambiguation::MULTIPLE_POSTCONDITIONS;
             int i = 0;
             for (const CartesianState &state : states) {
                 var_applicable[i] = state.is_backward_applicable(op, var);

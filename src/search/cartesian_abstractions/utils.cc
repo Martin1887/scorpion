@@ -91,7 +91,7 @@ static std::vector<utils::HashSet<int>> compute_possibly_before_facts(
             if (operator_applicable(op, pb_facts)) {
                 for (int var = 0; var < n_vars; var++) {
                     int effect = op.get_effect(var);
-                    if (effect != -1) {
+                    if (effect != disambiguation::MULTIPLE_POSTCONDITIONS) {
                         if (pb_facts[var].insert(effect).second) {
                             updated = true;
                         }

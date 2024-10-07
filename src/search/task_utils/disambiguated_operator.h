@@ -12,6 +12,8 @@
 using namespace cartesian_state;
 
 namespace disambiguation {
+const int MULTIPLE_POSTCONDITIONS = -1;
+
 class DisambiguatedOperator {
 private:
     OperatorProxy op;

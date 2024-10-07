@@ -78,7 +78,7 @@ const CartesianState &DisambiguatedOperator::get_post() const {
 }
 
 bool DisambiguatedOperator::has_effect(int var) const {
-    return effect_in_var[var] != -1;
+    return effect_in_var[var] != MULTIPLE_POSTCONDITIONS;
 }
 int DisambiguatedOperator::get_effect(int var) const {
     return effect_in_var[var];
