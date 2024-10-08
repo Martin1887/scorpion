@@ -23,7 +23,7 @@ public:
     const std::set<FactPair> &get_mutexes(const FactPair &fact) const {
         return mutexes[fact.var][fact.value];
     }
-    const mutex_set_for_value get_var_mutexes(const int var);
+    const mutex_set_for_value &get_var_mutexes(const int var);
 
     void add_mutex(const FactPair &fact1, const FactPair &fact2);
     void remove_mutex(const FactPair &fact1, const FactPair &fact2);
