@@ -111,11 +111,19 @@ void FlawSearch::get_deviation_splits(
             if (multiple_states) {
                 int i = 0;
                 for (auto &fs_state : flaw_search_states) {
-                    var_intersects[i] = target_abs_state.domain_subsets_intersect(fs_state, var);
+                    if (backward) {
+                        var_intersects[i] = target_set.intersects_intersection(fs_state.get().get_cartesian_set(), pre, var);
+                    } else {
+                        var_intersects[i] = target_abs_state.domain_subsets_intersect(fs_state, var);
+                    }
                     i++;
                 }
             } else {
-                var_intersects_in_state = target_abs_state.domain_subsets_intersect(flaw_search_states[0], var);
+                if (backward) {
+                    var_intersects_in_state = target_set.intersects_intersection(flaw_search_states[0].get().get_cartesian_set(), pre, var);
+                } else {
+                    var_intersects_in_state = target_abs_state.domain_subsets_intersect(flaw_search_states[0], var);
+                }
             }
             bool wanted_computed = false;
             for (int value = 0; value < domain_sizes[var]; ++value) {
