@@ -23,6 +23,11 @@ bool AC3Disambiguation::disambiguate(CartesianState &partial_state,
             worklist.erase(iterator);
             if (arc_reduce(disambiguated, var, mutex, var_mutexes)) {
                 changed = true;
+                if (disambiguated.count(var) == 0) {
+                    partial_state.set_cartesian_set(move(disambiguated));
+                    partial_state.got_empty();
+                    return changed;
+                }
                 add_new_mutexes(mutex, var_mutexes, worklist);
             }
         }
