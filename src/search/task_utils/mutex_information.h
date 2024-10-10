@@ -51,7 +51,7 @@ public:
         return mutexes[fact.var][fact.value];
     }
     const std::vector<int> &get_var_mutex_vars(const int var) const;
-    const mutex_set_for_value &get_var_mutexes(const int var);
+    const mutex_set_for_value &get_var_mutexes(const int var) const;
 
     void add_mutex(const FactPair &fact1, const FactPair &fact2);
     void remove_mutex(const FactPair &fact1, const FactPair &fact2);

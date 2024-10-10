@@ -8,7 +8,7 @@ using namespace std;
 
 namespace disambiguation {
 bool AC3Disambiguation::disambiguate(CartesianState &partial_state,
-                                     MutexInformation &mutexes) const {
+                                     const MutexInformation &mutexes) const {
     bool changed = false;
     CartesianSet disambiguated = partial_state.get_cartesian_set();
 

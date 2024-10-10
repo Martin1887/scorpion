@@ -16,17 +16,17 @@ public:
     DisambiguationMethod() = default;
     virtual ~DisambiguationMethod() = default;
 
-    virtual CartesianState disambiguate_copy(const CartesianState &, MutexInformation &) const;
+    virtual CartesianState disambiguate_copy(const CartesianState &, const MutexInformation &) const;
 
     // Returns true if the cartesian set is changed
-    virtual bool disambiguate(CartesianState &, MutexInformation &) const = 0;
+    virtual bool disambiguate(CartesianState &, const MutexInformation &) const = 0;
 };
 
 class NoDisambiguation : public DisambiguationMethod {
 public:
     NoDisambiguation(const plugins::Options &) {}
 
-    virtual bool disambiguate(CartesianState &, MutexInformation &) const override {
+    virtual bool disambiguate(CartesianState &, const MutexInformation &) const override {
         return false;
     }
 };

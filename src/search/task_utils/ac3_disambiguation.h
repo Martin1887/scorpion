@@ -18,7 +18,7 @@ class AC3Disambiguation : public DisambiguationMethod {
                          std::vector<int> &worklist) const;
 public:
     AC3Disambiguation(const plugins::Options &) {}
-    virtual bool disambiguate(CartesianState &, MutexInformation &) const override;
+    virtual bool disambiguate(CartesianState &, const MutexInformation &) const override;
 };
 }
 #endif
