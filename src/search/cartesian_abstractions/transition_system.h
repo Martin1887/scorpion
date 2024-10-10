@@ -35,6 +35,7 @@ class TransitionSystem {
     // Store self-loops (operator indices) separately to save space.
     std::vector<Loops> loops;
 
+    int redundant_operators;
     int num_non_loops;
     int num_loops;
 

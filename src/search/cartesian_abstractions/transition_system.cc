@@ -47,9 +47,11 @@ void TransitionSystem::add_loops_in_trivial_abstraction(const AbstractState &ini
     int init_id = 0;
     for (const disambiguation::DisambiguatedOperator &op : *operators) {
         // The initial abstract state could be disambiguated.
-        if (!op.is_redundant() && (!disambiguated ||
-                                   (init.is_applicable(op) &&
-                                    init.reach_with_op(init, op)))) {
+        if (op.is_redundant()) {
+            redundant_operators++;
+        } else if (!disambiguated ||
+                   (init.is_applicable(op) &&
+                    init.reach_with_op(init, op))) {
             add_loop(init_id, op.get_id());
         }
     }
@@ -267,6 +269,7 @@ void TransitionSystem::print_statistics(utils::LogProxy &log) const {
         assert(get_num_non_loops() == total_outgoing_transitions);
         log << "Looping transitions: " << total_loops << endl;
         log << "Non-looping transitions: " << total_outgoing_transitions << endl;
+        log << "Redundant operators: " << redundant_operators << endl;
     }
 }
 
