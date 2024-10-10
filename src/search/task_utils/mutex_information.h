@@ -12,13 +12,14 @@ using mutex_set_for_value = phmap::flat_hash_set<tuple_value_fact, utils::Hash<t
 class MutexInformation {
     std::vector<std::vector<std::set<FactPair>>> mutexes;
     std::vector<std::vector<int>> var_mutex_vars;
-    phmap::flat_hash_map<int, mutex_set_for_value> var_mutex_set{};
+    std::vector<mutex_set_for_value> var_mutex_set{};
 
 public:
     MutexInformation() = default;
     MutexInformation(const std::vector<std::vector<std::set<FactPair>>> &_mutexes)
         : mutexes(_mutexes) {
         int n_vars = mutexes.size();
+        var_mutex_set.reserve(n_vars);
         var_mutex_vars = std::vector<std::vector<int>>(n_vars, std::vector<int>{});
         for (int i = 0; i < n_vars; i++) {
             std::set<int> mutex_vars;
@@ -31,6 +32,16 @@ public:
             for (int j : mutex_vars) {
                 var_mutex_vars[i].push_back(j);
             }
+
+            const std::vector<std::set<FactPair>> &vec = mutexes[i];
+            mutex_set_for_value mutex_set{};
+            int size = vec.size();
+            for (int value = 0; value < size; value++) {
+                for (const FactPair &mutex : vec[value]) {
+                    mutex_set.insert({value, mutex});
+                }
+            }
+            var_mutex_set.push_back(std::move(mutex_set));
         }
     }
 

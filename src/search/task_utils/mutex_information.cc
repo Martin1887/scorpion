@@ -20,18 +20,7 @@ const std::vector<int> &MutexInformation::get_var_mutex_vars(const int var) cons
 }
 
 const mutex_set_for_value &MutexInformation::get_var_mutexes(const int var) {
-    if (!var_mutex_set.contains(var)) {
-        vector<set<FactPair>> vec = mutexes[var];
-        mutex_set_for_value mutex_set{};
-        int size = vec.size();
-        for (int value = 0; value < size; value++) {
-            for (const FactPair &mutex : vec[value]) {
-                mutex_set.insert({value, mutex});
-            }
-        }
-        var_mutex_set.insert({var, std::move(mutex_set)});
-    }
-    return var_mutex_set.at(var);
+    return var_mutex_set[var];
 }
 
 void MutexInformation::add_mutex(const FactPair &a, const FactPair &b) {
