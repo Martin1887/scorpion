@@ -398,6 +398,10 @@ void CartesianState::set_cartesian_set(CartesianSet &&other) {
     cartesian_set = move(other);
 }
 
+void CartesianState::set_var_values(int var, const CartesianSet &other) {
+    cartesian_set.set_values(var, other);
+}
+
 CartesianState CartesianState::intersection(const CartesianState &other) const {
     return CartesianState(cartesian_set.intersection(other.get_cartesian_set()));
 }

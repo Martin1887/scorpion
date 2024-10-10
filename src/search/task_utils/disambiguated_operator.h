@@ -22,14 +22,14 @@ private:
     CartesianState post;
     std::vector<int> effect_in_var;
 
-    void disambiguate_effects(const EffectsProxy &ep,
-                              std::shared_ptr<DisambiguationMethod> &method,
-                              std::shared_ptr<MutexInformation> &mutex_information);
+    void disambiguate(const EffectsProxy &ep,
+                      const std::shared_ptr<DisambiguationMethod> &method,
+                      const std::shared_ptr<MutexInformation> &mutex_information);
 public:
     DisambiguatedOperator(TaskProxy task,
                           const OperatorProxy &_op,
-                          std::shared_ptr<DisambiguationMethod> &method,
-                          std::shared_ptr<MutexInformation> &mutex_information);
+                          const std::shared_ptr<DisambiguationMethod> &method,
+                          const std::shared_ptr<MutexInformation> &mutex_information);
 
     bool is_redundant() const;
 
