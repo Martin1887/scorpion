@@ -11,11 +11,11 @@ namespace disambiguation {
 class AC3Disambiguation : public DisambiguationMethod {
     bool arc_reduce(CartesianSet &disambiguated,
                     int var,
-                    const std::tuple<int, FactPair> &mutex,
+                    int mutex_var,
                     const mutex_set_for_value &var_mutexes) const;
-    void add_new_mutexes(const std::tuple<int, FactPair> &removed_mutex,
-                         const mutex_set_for_value &var_mutexes,
-                         mutex_set_for_value &worklist) const;
+    void add_new_mutexes(int removed_var,
+                         const std::vector<int> &var_mutex_vars,
+                         std::vector<int> &worklist) const;
 public:
     AC3Disambiguation(const plugins::Options &) {}
     virtual bool disambiguate(CartesianState &, MutexInformation &) const override;

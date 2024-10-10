@@ -15,20 +15,21 @@ bool AC3Disambiguation::disambiguate(CartesianState &partial_state,
     int n_vars = disambiguated.get_n_vars();
     for (int var = 0; var < n_vars; var++) {
         mutex_set_for_value var_mutexes = mutexes.get_var_mutexes(var);
-        // Initially, worklist=var_mutexes, but it changes.
-        mutex_set_for_value worklist = var_mutexes;
+        vector<int> var_mutex_vars = mutexes.get_var_mutex_vars(var);
+        // Initially, worklist=var_mutex_vars, but it changes.
+        vector<int> worklist = var_mutex_vars;
         while (!worklist.empty()) {
             auto iterator = worklist.begin();
-            tuple<int, FactPair> mutex = *iterator;
+            int mutex_var = *iterator;
             worklist.erase(iterator);
-            if (arc_reduce(disambiguated, var, mutex, var_mutexes)) {
+            if (arc_reduce(disambiguated, var, mutex_var, var_mutexes)) {
                 changed = true;
                 if (disambiguated.count(var) == 0) {
                     partial_state.set_cartesian_set(move(disambiguated));
                     partial_state.got_empty();
                     return changed;
                 }
-                add_new_mutexes(mutex, var_mutexes, worklist);
+                add_new_mutexes(mutex_var, var_mutex_vars, worklist);
             }
         }
     }
@@ -42,13 +43,12 @@ bool AC3Disambiguation::disambiguate(CartesianState &partial_state,
 
 bool AC3Disambiguation::arc_reduce(CartesianSet &disambiguated,
                                    int var,
-                                   const tuple<int, FactPair> &mutex,
+                                   int mutex_var,
                                    const mutex_set_for_value &var_mutexes) const {
     bool change = false;
     for (auto &&[x_var, x_value] : disambiguated.iter(var)) {
         bool all_mutex = true;
-        int second_var = std::get<1>(mutex).var;
-        for (FactPair && y : disambiguated.iter(second_var)) {
+        for (FactPair && y : disambiguated.iter(mutex_var)) {
             if (!var_mutexes.contains({x_value, y})) {
                 all_mutex = false;
                 break;
@@ -63,15 +63,13 @@ bool AC3Disambiguation::arc_reduce(CartesianSet &disambiguated,
     return change;
 }
 
-void AC3Disambiguation::add_new_mutexes(const tuple<int, FactPair> &removed_mutex,
-                                        const mutex_set_for_value &var_mutexes,
-                                        mutex_set_for_value &worklist) const {
-    int value = std::get<0>(removed_mutex);
-    FactPair other_fact = std::get<1>(removed_mutex);
-    for (const tuple<int, FactPair> &mutex : var_mutexes) {
-        FactPair new_fact = std::get<1>(mutex);
-        if (new_fact.var != other_fact.var || new_fact.value != other_fact.value) {
-            worklist.insert({value, new_fact});
+void AC3Disambiguation::add_new_mutexes(int removed_var,
+                                        const vector<int> &var_mutex_vars,
+                                        vector<int> &worklist) const {
+    worklist.clear();
+    for (int var : var_mutex_vars) {
+        if (var != removed_var) {
+            worklist.push_back(var);
         }
     }
 }

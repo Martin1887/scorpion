@@ -15,6 +15,10 @@ bool MutexInformation::are_facts_mutex(const FactPair &fact1, const FactPair &fa
     return bool(mutexes[fact1.var][fact1.value].count(fact2));
 }
 
+const std::vector<int> &MutexInformation::get_var_mutex_vars(const int var) const {
+    return var_mutex_vars[var];
+}
+
 const mutex_set_for_value &MutexInformation::get_var_mutexes(const int var) {
     if (!var_mutex_set.contains(var)) {
         vector<set<FactPair>> vec = mutexes[var];
