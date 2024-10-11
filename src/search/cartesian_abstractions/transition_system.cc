@@ -29,6 +29,7 @@ static void remove_transitions_with_given_target(
 
 TransitionSystem::TransitionSystem(const shared_ptr<vector<DisambiguatedOperator>> &ops)
     : operators(ops),
+      redundant_operators(0),
       num_non_loops(0),
       num_loops(0) {
 }
