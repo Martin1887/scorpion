@@ -217,6 +217,9 @@ class FlawSearch {
         bool split_unwanted_values,
         bool backward = false);
 
+    std::tuple<CartesianState, int> first_flaw_search_state(const Solution &solution,
+                                                            InAbstractionFlawSearchKind only_in_abstraction,
+                                                            const AbstractState * &abstract_state);
 
     int get_abstract_state_id(const State &state) const;
     Cost get_h_value(int abstract_state_id) const;

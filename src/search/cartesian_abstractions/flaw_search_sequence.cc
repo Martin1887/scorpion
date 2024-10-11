@@ -63,6 +63,40 @@ unique_ptr<Split> FlawSearch::last_not_filtered_flaw(vector<LegacyFlaw> &flaws,
     return best_split;
 }
 
+tuple<CartesianState, int> FlawSearch::first_flaw_search_state(const Solution &solution,
+                                                               InAbstractionFlawSearchKind only_in_abstraction,
+                                                               const AbstractState * &abstract_state) {
+    int start_abstract_state_index = 0;
+    switch (only_in_abstraction) {
+    case InAbstractionFlawSearchKind::TRUE:
+        return {CartesianState(abstraction.get_initial_state()), start_abstract_state_index};
+    case InAbstractionFlawSearchKind::FALSE:
+        return {CartesianState(get_domain_sizes(task_proxy),
+                               task_properties::get_fact_pairs(state_registry->get_initial_state())),
+                start_abstract_state_index};
+    case InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION:
+        // In goal state and in the last state before goal no possible flaw
+        // exists, so get the previous state, or the initial state if 2 or
+        // fewer states.
+        if (solution.size() >= 3) {
+            abstract_state = &abstraction.get_state(solution.at(solution.size() - 3).target_id);
+            start_abstract_state_index = solution.size() - 2;
+            return {CartesianState(abstraction.get_state(solution.at(solution.size() - 3).target_id)),
+                    start_abstract_state_index};
+        } else if (solution.size() == 2) {
+            start_abstract_state_index = 0;
+            return {CartesianState(abstraction.get_initial_state()), start_abstract_state_index};
+        } else {
+            start_abstract_state_index = -1;
+            return {CartesianState(get_domain_sizes(task_proxy),
+                                   task_properties::get_fact_pairs(state_registry->get_initial_state())),
+                    start_abstract_state_index};
+        }
+    }
+    // This cannot happen, all cases are handled above.
+    throw utils::Exception("Reached unreachable code");
+}
+
 void FlawSearch::get_deviation_splits(
     const AbstractState &abs_state,
     const vector<reference_wrapper<const CartesianState>> &flaw_search_states,
@@ -384,7 +418,6 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
 
 vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                                                  const InAbstractionFlawSearchKind only_in_abstraction) {
-    // TODO: disambiguation
     vector<LegacyFlaw> flaws{};
     state_registry = utils::make_unique_ptr<StateRegistry>(task_proxy);
     bool debug = log.is_at_least_debug();
@@ -401,35 +434,12 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
     if (debug)
         log << "Check solution:" << endl;
 
-    int start_abstract_state_index = 0;
     const AbstractState *abstract_state = &abstraction.get_initial_state();
-    CartesianState flaw_search_state = CartesianState(abstraction.get_initial_state());
-    switch (only_in_abstraction) {
-    case InAbstractionFlawSearchKind::TRUE:
-        // Already correct values.
-        break;
-    case InAbstractionFlawSearchKind::FALSE:
-        flaw_search_state = CartesianState(get_domain_sizes(task_proxy),
-                                           task_properties::get_fact_pairs(state_registry->get_initial_state()));
-        break;
-    case InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION:
-        // In goal state and in the last state before goal no possible flaw
-        // exists, so get the previous state, or the initial state if 2 or
-        // fewer states.
-        if (solution.size() >= 3) {
-            flaw_search_state = CartesianState(abstraction.get_state(solution.at(solution.size() - 3).target_id));
-            abstract_state = &abstraction.get_state(solution.at(solution.size() - 3).target_id);
-            start_abstract_state_index = solution.size() - 2;
-        } else if (solution.size() == 2) {
-            // Already correct values.
-            start_abstract_state_index = 0;
-        } else {
-            flaw_search_state = CartesianState(get_domain_sizes(task_proxy),
-                                               task_properties::get_fact_pairs(state_registry->get_initial_state()));
-            start_abstract_state_index = -1;
-        }
-        break;
-    }
+    auto [ flaw_search_state, start_abstract_state_index ] =
+        first_flaw_search_state(solution,
+                                only_in_abstraction,
+                                abstract_state);
+
     assert(abstract_state->intersects(flaw_search_state));
 
     if (debug) {
@@ -563,7 +573,6 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
 
 vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                                                   const InAbstractionFlawSearchKind only_in_abstraction) {
-    // TODO: disambiguation
     vector<LegacyFlaw> flaws{};
     bool force_push_filtered_flaws = true;
     // This pointer is used to return the first found flaw if all have been
