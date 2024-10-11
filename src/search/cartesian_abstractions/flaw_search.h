@@ -47,10 +47,6 @@ enum class PickFlawedAbstractState {
     // Follow the arbitrary solution in shortest path in backward direction
     // (from the goal) splitting the wanted values.
     FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES,
-    // Follow the arbitrary solution in shortest path in backward direction
-    // (from the goal) splitting the wanted values refining the init state
-    // before refinement steps.
-    FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE,
     // Follow the arbitrary solution in shortest path in backward and forward
     // directions interleaving them.
     FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED,
@@ -354,7 +350,6 @@ public:
                                             const utils::CountdownTimer &cegar_timer,
                                             const bool half_limits_reached);
     SplitProperties get_sequence_splits(const Solution &solution);
-    bool refine_init_state() const;
     bool refine_goals() const;
 
     static void add_split(std::vector<std::vector<Split>> &splits, Split &&new_split,

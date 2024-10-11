@@ -111,7 +111,8 @@ SharedTasks TaskDuplicator::get_subtasks(
         .tiebreak_split = tiebreak_split,
         .sequence_split = sequence_split,
         .sequence_tiebreak_split = sequence_tiebreak_split,
-        .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states
+        .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
+        .refine_init = refine_init
     };
     SharedTasks subtasks;
     subtasks.reserve(num_copies);
@@ -146,7 +147,8 @@ SharedTasks GoalDecomposition::get_subtasks(
             .tiebreak_split = tiebreak_split,
             .sequence_split = sequence_split,
             .sequence_tiebreak_split = sequence_tiebreak_split,
-            .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states
+            .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
+            .refine_init = refine_init
         };
         subtasks.push_back(subtask);
         i++;
@@ -201,7 +203,8 @@ SharedTasks LandmarkDecomposition::get_subtasks(
             .tiebreak_split = tiebreak_split,
             .sequence_split = sequence_split,
             .sequence_tiebreak_split = sequence_tiebreak_split,
-            .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states
+            .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
+            .refine_init = refine_init
         };
         subtasks.push_back(subtask);
         i++;
@@ -236,7 +239,8 @@ SharedTasks VarsOrdersSubtaskGenerator::get_subtasks(
                 .tiebreak_split = tiebreak_split,
                 .sequence_split = PickSequenceFlaw::BEST_SPLIT,
                 .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
-                .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states
+                .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
+                .refine_init = refine_init
             }
             );
     }
@@ -261,7 +265,8 @@ SharedTasks BestStrategiesSubtaskGenerator::get_subtasks(
             .tiebreak_split = tiebreak_split,
             .sequence_split = PickSequenceFlaw::CLOSEST_TO_GOAL_FLAW,
             .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
-            .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states
+            .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
+            .refine_init = refine_init
         });
     vector<PickSplit> best_strategies = {
         PickSplit::MAX_REFINED,
@@ -285,7 +290,8 @@ SharedTasks BestStrategiesSubtaskGenerator::get_subtasks(
                 .tiebreak_split = tiebreak_split,
                 .sequence_split = PickSequenceFlaw::BEST_SPLIT,
                 .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
-                .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states
+                .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
+                .refine_init = refine_init
             });
     }
 
@@ -333,6 +339,10 @@ static void add_all_base_options(plugins::Feature &feature) {
         "sequence_tiebreak_split",
         "split-selection strategy for breaking ties when choosing among flaws in different states",
         "best_split");
+    feature.add_option<bool>(
+        "refine_init",
+        "refine the initial state before the refinement loop",
+        "false");
 }
 
 class TaskDuplicatorFeature : public plugins::TypedFeature<SubtaskGenerator, TaskDuplicator> {

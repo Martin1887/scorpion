@@ -39,6 +39,7 @@ CEGAR::CEGAR(
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
     bool intersect_flaw_search_abstract_states,
+    bool refine_init,
     lp::LPSolverType lp_solver,
     shared_ptr<disambiguation::DisambiguationMethod> &operators_disambiguation,
     shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
@@ -51,6 +52,7 @@ CEGAR::CEGAR(
       max_states(max_states),
       max_non_looping_transitions(max_non_looping_transitions),
       pick_flawed_abstract_state(pick_flawed_abstract_state),
+      refine_init(refine_init),
       mutex_information(make_shared<MutexInformation>(task->mutex_information())),
       operators_disambiguation(operators_disambiguation),
       abstract_space_disambiguation(abstract_space_disambiguation),
@@ -219,7 +221,7 @@ void CEGAR::refinement_loop() {
         assert(!abstraction->get_goals().count(abstraction->get_initial_state().get_id()));
         assert(abstraction->get_goals().size() == 1);
     }
-    if (flaw_search->refine_init_state()) {
+    if (refine_init) {
         // Split iteratively until the abstract initial state is exactly
         // the concrete initial state, as done with goals in forward direction
         // because the refinement functions only work with optimal transitions and

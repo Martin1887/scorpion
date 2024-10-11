@@ -646,7 +646,6 @@ FlawSearch::FlawSearch(
     case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH:
     case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_UNWANTED_VALUES:
     case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
-    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE:
     case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD:
     case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED:
     case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_BACKWARD_FORWARD:
@@ -707,7 +706,6 @@ FlawSearch::FlawSearch(
         split_unwanted_values = true;
         break;
     case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
-    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE:
         backward_direction = true;
         break;
     case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD:
@@ -802,10 +800,6 @@ SplitProperties FlawSearch::get_split_and_direction(const Solution &solution,
     }
 }
 
-bool FlawSearch::refine_init_state() const {
-    return pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES_REFINING_INIT_STATE;
-}
-
 bool FlawSearch::refine_goals() const {
     bool refine_goals = false;
     switch (pick_flawed_abstract_state) {
@@ -896,10 +890,6 @@ static plugins::TypedEnumPlugin<PickFlawedAbstractState> _enum_plugin({
         {"first_on_shortest_path_backward_wanted_values",
          "Follow the arbitrary solution in shortest path in backward direction"
          "from the goal) splitting the wanted values."},
-        {"first_on_shortest_path_backward_wanted_values_refining_init_state",
-         "Follow the arbitrary solution in shortest path in backward direction"
-         "(from the goal) splitting the wanted values refining the init state"
-         "before refinement steps."},
         {"first_on_shortest_path_bidirectional_interleaved",
          "Follow the arbitrary solution in shortest path in backward and forward"
          "directions interleaving them."},

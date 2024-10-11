@@ -46,6 +46,7 @@ struct Subtask {
     PickSequenceFlaw sequence_split;
     PickSequenceFlaw sequence_tiebreak_split;
     bool intersect_flaw_search_abstract_states;
+    bool refine_init;
 };
 using SharedTasks = std::vector<Subtask>;
 
@@ -84,6 +85,7 @@ protected:
     PickSequenceFlaw sequence_split;
     PickSequenceFlaw sequence_tiebreak_split;
     bool intersect_flaw_search_abstract_states;
+    bool refine_init;
 
     SameParamsSubtaskGenerator(const plugins::Options &opts)
         : pick_flawed_abstract_state(opts.get<PickFlawedAbstractState>("pick_flawed_abstract_state")),
@@ -92,7 +94,8 @@ protected:
           tiebreak_split(opts.get<PickSplit>("tiebreak_split")),
           sequence_split(opts.get<PickSequenceFlaw>("sequence_split")),
           sequence_tiebreak_split(opts.get<PickSequenceFlaw>("sequence_tiebreak_split")),
-          intersect_flaw_search_abstract_states(opts.get<bool>("intersect_flaw_search_abstract_states")) {
+          intersect_flaw_search_abstract_states(opts.get<bool>("intersect_flaw_search_abstract_states")),
+          refine_init(opts.get<bool>("refine_init")) {
     }
 };
 
@@ -156,11 +159,13 @@ protected:
     PickFlawedAbstractState pick_flawed_abstract_state;
     PickSplit tiebreak_split;
     bool intersect_flaw_search_abstract_states;
+    bool refine_init;
 
     DiversifiedSubtaskGenerator(const plugins::Options &opts)
         : pick_flawed_abstract_state(opts.get<PickFlawedAbstractState>("pick_flawed_abstract_state")),
           tiebreak_split(opts.get<PickSplit>("tiebreak_split")),
-          intersect_flaw_search_abstract_states(opts.get<bool>("intersect_flaw_search_abstract_states")) {
+          intersect_flaw_search_abstract_states(opts.get<bool>("intersect_flaw_search_abstract_states")),
+          refine_init(opts.get<bool>("refine_init")) {
     }
 };
 

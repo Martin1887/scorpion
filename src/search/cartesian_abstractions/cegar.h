@@ -41,6 +41,7 @@ class CEGAR {
     const int max_states;
     const int max_non_looping_transitions;
     const PickFlawedAbstractState pick_flawed_abstract_state;
+    const bool refine_init;
 
     std::shared_ptr<MutexInformation> mutex_information;
     std::shared_ptr<disambiguation::DisambiguationMethod> operators_disambiguation;
@@ -97,6 +98,7 @@ public:
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
         bool intersect_flaw_search_abstract_states,
+        bool refine_init,
         lp::LPSolverType lp_solver,
         std::shared_ptr<disambiguation::DisambiguationMethod> &operators_disambiguation,
         std::shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
