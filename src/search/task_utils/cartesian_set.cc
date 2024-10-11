@@ -128,7 +128,6 @@ int CartesianSet::var_size(int var) const {
 }
 
 bool CartesianSet::got_empty() {
-    // TODO: Naive implementation.
     for (int var = 0; var < n_vars; var++) {
         if (count(var) == 0) {
             empty = true;
@@ -160,6 +159,17 @@ auto CartesianSet::get_values(int var) const -> vector<int> {
     }
     return values;
 }
+auto CartesianSet::get_intersection_values(int var, const CartesianSet &other) const -> vector<int> {
+    vector<int> values{};
+    values.reserve(count(var));
+    int domain_size = var_size(var);
+    for (int value = 0; value < domain_size; ++value) {
+        if (test(var, value) && other.test(var, value)) {
+            values.push_back(value);
+        }
+    }
+    return values;
+}
 utils::HashSet<int> CartesianSet::get_values_set(int var) const {
     utils::HashSet<int> values;
     int domain_size = domain_subsets[var].size();
@@ -186,13 +196,17 @@ void CartesianSet::set_values(int var, const utils::HashSet<int> &values) {
 
 void CartesianSet::set_values(int var, const CartesianSet &other) {
     remove_all(var);
-    for (auto &&[var, value] : other.iter(var)) {
-        add(var, value);
+    int len = var_size(var);
+    for (int value = 0; value < len; value++) {
+        if (other.test(var, value)) {
+            add(var, value);
+        }
     }
 }
 
 void CartesianSet::set_intersection_values(int var, const CartesianSet &other) {
-    for (auto &&[var, value] : iter(var)) {
+    int len = var_size(var);
+    for (int value = 0; value < len; value++) {
         if (!other.test(var, value)) {
             remove(var, value);
         }

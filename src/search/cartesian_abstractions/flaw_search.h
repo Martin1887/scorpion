@@ -214,8 +214,7 @@ class FlawSearch {
         const std::vector<int> &domain_sizes,
         const disambiguation::DisambiguatedOperator &op,
         std::vector<std::vector<Split>> &splits,
-        bool split_unwanted_values,
-        bool backward = false);
+        bool split_unwanted_values);
 
     std::tuple<CartesianState, int> first_flaw_search_state(const Solution &solution,
                                                             InAbstractionFlawSearchKind only_in_abstraction,

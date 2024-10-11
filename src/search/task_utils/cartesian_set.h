@@ -53,6 +53,7 @@ public:
     bool is_empty() const;
     bool all_values_set(int var) const;
     std::vector<int> get_values(int var) const;
+    std::vector<int> get_intersection_values(int var, const CartesianSet &other) const;
     utils::HashSet<int> get_values_set(int var) const;
     void set_values(int var, const std::vector<int> &values);
     void set_values(int var, const utils::HashSet<int> &values);

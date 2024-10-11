@@ -104,8 +104,7 @@ void FlawSearch::get_deviation_splits(
     const vector<int> &domain_sizes,
     const disambiguation::DisambiguatedOperator &op,
     vector<vector<Split>> &splits,
-    bool split_unwanted_values,
-    bool backward) {
+    bool split_unwanted_values) {
     /*
       For each fact in the concrete state that is not contained in the
       target abstract state, loop over all values in the domain of the
@@ -145,19 +144,11 @@ void FlawSearch::get_deviation_splits(
             if (multiple_states) {
                 int i = 0;
                 for (auto &fs_state : flaw_search_states) {
-                    if (backward) {
-                        var_intersects[i] = target_set.intersects_intersection(fs_state.get().get_cartesian_set(), pre, var);
-                    } else {
-                        var_intersects[i] = target_abs_state.domain_subsets_intersect(fs_state, var);
-                    }
+                    var_intersects[i] = target_set.intersects_intersection(fs_state.get().get_cartesian_set(), pre, var);
                     i++;
                 }
             } else {
-                if (backward) {
-                    var_intersects_in_state = target_set.intersects_intersection(flaw_search_states[0].get().get_cartesian_set(), pre, var);
-                } else {
-                    var_intersects_in_state = target_abs_state.domain_subsets_intersect(flaw_search_states[0], var);
-                }
+                var_intersects_in_state = target_set.intersects_intersection(flaw_search_states[0].get().get_cartesian_set(), pre, var);
             }
             bool wanted_computed = false;
             for (int value = 0; value < domain_sizes[var]; ++value) {
@@ -175,7 +166,7 @@ void FlawSearch::get_deviation_splits(
                     } else {
                         var_intersects_in_this = var_intersects_in_state;
                     }
-                    bool target_contains = (backward ? target_set.test(var, value) && pre.test(var, value) : target_set.test(var, value));
+                    bool target_contains = target_set.test(var, value) && pre.test(var, value);
                     if (!var_intersects_in_this && !target_contains && fs_state.get().includes(var, value) && abs_state.includes(var, value)) {
                         ++count;
                     }
@@ -187,6 +178,7 @@ void FlawSearch::get_deviation_splits(
                         wanted.clear();
                         for (int value = 0; value < domain_sizes[var]; ++value) {
                             if (abs_state.includes(var, value) &&
+                                pre.test(var, value) &&
                                 target_abs_state.includes(var, value)) {
                                 wanted.push_back(value);
                             }
@@ -242,6 +234,7 @@ unique_ptr<Split> FlawSearch::create_split(
         const disambiguation::DisambiguatedOperator &op = (*ts.get_operators())[op_id];
 
         const CartesianSet &pre = op.get_precondition().get_cartesian_set();
+        const CartesianSet &abstract_state_set = abstract_state.get_cartesian_set();
         int n_vars = pre.get_n_vars();
         for (int var = 0; var < n_vars; var++) {
             int i = 0;
@@ -267,15 +260,17 @@ unique_ptr<Split> FlawSearch::create_split(
                     assert(!pre.test(var, value));
                     if (split_unwanted_values) {
                         for (auto &&[fact_var, fact_value] : pre.iter(var)) {
-                            add_split(splits, Split(
-                                          abstract_state_id, var, fact_value,
-                                          {value}, count,
-                                          op.get_cost()), true);
+                            if (abstract_state_set.test(var, fact_value)) {
+                                add_split(splits, Split(
+                                              abstract_state_id, var, fact_value,
+                                              {value}, count,
+                                              op.get_cost()), true);
+                            }
                         }
                     } else {
                         add_split(splits, Split(
                                       abstract_state_id, var, value,
-                                      pre.get_values(var), count,
+                                      pre.get_intersection_values(var, abstract_state_set), count,
                                       op.get_cost()));
                     }
                 }
@@ -465,7 +460,7 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                 if (!flaw_search_state.reach_with_op(*next_abstract_state, op)) {
                     if (debug) {
                         log << "  Paths deviate." << endl;
-                        log << "  Flaw-search state: " << flaw_search_state << endl;
+                        log << "  Previous flaw-search state: " << flaw_search_state << endl;
                         log << "  Previous abstract state: " << *abstract_state << endl;
                         log << "  Op pre: " << op.get_precondition() << endl << "  Op post: " << op.get_post() << endl;
                     }
@@ -478,6 +473,9 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                                               first_filtered_flaw,
                                               force_push_filtered_flaws);
                     flaw_search_state.progress(op);
+                    if (debug) {
+                        log << "  Flaw-search state: " << flaw_search_state << endl;
+                    }
                     if (!in_sequence ||
                         (split_selector.sequence_pick == PickSequenceFlaw::FIRST_FLAW && !flaws.empty())) {
                         return flaws;

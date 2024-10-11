@@ -325,15 +325,18 @@ void CartesianState::progress(const OperatorProxy &op) {
     }
 }
 void CartesianState::progress(const DisambiguatedOperator &op) {
-    const CartesianSet &pre = op.get_precondition().get_cartesian_set();
     const CartesianSet &post = op.get_post().get_cartesian_set();
     int n_vars = cartesian_set.get_n_vars();
     for (int var = 0; var < n_vars; var++) {
         int eff_value = op.get_effect(var);
         if (eff_value != disambiguation::MULTIPLE_POSTCONDITIONS) {
             cartesian_set.set_single_value(var, eff_value);
-        } else if (!cartesian_set.intersects(pre, var)) {
-            cartesian_set.set_values(var, post);
+        } else {
+            cartesian_set.set_intersection_values(var, post);
+            // This only happens if the operator is not applicable.
+            if (cartesian_set.count(var) == 0) {
+                cartesian_set.set_values(var, post);
+            }
         }
     }
 }

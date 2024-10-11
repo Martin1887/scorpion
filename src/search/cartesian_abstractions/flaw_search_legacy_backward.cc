@@ -56,6 +56,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
         const vector<int> &sources = pair.second;
         const disambiguation::DisambiguatedOperator &op = (*abstraction.get_transition_system().get_operators())[op_id];
         const CartesianSet &post_set = op.get_post().get_cartesian_set();
+        const CartesianSet &abstract_state_set = abstract_state.get_cartesian_set();
 
         if (log.is_at_least_debug()) {
             log << "Operator: " << op.get_name() << endl;
@@ -110,15 +111,17 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                         }
                         if (split_unwanted_values) {
                             for (auto &&[cond_var, cond_value] : post_set.iter(var)) {
-                                add_split(splits, Split(
-                                              abstract_state_id, var, cond_value,
-                                              {value}, count,
-                                              op.get_cost()), true);
+                                if (abstract_state_set.test(var, cond_value)) {
+                                    add_split(splits, Split(
+                                                  abstract_state_id, var, cond_value,
+                                                  {value}, count,
+                                                  op.get_cost()), true);
+                                }
                             }
                         } else {
                             add_split(splits, Split(
                                           abstract_state_id, var, value,
-                                          post_set.get_values(var), count,
+                                          post_set.get_intersection_values(var, abstract_state_set), count,
                                           op.get_cost()));
                         }
                     }
@@ -173,7 +176,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                 get_deviation_splits(
                     abstract_state, deviation_states,
                     abstraction.get_state(source), domain_sizes, op,
-                    splits, split_unwanted_values, true);
+                    splits, split_unwanted_values);
             }
         }
     }

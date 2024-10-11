@@ -271,6 +271,7 @@ unique_ptr<Split> FlawSearch::create_split(
 
         vector<bool> applicable(states.size(), true);
         const CartesianSet &pre = op.get_precondition().get_cartesian_set();
+        const CartesianSet &abstract_state_set = abstract_state.get_cartesian_set();
         int n_vars = pre.get_n_vars();
         for (int var = 0; var < n_vars; var++) {
             vector<int> state_value_count(domain_sizes[var], 0);
@@ -288,15 +289,18 @@ unique_ptr<Split> FlawSearch::create_split(
                     assert(!pre.test(var, value));
                     if (split_unwanted_values) {
                         for (auto &&[fact_var, fact_value] : pre.iter(var)) {
-                            add_split(splits, Split(
-                                          abstract_state_id, var, fact_value,
-                                          {value}, state_value_count[value],
-                                          op.get_cost()), true);
+                            if (abstract_state_set.test(var, fact_value)) {
+                                add_split(splits, Split(
+                                              abstract_state_id, var, fact_value,
+                                              {value}, state_value_count[value],
+                                              op.get_cost()), true);
+                            }
                         }
                     } else {
                         add_split(splits, Split(
                                       abstract_state_id, var, value,
-                                      pre.get_values(var), state_value_count[value],
+                                      pre.get_intersection_values(var, abstract_state_set),
+                                      state_value_count[value],
                                       op.get_cost()));
                     }
                 }
