@@ -1,4 +1,6 @@
 __pycache__/
+/*.sas
+/*.out*
 /output.sas
 /sas_plan
 /sas_plan.*
