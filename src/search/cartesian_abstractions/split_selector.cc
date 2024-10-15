@@ -354,29 +354,49 @@ double SplitSelector::rate_split(
         break;
     case PickSplit::LANDMARKS_HADD_DOWN:
     {
-        FactPair fact(split.var_id, split.value);
-        if (fact_landmarks_hadd_down.contains(fact)) {
-            rating = -fact_landmarks_hadd_down.at(fact);
-        } else {
-            rating = -INF;
+        rating = -INF;
+        for (int value : split.values) {
+            FactPair fact(split.var_id, value);
+            if (fact_landmarks_hadd_down.contains(fact)) {
+                double new_rating = -fact_landmarks_hadd_down.at(fact);
+                if (new_rating > rating) {
+                    rating = new_rating;
+                }
+            }
         }
         break;
     }
     case PickSplit::LANDMARKS_HADD_UP:
     {
-        FactPair fact(split.var_id, split.value);
-        if (fact_landmarks_hadd_down.contains(fact)) {
-            rating = fact_landmarks_hadd_down.at(fact);
-        } else {
-            rating = -INF;
+        rating = -INF;
+        for (int value : split.values) {
+            FactPair fact(split.var_id, value);
+            if (fact_landmarks_hadd_down.contains(fact)) {
+                double new_rating = fact_landmarks_hadd_down.at(fact);
+                if (new_rating > rating) {
+                    rating = new_rating;
+                }
+            }
         }
         break;
     }
     case PickSplit::MAX_POTENTIAL:
-        rating = fact_potentials[split.var_id][split.value];
+        rating = -INF;
+        for (int value : split.values) {
+            double new_rating = fact_potentials[split.var_id][value];
+            if (new_rating > rating) {
+                rating = new_rating;
+            }
+        }
         break;
     case PickSplit::MIN_POTENTIAL:
-        rating = -fact_potentials[split.var_id][split.value];
+        rating = -INF;
+        for (int value : split.values) {
+            double new_rating = -fact_potentials[split.var_id][value];
+            if (new_rating > rating) {
+                rating = new_rating;
+            }
+        }
         break;
     case PickSplit::RANDOM_VARS_ORDER:
     case PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN:

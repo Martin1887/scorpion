@@ -110,14 +110,10 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                                 << count << ")" << endl;
                         }
                         if (split_unwanted_values) {
-                            for (auto &&[cond_var, cond_value] : post_set.iter(var)) {
-                                if (abstract_state_set.test(var, cond_value)) {
-                                    add_split(splits, Split(
-                                                  abstract_state_id, var, cond_value,
-                                                  {value}, count,
-                                                  op.get_cost()), true);
-                                }
-                            }
+                            add_split(splits, Split(
+                                          abstract_state_id, var, -1,
+                                          {value}, count,
+                                          op.get_cost()), true);
                         } else {
                             add_split(splits, Split(
                                           abstract_state_id, var, value,

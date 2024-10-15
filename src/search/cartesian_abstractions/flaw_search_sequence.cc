@@ -186,11 +186,9 @@ void FlawSearch::get_deviation_splits(
                     }
                     assert(!wanted.empty());
                     if (split_unwanted_values) {
-                        for (int want : wanted) {
-                            FlawSearch::add_split(splits, Split(
-                                                      abs_state.get_id(), var, want, {value},
-                                                      count, op_cost), true);
-                        }
+                        FlawSearch::add_split(splits, Split(
+                                                  abs_state.get_id(), var, -1, {value},
+                                                  count, op_cost), true);
                     } else {
                         FlawSearch::add_split(splits, Split(
                                                   abs_state.get_id(), var, value, wanted,
@@ -259,14 +257,10 @@ unique_ptr<Split> FlawSearch::create_split(
                 if (count) {
                     assert(!pre.test(var, value));
                     if (split_unwanted_values) {
-                        for (auto &&[fact_var, fact_value] : pre.iter(var)) {
-                            if (abstract_state_set.test(var, fact_value)) {
-                                add_split(splits, Split(
-                                              abstract_state_id, var, fact_value,
-                                              {value}, count,
-                                              op.get_cost()), true);
-                            }
-                        }
+                        add_split(splits, Split(
+                                      abstract_state_id, var, -1,
+                                      {value}, count,
+                                      op.get_cost()), true);
                     } else {
                         add_split(splits, Split(
                                       abstract_state_id, var, value,
