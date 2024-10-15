@@ -198,7 +198,6 @@ void ShortestPaths::update_incrementally(
     dirty_candidate.resize(num_states, false);
     dirty_states.clear();
     update_incrementally_in_direction(in, out, v, v1, v2, disambiguated, old_incoming, old_outgoing, goals, initial_state, false, simulated);
-    dirty_candidate.resize(num_states, false);
     dirty_states.clear();
     update_incrementally_in_direction(in, out, v, v1, v2, disambiguated, old_incoming, old_outgoing, goals, initial_state, true, simulated);
 }
