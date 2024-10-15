@@ -132,7 +132,9 @@ void FlawSearch::get_deviation_splits(
     }
     // Create the vectors in the heap only once and reuse it for all vars.
     vector<int> wanted;
-    wanted.reserve(biggest_var_size);
+    if (!split_unwanted_values) {
+        wanted.reserve(biggest_var_size);
+    }
     vector<bool> var_intersects;
     bool multiple_states = flaw_search_states.size() > 1;
     if (multiple_states) {
@@ -173,7 +175,7 @@ void FlawSearch::get_deviation_splits(
                     i++;
                 }
                 if (count) {
-                    if (!wanted_computed) {
+                    if (!split_unwanted_values && !wanted_computed) {
                         wanted_computed = true;
                         wanted.clear();
                         for (int value = 0; value < domain_sizes[var]; ++value) {
