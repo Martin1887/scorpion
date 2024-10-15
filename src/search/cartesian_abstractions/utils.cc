@@ -82,18 +82,20 @@ static std::vector<utils::HashSet<int>> compute_possibly_before_facts(
     while (updated) {
         updated = false;
         for (DisambiguatedOperator &op : *ops) {
-            const CartesianSet &post = op.get_post().get_cartesian_set();
-            // Ignore operators that achieve last_fact.
-            if (op.has_effect(last_fact_var) && post.test(last_fact_var, last_fact_value)) {
-                continue;
-            }
-            // Add all facts that are achieved by an applicable operator.
-            if (operator_applicable(op, pb_facts)) {
-                for (int var = 0; var < n_vars; var++) {
-                    int effect = op.get_effect(var);
-                    if (effect != disambiguation::MULTIPLE_POSTCONDITIONS) {
-                        if (pb_facts[var].insert(effect).second) {
-                            updated = true;
+            if (!op.is_redundant()) {
+                const CartesianSet &post = op.get_post().get_cartesian_set();
+                // Ignore operators that achieve last_fact.
+                if (op.has_effect(last_fact_var) && post.test(last_fact_var, last_fact_value)) {
+                    continue;
+                }
+                // Add all facts that are achieved by an applicable operator.
+                if (operator_applicable(op, pb_facts)) {
+                    for (int var = 0; var < n_vars; var++) {
+                        int effect = op.get_effect(var);
+                        if (effect != disambiguation::MULTIPLE_POSTCONDITIONS) {
+                            if (pb_facts[var].insert(effect).second) {
+                                updated = true;
+                            }
                         }
                     }
                 }
