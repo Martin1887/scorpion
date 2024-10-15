@@ -7,9 +7,7 @@ using namespace std;
 namespace cartesian_set {
 void CartesianSet::init_facts(const vector<FactPair> &facts) {
     vector<bool> reset_vars(n_vars, false);
-    empty = true;
     for (FactPair fact : facts) {
-        empty = false;
         if (!reset_vars[fact.var]) {
             set_single_value(fact.var, fact.value);
             reset_vars[fact.var] = true;
@@ -20,9 +18,7 @@ void CartesianSet::init_facts(const vector<FactPair> &facts) {
 }
 void CartesianSet::init_facts(const PreconditionsProxy &facts) {
     vector<bool> reset_vars(n_vars, false);
-    empty = true;
     for (FactProxy fact : facts) {
-        empty = false;
         if (!reset_vars[fact.get_variable().get_id()]) {
             set_single_value(fact.get_variable().get_id(), fact.get_value());
             reset_vars[fact.get_variable().get_id()] = true;
