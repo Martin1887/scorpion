@@ -9,6 +9,9 @@ using namespace std;
 namespace disambiguation {
 bool AC3Disambiguation::disambiguate(CartesianState &partial_state,
                                      const MutexInformation &mutexes) const {
+    if (partial_state.got_empty()) {
+        return false;
+    }
     bool changed = false;
     CartesianSet disambiguated = partial_state.get_cartesian_set();
 
@@ -46,17 +49,23 @@ bool AC3Disambiguation::arc_reduce(CartesianSet &disambiguated,
                                    int mutex_var,
                                    const mutex_set_for_value &var_mutexes) const {
     bool change = false;
-    for (auto &&[x_var, x_value] : disambiguated.iter(var)) {
-        bool all_mutex = true;
-        for (FactPair && y : disambiguated.iter(mutex_var)) {
-            if (!var_mutexes.contains({x_value, y})) {
-                all_mutex = false;
-                break;
+    int var_size = disambiguated.var_size(var);
+    int mutex_var_size = disambiguated.var_size(mutex_var);
+    for (int x_value = 0; x_value < var_size; x_value++) {
+        if (disambiguated.test(var, x_value)) {
+            bool all_mutex = true;
+            for (int y_value = 0; y_value < mutex_var_size; y_value++) {
+                if (disambiguated.test(mutex_var, y_value)) {
+                    if (!var_mutexes.contains({x_value, {mutex_var, y_value}})) {
+                        all_mutex = false;
+                        break;
+                    }
+                }
             }
-        }
-        if (all_mutex) {
-            disambiguated.remove(var, x_value);
-            change = true;
+            if (all_mutex) {
+                disambiguated.remove(var, x_value);
+                change = true;
+            }
         }
     }
 
