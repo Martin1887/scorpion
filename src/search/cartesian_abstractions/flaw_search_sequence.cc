@@ -186,7 +186,7 @@ void FlawSearch::get_deviation_splits(
                             }
                         }
                     }
-                    assert(!wanted.empty());
+                    assert(split_unwanted_values || !wanted.empty());
                     if (split_unwanted_values) {
                         FlawSearch::add_split(splits, Split(
                                                   abs_state.get_id(), var, -1, {value},
