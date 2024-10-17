@@ -7,6 +7,7 @@
 
 class AbstractTask;
 
+class MutexInformation;
 
 namespace extra_tasks {
 using ValueGroup = std::vector<int>;
@@ -18,7 +19,8 @@ using VarToGroups = std::unordered_map<int, ValueGroups>;
 */
 std::shared_ptr<AbstractTask> build_domain_abstracted_task(
     const std::shared_ptr<AbstractTask> &parent,
-    const VarToGroups &value_groups);
+    const VarToGroups &value_groups,
+    const MutexInformation &mutex_information);
 }
 
 #endif

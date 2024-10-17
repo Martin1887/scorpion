@@ -28,7 +28,8 @@ private:
 public:
     DomainAbstractedTaskFactory(
         const shared_ptr<AbstractTask> &parent,
-        const VarToGroups &value_groups);
+        const VarToGroups &value_groups,
+        const MutexInformation &mutex_information);
     ~DomainAbstractedTaskFactory() = default;
 
     shared_ptr<AbstractTask> get_task() const;
@@ -36,7 +37,8 @@ public:
 
 DomainAbstractedTaskFactory::DomainAbstractedTaskFactory(
     const shared_ptr<AbstractTask> &parent,
-    const VarToGroups &value_groups) {
+    const VarToGroups &value_groups,
+    const MutexInformation &mutex_information) {
     TaskProxy parent_proxy(*parent);
     if (task_properties::has_axioms(parent_proxy)) {
         ABORT("DomainAbstractedTask doesn't support axioms.");
@@ -71,7 +73,7 @@ DomainAbstractedTaskFactory::DomainAbstractedTaskFactory(
 
     task = make_shared<DomainAbstractedTask>(
         parent, move(domain_size), move(initial_state_values), move(goals),
-        move(fact_names), move(value_map));
+        move(fact_names), move(value_map), mutex_information);
 }
 
 void DomainAbstractedTaskFactory::initialize(const AbstractTask &parent) {
@@ -152,7 +154,8 @@ shared_ptr<AbstractTask> DomainAbstractedTaskFactory::get_task() const {
 
 shared_ptr<AbstractTask> build_domain_abstracted_task(
     const shared_ptr<AbstractTask> &parent,
-    const VarToGroups &value_groups) {
-    return DomainAbstractedTaskFactory(parent, value_groups).get_task();
+    const VarToGroups &value_groups,
+    const MutexInformation &mutex_information) {
+    return DomainAbstractedTaskFactory(parent, value_groups, mutex_information).get_task();
 }
 }

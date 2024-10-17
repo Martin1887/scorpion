@@ -45,6 +45,7 @@ class DomainAbstractedTask : public tasks::DelegatingTask {
     const std::vector<FactPair> goals;
     const std::vector<std::vector<std::string>> fact_names;
     const ValueMap value_map;
+    MutexInformation mutexes;
 
 public:
     DomainAbstractedTask(
@@ -53,7 +54,8 @@ public:
         std::vector<int> &&initial_state_values,
         std::vector<FactPair> &&goals,
         std::vector<std::vector<std::string>> &&fact_names,
-        std::vector<std::vector<int>> &&value_map);
+        std::vector<std::vector<int>> &&value_map,
+        const MutexInformation &mutex_information);
 
     virtual int get_variable_domain_size(int var) const override;
     virtual std::string get_fact_name(const FactPair &fact) const override;

@@ -66,17 +66,19 @@ bool ValueMap::does_convert_values() const {
 
 DomainAbstractedTask::DomainAbstractedTask(
     const shared_ptr<AbstractTask> &parent,
-    vector<int> &&domain_size,
+    vector<int> &&_domain_size,
     vector<int> &&initial_state_values,
     vector<FactPair> &&goals,
     vector<vector<string>> &&fact_names,
-    vector<vector<int>> &&value_map)
+    vector<vector<int>> &&_value_map,
+    const MutexInformation &mutex_information)
     : DelegatingTask(parent),
-      domain_size(move(domain_size)),
+      domain_size(move(_domain_size)),
       initial_state_values(move(initial_state_values)),
       goals(move(goals)),
       fact_names(move(fact_names)),
-      value_map(*this, *parent, move(value_map)) {
+      value_map(*this, *parent, move(_value_map)),
+      mutexes(mutex_information.convert(domain_size, value_map)) {
     if (parent->get_num_axioms() > 0) {
         ABORT("DomainAbstractedTask doesn't support axioms.");
     }
@@ -93,12 +95,12 @@ string DomainAbstractedTask::get_fact_name(const FactPair &fact) const {
     return fact_names[fact.var][fact.value];
 }
 
-bool DomainAbstractedTask::are_facts_mutex(const FactPair &, const FactPair &) const {
-    ABORT("DomainAbstractedTask doesn't support querying mutexes.");
+bool DomainAbstractedTask::are_facts_mutex(const FactPair &fact1, const FactPair &fact2) const {
+    return mutexes.are_facts_mutex(fact1, fact2);
 }
 
 MutexInformation DomainAbstractedTask::mutex_information() const {
-    ABORT("DomainAbstractedTask doesn't support querying mutexes.");
+    return mutexes;
 }
 
 FactPair DomainAbstractedTask::get_operator_precondition(

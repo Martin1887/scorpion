@@ -6,6 +6,10 @@
 
 #include <set>
 
+namespace extra_tasks {
+class ValueMap;
+}
+
 using tuple_value_fact = std::tuple<int, FactPair>;
 using mutex_set_for_value = phmap::flat_hash_set<tuple_value_fact, utils::Hash<tuple_value_fact>>;
 
@@ -55,6 +59,8 @@ public:
 
     void add_mutex(const FactPair &fact1, const FactPair &fact2);
     void remove_mutex(const FactPair &fact1, const FactPair &fact2);
+
+    MutexInformation convert(const std::vector<int> &domain_size, const extra_tasks::ValueMap &value_map) const;
 };
 
 namespace utils {

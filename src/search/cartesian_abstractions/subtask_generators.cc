@@ -176,7 +176,7 @@ shared_ptr<AbstractTask> LandmarkDecomposition::build_domain_abstracted_task(
         if (group.size() >= 2)
             value_groups[var].push_back(group);
     }
-    return extra_tasks::build_domain_abstracted_task(parent, value_groups);
+    return extra_tasks::build_domain_abstracted_task(parent, value_groups, parent->mutex_information());
 }
 
 SharedTasks LandmarkDecomposition::get_subtasks(
