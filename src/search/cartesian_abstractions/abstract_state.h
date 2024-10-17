@@ -36,6 +36,8 @@ public:
 
     NodeID get_node_id() const;
 
+    void set_node_id(NodeID new_node_id);
+
     friend std::ostream &operator<<(std::ostream &os, const AbstractState &state) {
         return os << "#" << state.get_id() << state.cartesian_set;
     }

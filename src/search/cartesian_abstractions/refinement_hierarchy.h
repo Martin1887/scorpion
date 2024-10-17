@@ -17,6 +17,8 @@ class State;
 using namespace cartesian_set;
 
 namespace cartesian_abstractions {
+static const int NO_ABSTRACT_STATE = -1;
+
 class Node {
     /*
       While right_child is always the node of a (possibly split)

@@ -65,6 +65,7 @@ public:
     std::tuple<Transitions, Transitions> rewire(
         const AbstractStates &states, int v_id,
         const AbstractState &v1, const AbstractState &v2,
+        const std::vector<int> &modified_vars,
         const bool simulated = false);
     // Add self-loops to single abstract state in trivial abstraction.
     void add_loops_in_trivial_abstraction(const AbstractState &init,

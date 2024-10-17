@@ -16,6 +16,9 @@ CartesianHeuristicFunction::CartesianHeuristicFunction(
 
 int CartesianHeuristicFunction::get_value(const State &state) const {
     int abstract_state_id = refinement_hierarchy->get_abstract_state_id(state);
+    if (abstract_state_id == NO_ABSTRACT_STATE) {
+        return INF;
+    }
     assert(utils::in_bounds(abstract_state_id, h_values));
     return h_values[abstract_state_id];
 }

@@ -14,11 +14,11 @@ Node::Node(int state_id)
 }
 
 bool Node::information_is_valid() const {
-    return value != UNDEFINED && (
+    return
         // leaf node
         (left_child == UNDEFINED && right_child == UNDEFINED && var == UNDEFINED) ||
         // inner node
-        (left_child != UNDEFINED && right_child != UNDEFINED && var != UNDEFINED));
+        (left_child != UNDEFINED && right_child != UNDEFINED && var != UNDEFINED);
 }
 
 bool Node::is_split() const {

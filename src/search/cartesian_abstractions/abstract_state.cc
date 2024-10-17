@@ -22,6 +22,10 @@ NodeID AbstractState::get_node_id() const {
     return node_id;
 }
 
+void AbstractState::set_node_id(NodeID new_node_id) {
+    node_id = new_node_id;
+}
+
 unique_ptr<AbstractState> AbstractState::get_trivial_abstract_state(
     const vector<int> &domain_sizes) {
     return utils::make_unique_ptr<AbstractState>(0, 0, CartesianSet(domain_sizes));

@@ -160,6 +160,11 @@ tuple<int, int, bool, Transitions, Transitions> Abstraction::refine(
     assert(state.includes(*v1));
     assert(state.includes(*v2));
 
+    vector<int> modified_vars{};
+    bool wanted_in_v1 = true;
+    if (!v1->includes(var, wanted[0])) {
+        wanted_in_v1 = false;
+    }
     bool disambiguated = disambiguate_state(*v1) || disambiguate_state(*v2);
     if (disambiguated) {
         if (v1->got_empty()) {
@@ -168,6 +173,68 @@ tuple<int, int, bool, Transitions, Transitions> Abstraction::refine(
         if (v2->got_empty()) {
             n_removed_states++;
         }
+        const CartesianSet &v_set = state.get_cartesian_set();
+        const CartesianSet &v1_set = v1->get_cartesian_set();
+        const CartesianSet &v2_set = v2->get_cartesian_set();
+        int n_vars = v_set.get_n_vars();
+        for (int analysed_var = 0; analysed_var < n_vars; analysed_var++) {
+            if (!v_set.is_equal_in_var(v1_set, var) || !v_set.is_equal_in_var(v2_set, var)) {
+                modified_vars.push_back(analysed_var);
+                // A node must be created in refinement hierarchy for the
+                // values that are not included in any abstract state.
+                if (var == analysed_var) {
+                    int wanted_size = wanted.size();
+                    if (wanted_in_v1) {
+                        if (v1_set.count(analysed_var) != wanted_size) {
+                            // Some wanted value has been disambiguated, split needed.
+                            pair<NodeID, NodeID> new_node_ids = refinement_hierarchy->split(
+                                v1->get_node_id(), analysed_var,
+                                v1_set.get_values(analysed_var), NO_ABSTRACT_STATE, v1->get_id());
+                            v1->set_node_id(new_node_ids.second);
+                        }
+                        if (v2_set.count(analysed_var) != v_set.count(analysed_var) - wanted_size) {
+                            // Some wanted value has been disambiguated, split needed.
+                            pair<NodeID, NodeID> new_node_ids = refinement_hierarchy->split(
+                                v2->get_node_id(), analysed_var,
+                                v2_set.get_values(analysed_var), NO_ABSTRACT_STATE, v2->get_id());
+                            v2->set_node_id(new_node_ids.second);
+                        }
+                    } else {
+                        if (v2_set.count(analysed_var) != wanted_size) {
+                            // Some wanted value has been disambiguated, split needed.
+                            pair<NodeID, NodeID> new_node_ids = refinement_hierarchy->split(
+                                v2->get_node_id(), analysed_var,
+                                v2_set.get_values(analysed_var), NO_ABSTRACT_STATE, v2->get_id());
+                            v2->set_node_id(new_node_ids.second);
+                        }
+                        if (v1_set.count(analysed_var) != v_set.count(analysed_var) - wanted_size) {
+                            // Some wanted value has been disambiguated, split needed.
+                            pair<NodeID, NodeID> new_node_ids = refinement_hierarchy->split(
+                                v1->get_node_id(), analysed_var,
+                                v1_set.get_values(analysed_var), NO_ABSTRACT_STATE, v1->get_id());
+                            v1->set_node_id(new_node_ids.second);
+                        }
+                    }
+                } else {
+                    // States must be split for sure if their size is different in the var.
+                    int parent_size = v_set.count(analysed_var);
+                    if (v1_set.count(analysed_var) != parent_size) {
+                        pair<NodeID, NodeID> new_node_ids = refinement_hierarchy->split(
+                            v1->get_node_id(), analysed_var,
+                            v1_set.get_values(analysed_var), NO_ABSTRACT_STATE, v1->get_id());
+                        v1->set_node_id(new_node_ids.second);
+                    }
+                    if (v2_set.count(analysed_var) != parent_size) {
+                        pair<NodeID, NodeID> new_node_ids = refinement_hierarchy->split(
+                            v2->get_node_id(), analysed_var,
+                            v2_set.get_values(analysed_var), NO_ABSTRACT_STATE, v2->get_id());
+                        v2->set_node_id(new_node_ids.second);
+                    }
+                }
+            }
+        }
+    } else {
+        modified_vars.push_back(var);
     }
 
     if (goals.count(v_id)) {
@@ -184,7 +251,7 @@ tuple<int, int, bool, Transitions, Transitions> Abstraction::refine(
     }
 
     tuple<Transitions, Transitions> old_incoming_outgoing =
-        transition_system->rewire(states, v_id, *v1, *v2);
+        transition_system->rewire(states, v_id, *v1, *v2, modified_vars);
 
     states.emplace_back();
     states[split_result.v1_id] = move(v1);
@@ -232,6 +299,20 @@ SimulatedRefinement Abstraction::simulate_refinement(
     // increased for simulated refinements.
     bool disambiguated = abstract_space_disambiguation->disambiguate(*v1, *mutex_information) ||
         abstract_space_disambiguation->disambiguate(*v2, *mutex_information);
+    vector<int> modified_vars{};
+    if (disambiguated) {
+        const CartesianSet &v_set = state.get_cartesian_set();
+        const CartesianSet &v1_set = v1->get_cartesian_set();
+        const CartesianSet &v2_set = v2->get_cartesian_set();
+        int n_vars = v_set.get_n_vars();
+        for (int var = 0; var < n_vars; var++) {
+            if (!v_set.is_equal_in_var(v1_set, var) || !v_set.is_equal_in_var(v2_set, var)) {
+                modified_vars.push_back(var);
+            }
+        }
+    } else {
+        modified_vars.push_back(var);
+    }
     SimulatedRefinement ref(simulated_transition_system,
                             goals,
                             split_result.v1_id,
@@ -253,7 +334,7 @@ SimulatedRefinement Abstraction::simulate_refinement(
         }
     }
 
-    ref.transition_system->rewire(states, v_id, *v1, *v2, true);
+    ref.transition_system->rewire(states, v_id, *v1, *v2, modified_vars, true);
 
     assert(init_id == 0);
     assert(get_initial_state().includes(concrete_initial_state));

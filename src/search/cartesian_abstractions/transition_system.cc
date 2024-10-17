@@ -182,6 +182,7 @@ void TransitionSystem::rewire_loops(
 tuple<Transitions, Transitions> TransitionSystem::rewire(
     const AbstractStates &states, int v_id,
     const AbstractState &v1, const AbstractState &v2,
+    const vector<int> &modified_vars,
     const bool simulated) {
     // Retrieve old transitions and make space for new transitions.
     Transitions old_incoming = move(incoming[v_id]);
@@ -195,16 +196,6 @@ tuple<Transitions, Transitions> TransitionSystem::rewire(
     assert(incoming[v1_id].empty() && outgoing[v1_id].empty() && loops[v1_id].empty());
     assert(incoming[v2_id].empty() && outgoing[v2_id].empty() && loops[v2_id].empty());
 
-    vector<int> modified_vars{};
-    const CartesianSet &v_set = states[v_id]->get_cartesian_set();
-    const CartesianSet &v1_set = v1.get_cartesian_set();
-    const CartesianSet &v2_set = v2.get_cartesian_set();
-    int n_vars = v_set.get_n_vars();
-    for (int var = 0; var < n_vars; var++) {
-        if (!v_set.is_equal_in_var(v1_set, var) || !v_set.is_equal_in_var(v2_set, var)) {
-            modified_vars.push_back(var);
-        }
-    }
 
     // Remove old transitions and add new transitions.
     rewire_incoming_transitions(old_incoming, states, v_id, v1, v2, modified_vars);
