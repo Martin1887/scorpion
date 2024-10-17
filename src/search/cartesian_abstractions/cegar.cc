@@ -113,15 +113,16 @@ void CEGAR::separate_facts_unreachable_before_goal(bool refine_goals) const {
     for (VariableProxy var : task_proxy.get_variables()) {
         if (!may_keep_refining())
             break;
+        const CartesianSet &init_set = abstraction->get_initial_state().get_cartesian_set();
         int var_id = var.get_id();
         vector<int> unreachable_values;
         for (int value = 0; value < var.get_domain_size(); ++value) {
             FactProxy fact = var.get_fact(value);
-            if (reachable_facts[var_id].count(fact.get_value()) == 0)
+            if (reachable_facts[var_id].count(fact.get_value()) == 0 && init_set.test(var_id, value))
                 unreachable_values.push_back(value);
         }
         if (!unreachable_values.empty() &&
-            abstraction->get_initial_state().get_cartesian_set().count(var_id) > static_cast<int>(unreachable_values.size())) {
+            init_set.count(var_id) > static_cast<int>(unreachable_values.size())) {
             abstraction->refine(abstraction->get_initial_state(), var_id, unreachable_values);
         }
     }
@@ -243,7 +244,7 @@ void CEGAR::refinement_loop() {
                 }
             }
             // The state could be disambiguated, we need to check that it
-            // contains somer other value.
+            // contains any other value.
             if (!other_values.empty() &&
                 abstraction->get_initial_state().get_cartesian_set().count(fact.var) > static_cast<int>(other_values.size())) {
                 abstraction->refine(abstraction->get_initial_state(), fact.var, other_values);
