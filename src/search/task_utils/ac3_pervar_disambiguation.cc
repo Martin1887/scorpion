@@ -18,9 +18,8 @@ bool AC3PerVarDisambiguation::disambiguate(CartesianState &partial_state,
     int n_vars = disambiguated.get_n_vars();
     for (int var = 0; var < n_vars; var++) {
         const mutex_set_for_value &var_mutexes = mutexes.get_var_mutexes(var);
-        vector<int> var_mutex_vars = mutexes.get_var_mutex_vars(var);
         // Initially, worklist=var_mutex_vars, but it changes.
-        vector<int> worklist = var_mutex_vars;
+        vector<int> worklist = mutexes.get_var_mutex_vars(var);
         while (!worklist.empty()) {
             auto iterator = worklist.begin();
             int mutex_var = *iterator;
@@ -31,7 +30,6 @@ bool AC3PerVarDisambiguation::disambiguate(CartesianState &partial_state,
                     partial_state.got_empty();
                     return changed;
                 }
-                add_new_mutexes(mutex_var, var_mutex_vars, worklist);
             }
         }
     }
@@ -67,16 +65,6 @@ bool AC3PerVarDisambiguation::arc_reduce(CartesianSet &disambiguated,
     return change;
 }
 
-void AC3PerVarDisambiguation::add_new_mutexes(int removed_var,
-                                              const vector<int> &var_mutex_vars,
-                                              vector<int> &worklist) const {
-    worklist.clear();
-    for (int var : var_mutex_vars) {
-        if (var != removed_var) {
-            worklist.push_back(var);
-        }
-    }
-}
 
 class AC3PerVarDisambiguationFeature : public plugins::TypedFeature<DisambiguationMethod, AC3PerVarDisambiguation> {
 public:
