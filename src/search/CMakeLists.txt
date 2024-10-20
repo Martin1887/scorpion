@@ -788,6 +788,7 @@ create_fast_downward_library(
         task_utils/disambiguated_operator
         task_utils/disambiguation_method
         task_utils/ac3_disambiguation
+        task_utils/ac3_pervar_disambiguation
     DEPENDS cartesian_state
 )
 

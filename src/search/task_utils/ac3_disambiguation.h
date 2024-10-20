@@ -1,5 +1,5 @@
-#ifndef TASK_UTILS_DISAMBIGUATION_H
-#define TASK_UTILS_DISAMBIGUATION_H
+#ifndef TASK_UTILS_AC3_DISAMBIGUATION_H
+#define TASK_UTILS_AC3_DISAMBIGUATION_H
 
 #include "disambiguation_method.h"
 

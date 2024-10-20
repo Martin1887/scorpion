@@ -72,5 +72,5 @@ public:
         document_title("AC-3 per variable (weaker) disambiguation method");
     }
 };
-static plugins::FeaturePlugin<AC3PerVarDisambiguationFeature> _plugin_ac3;
+static plugins::FeaturePlugin<AC3PerVarDisambiguationFeature> _plugin_pervar_ac3;
 }
