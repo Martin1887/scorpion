@@ -12,10 +12,12 @@ class ValueMap;
 
 using tuple_value_fact = std::tuple<int, FactPair>;
 using mutex_set_for_value = phmap::flat_hash_set<tuple_value_fact, utils::Hash<tuple_value_fact>>;
+using vars_pair_set = std::set<std::tuple<int, int>>;
 
 class MutexInformation {
     std::vector<std::vector<std::set<FactPair>>> mutexes;
     std::vector<std::vector<int>> var_mutex_vars;
+    vars_pair_set mutex_var_pairs;
     std::vector<mutex_set_for_value> var_mutex_set{};
 
 public:
@@ -35,6 +37,7 @@ public:
             var_mutex_vars[i].reserve(mutex_vars.size());
             for (int j : mutex_vars) {
                 var_mutex_vars[i].push_back(j);
+                mutex_var_pairs.insert({i, j});
             }
 
             const std::vector<std::set<FactPair>> &vec = mutexes[i];
@@ -55,6 +58,7 @@ public:
         return mutexes[fact.var][fact.value];
     }
     const std::vector<int> &get_var_mutex_vars(const int var) const;
+    const vars_pair_set &get_mutex_var_pairs() const;
     const mutex_set_for_value &get_var_mutexes(const int var) const;
 
     void add_mutex(const FactPair &fact1, const FactPair &fact2);
@@ -65,6 +69,10 @@ public:
 
 namespace utils {
 inline void feed(HashState &hash_state, const tuple_value_fact &val) {
+    feed(hash_state, std::get<0>(val));
+    feed(hash_state, std::get<1>(val));
+}
+inline void feed(HashState &hash_state, const std::tuple<int, int> &val) {
     feed(hash_state, std::get<0>(val));
     feed(hash_state, std::get<1>(val));
 }

@@ -13,32 +13,24 @@ bool AC3Disambiguation::disambiguate(CartesianState &partial_state,
         return false;
     }
     bool changed = false;
-    CartesianSet disambiguated = partial_state.get_cartesian_set();
+    CartesianSet &disambiguated = partial_state.get_mutable_cartesian_set();
 
-    int n_vars = disambiguated.get_n_vars();
-    for (int var = 0; var < n_vars; var++) {
-        mutex_set_for_value var_mutexes = mutexes.get_var_mutexes(var);
-        vector<int> var_mutex_vars = mutexes.get_var_mutex_vars(var);
-        // Initially, worklist=var_mutex_vars, but it changes.
-        vector<int> worklist = var_mutex_vars;
-        while (!worklist.empty()) {
-            auto iterator = worklist.begin();
-            int mutex_var = *iterator;
-            worklist.erase(iterator);
-            if (arc_reduce(disambiguated, var, mutex_var, var_mutexes)) {
-                changed = true;
-                if (disambiguated.count(var) == 0) {
-                    partial_state.set_cartesian_set(move(disambiguated));
-                    partial_state.got_empty();
-                    return changed;
-                }
-                add_new_mutexes(mutex_var, var_mutex_vars, worklist);
+    vars_pair_set worklist = mutexes.get_mutex_var_pairs();
+    while (!worklist.empty()) {
+        auto iterator = worklist.begin();
+        int var = get<0>(*iterator);
+        int mutex_var = get<1>(*iterator);
+        const mutex_set_for_value &var_mutexes = mutexes.get_var_mutexes(var);
+        const vector<int> &var_mutex_vars = mutexes.get_var_mutex_vars(var);
+        worklist.erase(iterator);
+        if (arc_reduce(disambiguated, var, mutex_var, var_mutexes)) {
+            changed = true;
+            if (disambiguated.count(var) == 0) {
+                partial_state.got_empty();
+                return changed;
             }
+            add_new_mutexes(var, mutex_var, var_mutex_vars, worklist);
         }
-    }
-
-    if (changed) {
-        partial_state.set_cartesian_set(move(disambiguated));
     }
 
     return changed;
@@ -72,13 +64,14 @@ bool AC3Disambiguation::arc_reduce(CartesianSet &disambiguated,
     return change;
 }
 
-void AC3Disambiguation::add_new_mutexes(int removed_var,
+void AC3Disambiguation::add_new_mutexes(int current_var,
+                                        int removed_var,
                                         const vector<int> &var_mutex_vars,
-                                        vector<int> &worklist) const {
-    worklist.clear();
+                                        vars_pair_set &worklist) const {
+    // (Z, X) such as there is a relation (X, Z) or (Z, X) and Z!=Y.
     for (int var : var_mutex_vars) {
         if (var != removed_var) {
-            worklist.push_back(var);
+            worklist.insert({var, current_var});
         }
     }
 }

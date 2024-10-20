@@ -86,6 +86,7 @@ public:
     bool includes(const std::vector<FactPair> &facts) const;
 
     const CartesianSet &get_cartesian_set() const;
+    CartesianSet &get_mutable_cartesian_set();
     CartesianSet clone_cartesian_set() const;
     void set_cartesian_set(CartesianSet &&other);
     void set_var_values(int var, const CartesianSet &other);

@@ -8,17 +8,16 @@ class Options;
 }
 
 namespace disambiguation {
-class AC3Disambiguation : public DisambiguationMethod {
+class AC3PerVarDisambiguation : public DisambiguationMethod {
     bool arc_reduce(CartesianSet &disambiguated,
                     int var,
                     int mutex_var,
                     const mutex_set_for_value &var_mutexes) const;
-    void add_new_mutexes(int current_var,
-                         int removed_var,
+    void add_new_mutexes(int removed_var,
                          const std::vector<int> &var_mutex_vars,
-                         vars_pair_set &worklist) const;
+                         std::vector<int> &worklist) const;
 public:
-    AC3Disambiguation(const plugins::Options &) {}
+    AC3PerVarDisambiguation(const plugins::Options &) {}
     virtual bool disambiguate(CartesianState &, const MutexInformation &) const override;
 };
 }

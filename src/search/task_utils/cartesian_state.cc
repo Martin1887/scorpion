@@ -396,6 +396,9 @@ bool CartesianState::intersects(const CartesianState &other, int var) const {
 const CartesianSet &CartesianState::get_cartesian_set() const {
     return cartesian_set;
 }
+CartesianSet &CartesianState::get_mutable_cartesian_set() {
+    return cartesian_set;
+}
 CartesianSet CartesianState::clone_cartesian_set() const {
     return cartesian_set;
 }

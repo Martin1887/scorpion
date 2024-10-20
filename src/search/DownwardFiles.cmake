@@ -920,6 +920,7 @@ fast_downward_plugin(
         task_utils/disambiguated_operator
         task_utils/disambiguation_method
         task_utils/ac3_disambiguation
+        task_utils/ac3_pervar_disambiguation
     DEPENDENCY_ONLY
 )
 
