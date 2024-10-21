@@ -16,7 +16,7 @@ class AC3Disambiguation : public DisambiguationMethod {
     void add_new_mutexes(int current_var,
                          int removed_var,
                          const std::vector<int> &var_mutex_vars,
-                         vars_pair_set &worklist) const;
+                         vars_pair_queue &worklist) const;
 public:
     AC3Disambiguation(const plugins::Options &) {}
     virtual bool disambiguate(CartesianState &, const MutexInformation &) const override;

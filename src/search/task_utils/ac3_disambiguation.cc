@@ -15,14 +15,13 @@ bool AC3Disambiguation::disambiguate(CartesianState &partial_state,
     bool changed = false;
     CartesianSet &disambiguated = partial_state.get_mutable_cartesian_set();
 
-    vars_pair_set worklist = mutexes.get_mutex_var_pairs();
+    vars_pair_queue worklist = mutexes.get_mutex_vars_queue();
     while (!worklist.empty()) {
-        auto iterator = worklist.begin();
-        int var = get<0>(*iterator);
-        int mutex_var = get<1>(*iterator);
+        tuple<int, int> vars_pair = worklist.pop_front();
+        int var = get<0>(vars_pair);
+        int mutex_var = get<1>(vars_pair);
         const mutex_set_for_value &var_mutexes = mutexes.get_var_mutexes(var);
         const vector<int> &var_mutex_vars = mutexes.get_var_mutex_vars(var);
-        worklist.erase(iterator);
         if (arc_reduce(disambiguated, var, mutex_var, var_mutexes)) {
             changed = true;
             if (disambiguated.count(var) == 0) {
@@ -67,11 +66,11 @@ bool AC3Disambiguation::arc_reduce(CartesianSet &disambiguated,
 void AC3Disambiguation::add_new_mutexes(int current_var,
                                         int removed_var,
                                         const vector<int> &var_mutex_vars,
-                                        vars_pair_set &worklist) const {
+                                        vars_pair_queue &worklist) const {
     // (Z, X) such as there is a relation (X, Z) or (Z, X) and Z!=Y.
     for (int var : var_mutex_vars) {
         if (var != removed_var) {
-            worklist.insert({var, current_var});
+            worklist.add(var, current_var);
         }
     }
 }

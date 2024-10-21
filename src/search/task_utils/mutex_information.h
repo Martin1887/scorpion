@@ -4,26 +4,58 @@
 #include "parallel_hashmap/phmap.h"
 #include "../abstract_task.h"
 
+#include <deque>
 #include <set>
 
 namespace extra_tasks {
 class ValueMap;
 }
 
+class TrackedExistingPairsDeque {
+    std::deque<std::tuple<int, int>> queue;
+    std::vector<std::vector<bool>> pair_in_queue;
+public:
+    TrackedExistingPairsDeque(int size)
+        : queue(),
+          pair_in_queue(size, std::vector<bool>(size, 0)) {}
+
+    void add(int first, int second) {
+        if (!pair_in_queue[first][second]) {
+            queue.push_back({first, second});
+            pair_in_queue[first][second] = true;
+        }
+    }
+
+    std::tuple<int, int> pop_front() {
+        std::tuple<int, int> pop = queue.front();
+        queue.pop_front();
+        pair_in_queue[std::get<0>(pop)][std::get<1>(pop)] = false;
+
+        return pop;
+    }
+
+    bool empty() const {
+        return queue.empty();
+    }
+};
+
 using tuple_value_fact = std::tuple<int, FactPair>;
 using mutex_set_for_value = phmap::flat_hash_set<tuple_value_fact, utils::Hash<tuple_value_fact>>;
-using vars_pair_set = std::set<std::tuple<int, int>>;
+using vars_pair_queue = TrackedExistingPairsDeque;
 
 class MutexInformation {
     std::vector<std::vector<std::set<FactPair>>> mutexes;
     std::vector<std::vector<int>> var_mutex_vars;
-    vars_pair_set mutex_var_pairs;
+    vars_pair_queue mutex_vars_queue;
     std::vector<mutex_set_for_value> var_mutex_set{};
 
 public:
-    MutexInformation() = default;
+    MutexInformation()
+        : mutexes(),
+          mutex_vars_queue(0) {}
     MutexInformation(const std::vector<std::vector<std::set<FactPair>>> &_mutexes)
-        : mutexes(_mutexes) {
+        : mutexes(_mutexes),
+          mutex_vars_queue(mutexes.size()) {
         int n_vars = mutexes.size();
         var_mutex_set.reserve(n_vars);
         var_mutex_vars = std::vector<std::vector<int>>(n_vars, std::vector<int>{});
@@ -37,7 +69,7 @@ public:
             var_mutex_vars[i].reserve(mutex_vars.size());
             for (int j : mutex_vars) {
                 var_mutex_vars[i].push_back(j);
-                mutex_var_pairs.insert({i, j});
+                mutex_vars_queue.add(i, j);
             }
 
             const std::vector<std::set<FactPair>> &vec = mutexes[i];
@@ -58,7 +90,7 @@ public:
         return mutexes[fact.var][fact.value];
     }
     const std::vector<int> &get_var_mutex_vars(const int var) const;
-    const vars_pair_set &get_mutex_var_pairs() const;
+    const vars_pair_queue &get_mutex_vars_queue() const;
     const mutex_set_for_value &get_var_mutexes(const int var) const;
 
     void add_mutex(const FactPair &fact1, const FactPair &fact2);
