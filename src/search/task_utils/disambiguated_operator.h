@@ -30,6 +30,9 @@ public:
                           const OperatorProxy &_op,
                           const std::shared_ptr<DisambiguationMethod> &method,
                           const std::shared_ptr<MutexInformation> &mutex_information);
+    DisambiguatedOperator(CartesianSet &&_pre,
+                          CartesianSet &&_post,
+                          const OperatorProxy &_op);
 
     bool is_redundant() const;
 

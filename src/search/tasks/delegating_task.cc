@@ -1,5 +1,6 @@
 #include "delegating_task.h"
 
+#include "../task_utils/disambiguated_operator.h"
 #include "../task_utils/mutex_information.h"
 
 using namespace std;
@@ -88,6 +89,10 @@ int DelegatingTask::convert_operator_index(
     }
     int parent_index = convert_operator_index_to_parent(index);
     return parent->convert_operator_index(parent_index, ancestor_task);
+}
+
+disambiguation::DisambiguatedOperator DelegatingTask::convert_disambiguated_operator(const disambiguation::DisambiguatedOperator &op) const {
+    return parent->convert_disambiguated_operator(op);
 }
 
 int DelegatingTask::get_num_axioms() const {

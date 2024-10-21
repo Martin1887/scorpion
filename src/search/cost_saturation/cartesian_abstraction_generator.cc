@@ -148,9 +148,9 @@ unique_ptr<cartesian_abstractions::Abstraction> CartesianAbstractionGenerator::b
         subtask.intersect_flaw_search_abstract_states,
         subtask.refine_init,
         lp_solver,
-        operators_disambiguation,
         abstract_space_disambiguation,
         flaw_search_states_disambiguation,
+        operators,
         *rng,
         log,
         dot_graph_verbosity);
@@ -201,6 +201,18 @@ Abstractions CartesianAbstractionGenerator::generate_abstractions(
 
     // The CEGAR code expects that some extra memory is reserved.
     utils::reserve_extra_memory_padding(extra_memory_padding_mb);
+
+    auto mutex_information = make_shared<MutexInformation>(task->mutex_information());
+    TaskProxy task_proxy = TaskProxy(*task);
+    OperatorsProxy orig_ops = task_proxy.get_operators();
+    operators = make_shared<vector<disambiguation::DisambiguatedOperator>>();
+    operators->reserve(orig_ops.size());
+    for (const OperatorProxy &op : orig_ops) {
+        operators->push_back(disambiguation::DisambiguatedOperator(task_proxy,
+                                                                   op,
+                                                                   operators_disambiguation,
+                                                                   mutex_information));
+    }
 
     Abstractions abstractions;
     for (const auto &subtask_generator : subtask_generators) {

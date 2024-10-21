@@ -125,7 +125,18 @@ vector<CartesianHeuristicFunction> CostSaturation::generate_heuristic_functions(
 
     reset(task_proxy);
 
-    State initial_state = TaskProxy(*task).get_initial_state();
+    State initial_state = task_proxy.get_initial_state();
+
+    auto mutex_information = make_shared<MutexInformation>(task->mutex_information());
+    OperatorsProxy orig_ops = task_proxy.get_operators();
+    operators = make_shared<vector<disambiguation::DisambiguatedOperator>>();
+    operators->reserve(orig_ops.size());
+    for (const OperatorProxy &op : orig_ops) {
+        operators->push_back(disambiguation::DisambiguatedOperator(task_proxy,
+                                                                   op,
+                                                                   operators_disambiguation,
+                                                                   mutex_information));
+    }
 
     function<bool()> should_abort =
         [&] () {
@@ -223,9 +234,9 @@ void CostSaturation::build_abstractions(
             subtask.intersect_flaw_search_abstract_states,
             subtask.refine_init,
             lp_solver,
-            operators_disambiguation,
             abstract_space_disambiguation,
             flaw_search_states_disambiguation,
+            operators,
             rng,
             log,
             dot_graph_verbosity);

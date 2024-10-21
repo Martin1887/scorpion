@@ -12,6 +12,10 @@
 #include <utility>
 #include <vector>
 
+namespace cartesian_set {
+class CartesianSet;
+}
+
 namespace extra_tasks {
 struct AbstractedVariable {
     int var;
@@ -47,6 +51,8 @@ class DomainAbstractedTask : public tasks::DelegatingTask {
     const ValueMap value_map;
     MutexInformation mutexes;
 
+    cartesian_set::CartesianSet convert_cartesian_set(const cartesian_set::CartesianSet &cartesian_set) const;
+
 public:
     DomainAbstractedTask(
         const std::shared_ptr<AbstractTask> &parent,
@@ -75,6 +81,8 @@ public:
         std::vector<int> &values) const override;
     virtual bool does_convert_ancestor_state_values(
         const AbstractTask *ancestor_task) const override;
+
+    virtual disambiguation::DisambiguatedOperator convert_disambiguated_operator(const disambiguation::DisambiguatedOperator &op) const override;
 };
 }
 

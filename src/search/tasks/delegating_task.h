@@ -50,6 +50,8 @@ public:
         return index;
     }
 
+    virtual disambiguation::DisambiguatedOperator convert_disambiguated_operator(const disambiguation::DisambiguatedOperator &op) const override;
+
     virtual int get_num_axioms() const override;
 
     virtual int get_num_goals() const override;

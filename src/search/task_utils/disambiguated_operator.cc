@@ -2,6 +2,8 @@
 
 #include "cartesian_set_facts_proxy_iterator.h"
 
+#include "../tasks/domain_abstracted_task.h"
+
 #include <algorithm>
 
 using namespace cartesian_set;
@@ -69,8 +71,25 @@ DisambiguatedOperator::DisambiguatedOperator(TaskProxy task,
       // Empty CartesianSets because they are set in disambiguate_effects after
       // desambiguating preconditions, the initialization here is required by C++.
       post(CartesianSet({})),
-      effect_in_var(task.get_variables().size(), -1) {
+      effect_in_var(task.get_variables().size(), MULTIPLE_POSTCONDITIONS) {
     disambiguate(op.get_effects(), method, mutex_information);
+}
+
+DisambiguatedOperator::DisambiguatedOperator(CartesianSet &&_pre,
+                                             CartesianSet &&_post,
+                                             const OperatorProxy &_op)
+    : op(_op),
+      precondition(move(_pre)),
+      post(move(_post)),
+      effect_in_var(precondition.get_cartesian_set().get_n_vars(), MULTIPLE_POSTCONDITIONS) {
+    int n_vars = precondition.get_cartesian_set().get_n_vars();
+    const CartesianSet &post_set = post.get_cartesian_set();
+    // All postconditions with a single value are actual effects.
+    for (int var = 0; var < n_vars; var++) {
+        if (post.count(var) == 1) {
+            effect_in_var[var] = (*post_set.iter(var).begin()).value;
+        }
+    }
 }
 
 

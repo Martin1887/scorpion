@@ -48,6 +48,10 @@ inline void feed(HashState &hash_state, const FactPair &fact) {
 }
 }
 
+namespace disambiguation {
+class DisambiguatedOperator;
+}
+
 class MutexInformation;
 
 class AbstractTask : public subscriber::SubscriberService<AbstractTask> {
@@ -76,6 +80,8 @@ public:
         int op_index, int eff_index, int cond_index, bool is_axiom) const = 0;
     virtual FactPair get_operator_effect(
         int op_index, int eff_index, bool is_axiom) const = 0;
+
+    virtual disambiguation::DisambiguatedOperator convert_disambiguated_operator(const disambiguation::DisambiguatedOperator &op) const;
 
     /*
       Convert an operator index from this task, C (child), into an operator index

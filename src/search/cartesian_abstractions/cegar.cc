@@ -11,6 +11,7 @@
 #include "../task_utils/disambiguated_operator.h"
 #include "../task_utils/disambiguation_method.h"
 #include "../task_utils/task_properties.h"
+#include "../tasks/domain_abstracted_task.h"
 #include "../utils/language.h"
 #include "../utils/logging.h"
 #include "../utils/math.h"
@@ -41,9 +42,9 @@ CEGAR::CEGAR(
     bool intersect_flaw_search_abstract_states,
     bool refine_init,
     lp::LPSolverType lp_solver,
-    shared_ptr<disambiguation::DisambiguationMethod> &operators_disambiguation,
     shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
     shared_ptr<disambiguation::DisambiguationMethod> &flaw_search_states_disambiguation,
+    std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> _operators,
     utils::RandomNumberGenerator &rng,
     utils::LogProxy &log,
     DotGraphVerbosity dot_graph_verbosity)
@@ -54,20 +55,17 @@ CEGAR::CEGAR(
       pick_flawed_abstract_state(pick_flawed_abstract_state),
       refine_init(refine_init),
       mutex_information(make_shared<MutexInformation>(task->mutex_information())),
-      operators_disambiguation(operators_disambiguation),
       abstract_space_disambiguation(abstract_space_disambiguation),
       flaw_search_states_disambiguation(flaw_search_states_disambiguation),
+      operators(make_shared<vector<disambiguation::DisambiguatedOperator>>()),
       simulated_transition_system(make_shared<TransitionSystem>(operators)),
       timer(max_time),
       max_time(max_time),
       log(log),
       dot_graph_verbosity(dot_graph_verbosity) {
     assert(max_states >= 1);
-    OperatorsProxy orig_ops = task_proxy.get_operators();
-    operators = make_shared<vector<DisambiguatedOperator>>();
-    operators->reserve(orig_ops.size());
-    for (OperatorProxy op : orig_ops) {
-        operators->push_back(DisambiguatedOperator(task_proxy, op, operators_disambiguation, mutex_information));
+    for (auto &op : *_operators) {
+        operators->push_back(task->convert_disambiguated_operator(op));
     }
     abstraction = make_unique<Abstraction>(task, operators, mutex_information, abstract_space_disambiguation, log);
     shortest_paths = make_unique<ShortestPaths>(

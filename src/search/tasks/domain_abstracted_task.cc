@@ -1,5 +1,7 @@
 #include "domain_abstracted_task.h"
 
+#include "../task_utils/cartesian_set_facts_proxy_iterator.h"
+#include "../task_utils/disambiguated_operator.h"
 #include "../utils/system.h"
 
 using namespace std;
@@ -131,5 +133,30 @@ void DomainAbstractedTask::convert_state_values_from_parent(
 bool DomainAbstractedTask::does_convert_ancestor_state_values(
     const AbstractTask *) const {
     return value_map.does_convert_values();
+}
+
+CartesianSet DomainAbstractedTask::convert_cartesian_set(const CartesianSet &cartesian_set) const {
+    int n_vars = domain_size.size();
+    CartesianSet new_set(domain_size);
+    for (int var = 0; var < n_vars; var++) {
+        new_set.remove_all(var);
+        for (int value = 0; value < domain_size[var]; value++) {
+            for (auto &&fact : cartesian_set.iter(var)) {
+                if (value_map.convert(fact).value == value) {
+                    new_set.add(var, value);
+                    break;
+                }
+            }
+        }
+    }
+
+    return new_set;
+}
+
+disambiguation::DisambiguatedOperator DomainAbstractedTask::convert_disambiguated_operator(const disambiguation::DisambiguatedOperator &op) const {
+    CartesianSet new_pre = convert_cartesian_set(op.get_precondition().get_cartesian_set());
+    CartesianSet new_post = convert_cartesian_set(op.get_post().get_cartesian_set());
+
+    return disambiguation::DisambiguatedOperator(move(new_pre), move(new_post), op.get_operator());
 }
 }

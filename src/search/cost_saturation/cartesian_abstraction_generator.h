@@ -36,6 +36,7 @@ class CartesianAbstractionGenerator : public AbstractionGenerator {
     std::shared_ptr<disambiguation::DisambiguationMethod> operators_disambiguation;
     std::shared_ptr<disambiguation::DisambiguationMethod> abstract_space_disambiguation;
     std::shared_ptr<disambiguation::DisambiguationMethod> flaw_search_states_disambiguation;
+    std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> operators;
     const std::shared_ptr<utils::RandomNumberGenerator> rng;
     const cartesian_abstractions::DotGraphVerbosity dot_graph_verbosity;
 
