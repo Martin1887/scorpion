@@ -121,15 +121,19 @@ void CEGAR::separate_facts_unreachable_before_goal(bool refine_goals) const {
         }
         if (!unreachable_values.empty() &&
             init_set.count(var_id) > static_cast<int>(unreachable_values.size())) {
-            abstraction->refine(abstraction->get_initial_state(), var_id, unreachable_values);
+            auto ref_result = abstraction->refine(abstraction->get_initial_state(), var_id, unreachable_values);
+            int child1 = get<0>(ref_result);
+            int child2 = get<1>(ref_result);
+            // We have to identify the child in which the unreachable values
+            // are to mark that state as goal.
+            if (abstraction->get_state(child1).includes({var_id, unreachable_values[0]})) {
+                abstraction->mark_state_as_goal(child1);
+            } else {
+                abstraction->mark_state_as_goal(child2);
+            }
         }
     }
-    abstraction->mark_all_goal_states_as_goals();
     /*
-      Split off the goal fact from the initial state. Then the new initial
-      state is the only non-goal state and no goal state will have to be split
-      later.
-
       For all states s in which the landmark might have been achieved we need
       h(s)=0. If the limits don't allow splitting off all facts unreachable
       before the goal to achieve this, we instead preserve h(s)=0 for *all*

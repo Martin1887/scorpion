@@ -83,16 +83,11 @@ unique_ptr<RefinementHierarchy> Abstraction::extract_refinement_hierarchy() {
     return move(refinement_hierarchy);
 }
 
-void Abstraction::mark_all_goal_states_as_goals() {
+void Abstraction::mark_state_as_goal(int abstract_state_id) {
     if (log.is_at_least_debug()) {
-        log << "Mark all goal states as goals." << endl;
+        log << "Mark state as goal: " << abstract_state_id << "." << endl;
     }
-    goals.clear();
-    for (const auto &state : states) {
-        if (state->includes(goal_facts)) {
-            goals.insert(state->get_id());
-        }
-    }
+    goals.insert(abstract_state_id);
 }
 
 void Abstraction::initialize_trivial_abstraction(const vector<int> &domain_sizes) {

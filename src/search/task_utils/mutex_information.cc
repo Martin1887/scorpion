@@ -93,7 +93,7 @@ MutexInformation MutexInformation::convert(const vector<int> &domain_size, const
                     }
                 }
                 if (insert) {
-                    value_converted_mutexes.insert(value_map.convert(old_mutex));
+                    value_converted_mutexes.insert(move(converted_fact));
                 }
             }
             converted_mutexes[var].push_back(move(value_converted_mutexes));
