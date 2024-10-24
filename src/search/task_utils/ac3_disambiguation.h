@@ -19,7 +19,7 @@ class AC3Disambiguation : public DisambiguationMethod {
                          vars_pair_queue &worklist) const;
 public:
     AC3Disambiguation(const plugins::Options &) {}
-    virtual bool disambiguate(CartesianState &, const MutexInformation &) const override;
+    virtual bool disambiguate(CartesianState &, const MutexInformation &, std::optional<int> var) const override;
 };
 }
 #endif

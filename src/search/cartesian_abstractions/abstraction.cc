@@ -41,12 +41,12 @@ Abstraction::Abstraction(const shared_ptr<AbstractTask> &task,
 Abstraction::~Abstraction() {
 }
 
-bool Abstraction::disambiguate_state(int state_id) {
-    return disambiguate_state(*states[state_id]);
+bool Abstraction::disambiguate_state(int state_id, optional<int> var) {
+    return disambiguate_state(*states[state_id], var);
 }
 
-bool Abstraction::disambiguate_state(AbstractState &state) {
-    bool disambiguated = abstract_space_disambiguation->disambiguate(state, *mutex_information);
+bool Abstraction::disambiguate_state(AbstractState &state, optional<int> var) {
+    bool disambiguated = abstract_space_disambiguation->disambiguate(state, *mutex_information, var);
     if (disambiguated) {
         n_disambiguations++;
     }
@@ -160,7 +160,8 @@ tuple<int, int, bool, Transitions, Transitions> Abstraction::refine(
     if (!v1->includes(var, wanted[0])) {
         wanted_in_v1 = false;
     }
-    bool disambiguated = disambiguate_state(*v1) || disambiguate_state(*v2);
+    bool disambiguated = disambiguate_state(*v1, var) ||
+        disambiguate_state(*v2, var);
     if (disambiguated) {
         if (v1->got_empty()) {
             n_removed_states++;
@@ -292,8 +293,8 @@ SimulatedRefinement Abstraction::simulate_refinement(
 
     // disambiguate_state function is not called because statistics must not be
     // increased for simulated refinements.
-    bool disambiguated = abstract_space_disambiguation->disambiguate(*v1, *mutex_information) ||
-        abstract_space_disambiguation->disambiguate(*v2, *mutex_information);
+    bool disambiguated = abstract_space_disambiguation->disambiguate(*v1, *mutex_information, var) ||
+        abstract_space_disambiguation->disambiguate(*v2, *mutex_information, var);
     vector<int> modified_vars{};
     if (disambiguated) {
         const CartesianSet &v_set = state.get_cartesian_set();

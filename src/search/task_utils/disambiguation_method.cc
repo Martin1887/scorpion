@@ -4,9 +4,10 @@
 
 namespace disambiguation {
 CartesianState DisambiguationMethod::disambiguate_copy(const CartesianState &partial_state,
-                                                       const MutexInformation &mutexes) const {
+                                                       const MutexInformation &mutexes,
+                                                       std::optional<int> var) const {
     CartesianState copy = partial_state;
-    disambiguate(copy, mutexes);
+    disambiguate(copy, mutexes, var);
     return copy;
 }
 

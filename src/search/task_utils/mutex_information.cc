@@ -25,6 +25,9 @@ const std::vector<int> &MutexInformation::get_var_mutex_vars(const int var) cons
 const vars_pair_queue &MutexInformation::get_mutex_vars_queue() const {
     return mutex_vars_queue;
 }
+const vars_pair_queue &MutexInformation::get_mutex_vars_queue_for_var(int var) const {
+    return per_var_mutex_vars_queue[var];
+}
 
 const mutex_set_for_value &MutexInformation::get_var_mutexes(const int var) const {
     return var_mutex_set[var];

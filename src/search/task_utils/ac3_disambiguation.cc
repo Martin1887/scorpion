@@ -8,14 +8,15 @@ using namespace std;
 
 namespace disambiguation {
 bool AC3Disambiguation::disambiguate(CartesianState &partial_state,
-                                     const MutexInformation &mutexes) const {
+                                     const MutexInformation &mutexes,
+                                     optional<int> var) const {
     if (partial_state.got_empty()) {
         return false;
     }
     bool changed = false;
     CartesianSet &disambiguated = partial_state.get_mutable_cartesian_set();
 
-    vars_pair_queue worklist = mutexes.get_mutex_vars_queue();
+    vars_pair_queue worklist = var.has_value() ? mutexes.get_mutex_vars_queue_for_var(var.value()) : mutexes.get_mutex_vars_queue();
     while (!worklist.empty()) {
         tuple<int, int> vars_pair = worklist.pop_front();
         int var = get<0>(vars_pair);

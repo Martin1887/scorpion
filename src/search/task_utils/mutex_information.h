@@ -12,12 +12,12 @@ class ValueMap;
 }
 
 class TrackedExistingPairsDeque {
-    std::deque<std::tuple<int, int>> queue;
     std::vector<std::vector<bool>> pair_in_queue;
+    std::deque<std::tuple<int, int>> queue;
 public:
     TrackedExistingPairsDeque(int size)
-        : queue(),
-          pair_in_queue(size, std::vector<bool>(size, 0)) {}
+        : pair_in_queue(size, std::vector<bool>(size, 0)),
+          queue() {}
 
     void add(int first, int second) {
         if (!pair_in_queue[first][second]) {
@@ -47,15 +47,18 @@ class MutexInformation {
     std::vector<std::vector<std::set<FactPair>>> mutexes;
     std::vector<std::vector<int>> var_mutex_vars;
     vars_pair_queue mutex_vars_queue;
+    std::vector<vars_pair_queue> per_var_mutex_vars_queue;
     std::vector<mutex_set_for_value> var_mutex_set{};
 
 public:
     MutexInformation()
         : mutexes(),
-          mutex_vars_queue(0) {}
+          mutex_vars_queue(0),
+          per_var_mutex_vars_queue() {}
     MutexInformation(const std::vector<std::vector<std::set<FactPair>>> &_mutexes)
         : mutexes(_mutexes),
-          mutex_vars_queue(mutexes.size()) {
+          mutex_vars_queue(mutexes.size()),
+          per_var_mutex_vars_queue(mutexes.size(), vars_pair_queue(mutexes.size())) {
         int n_vars = mutexes.size();
         var_mutex_set.reserve(n_vars);
         var_mutex_vars = std::vector<std::vector<int>>(n_vars, std::vector<int>{});
@@ -70,6 +73,7 @@ public:
             for (int j : mutex_vars) {
                 var_mutex_vars[i].push_back(j);
                 mutex_vars_queue.add(i, j);
+                per_var_mutex_vars_queue[i].add(j, i);
             }
 
             const std::vector<std::set<FactPair>> &vec = mutexes[i];
@@ -91,6 +95,7 @@ public:
     }
     const std::vector<int> &get_var_mutex_vars(const int var) const;
     const vars_pair_queue &get_mutex_vars_queue() const;
+    const vars_pair_queue &get_mutex_vars_queue_for_var(int var) const;
     const mutex_set_for_value &get_var_mutexes(const int var) const;
 
     void add_mutex(const FactPair &fact1, const FactPair &fact2);

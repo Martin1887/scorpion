@@ -8,7 +8,8 @@ using namespace std;
 
 namespace disambiguation {
 bool AC3PerVarDisambiguation::disambiguate(CartesianState &partial_state,
-                                           const MutexInformation &mutexes) const {
+                                           const MutexInformation &mutexes,
+                                           optional<int> var) const {
     if (partial_state.got_empty()) {
         return false;
     }
@@ -16,7 +17,13 @@ bool AC3PerVarDisambiguation::disambiguate(CartesianState &partial_state,
     CartesianSet &disambiguated = partial_state.get_mutable_cartesian_set();
 
     int n_vars = disambiguated.get_n_vars();
-    for (int var = 0; var < n_vars; var++) {
+    int init_var = 0;
+    int final_var = n_vars;
+    if (var.has_value()) {
+        init_var = var.value();
+        final_var = init_var + 1;
+    }
+    for (int var = init_var; var < final_var; var++) {
         const mutex_set_for_value &var_mutexes = mutexes.get_var_mutexes(var);
         // Initially, worklist=var_mutex_vars, but it changes.
         vector<int> worklist = mutexes.get_var_mutex_vars(var);

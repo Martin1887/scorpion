@@ -15,7 +15,7 @@ class AC3PerVarDisambiguation : public DisambiguationMethod {
                     const mutex_set_for_value &var_mutexes) const;
 public:
     AC3PerVarDisambiguation(const plugins::Options &) {}
-    virtual bool disambiguate(CartesianState &, const MutexInformation &) const override;
+    virtual bool disambiguate(CartesianState &, const MutexInformation &, std::optional<int> var) const override;
 };
 }
 #endif

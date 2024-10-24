@@ -96,8 +96,8 @@ class Abstraction {
 
     AbstractStateSplit split(
         const AbstractState &state, int var, const std::vector<int> &wanted) const;
-    bool disambiguate_state(int state_id);
-    bool disambiguate_state(AbstractState &state);
+    bool disambiguate_state(int state_id, std::optional<int> var = std::nullopt);
+    bool disambiguate_state(AbstractState &state, std::optional<int> var = std::nullopt);
 
 public:
     Abstraction(const std::shared_ptr<AbstractTask> &task,
