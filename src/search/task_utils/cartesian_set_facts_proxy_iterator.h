@@ -36,7 +36,9 @@ private:
         ++value;
         if (value >= var_size) {
             ++var_id;
-            var_size = cartesian_set->var_size(var_id);
+            if (var_id < end_var) {
+                var_size = cartesian_set->var_size(var_id);
+            }
             value = 0;
         }
     }
