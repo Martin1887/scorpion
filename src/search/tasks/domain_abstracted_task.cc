@@ -140,11 +140,13 @@ CartesianSet DomainAbstractedTask::convert_cartesian_set(const CartesianSet &car
     CartesianSet new_set(domain_size);
     for (int var = 0; var < n_vars; var++) {
         new_set.remove_all(var);
-        for (int value = 0; value < domain_size[var]; value++) {
-            for (auto &&fact : cartesian_set.iter(var)) {
-                if (value_map.convert(fact).value == value) {
-                    new_set.add(var, value);
-                    break;
+        if (!cartesian_set.is_empty()) {
+            for (int value = 0; value < domain_size[var]; value++) {
+                for (auto &&fact : cartesian_set.iter(var)) {
+                    if (value_map.convert(fact).value == value) {
+                        new_set.add(var, value);
+                        break;
+                    }
                 }
             }
         }
