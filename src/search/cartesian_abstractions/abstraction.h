@@ -120,6 +120,9 @@ public:
     /* Needed for CEGAR::separate_facts_unreachable_before_goal(). */
     void mark_state_as_goal(int abstract_state_id);
 
+    /* Needed to remove spurious transitions. */
+    void remove_transition(int src_id, int op_id, int target_id);
+
     // Split state into two child states.
     std::tuple<int, int, bool, Transitions, Transitions> refine(
         const AbstractState &state, int var, const std::vector<int> &wanted);

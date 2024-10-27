@@ -232,6 +232,7 @@ void CostSaturation::build_abstractions(
             max_concrete_states_per_abstract_state,
             max_state_expansions,
             subtask.intersect_flaw_search_abstract_states,
+            subtask.remove_plan_spurious_transitions,
             subtask.refine_init,
             lp_solver,
             abstract_space_disambiguation,

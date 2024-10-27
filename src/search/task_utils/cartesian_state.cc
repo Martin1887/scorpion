@@ -410,6 +410,17 @@ void CartesianState::set_var_values(int var, const CartesianSet &other) {
     cartesian_set.set_values(var, other);
 }
 
+bool CartesianState::remove(const vector<FactPair> &values) {
+    for (const FactPair &fact : values) {
+        cartesian_set.remove(fact.var, fact.value);
+    }
+    return got_empty();
+}
+
+void CartesianState::inplace_intersection(const CartesianState &other) {
+    cartesian_set.inplace_intersection(other.get_cartesian_set());
+}
+
 CartesianState CartesianState::intersection(const CartesianState &other) const {
     return CartesianState(cartesian_set.intersection(other.get_cartesian_set()));
 }

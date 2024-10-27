@@ -80,6 +80,7 @@ class AC3DisambiguationFeature : public plugins::TypedFeature<DisambiguationMeth
 public:
     AC3DisambiguationFeature() : TypedFeature("AC3") {
         document_title("AC-3 disambiguation method");
+        DisambiguationMethod::add_disambiguation_base_options(*this);
     }
 };
 static plugins::FeaturePlugin<AC3DisambiguationFeature> _plugin_ac3;

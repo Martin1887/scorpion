@@ -22,6 +22,8 @@ class CartesianSet {
     std::vector<Bitset> domain_subsets;
     int n_vars;
     bool empty;
+    // Reference used to hash only the variables with mutexes.
+    std::shared_ptr<std::vector<int>> vars_with_mutexes;
 
     void init_facts(const std::vector<FactPair> &facts);
     void init_facts(const PreconditionsProxy &facts);
@@ -40,6 +42,7 @@ public:
     void remove(int var, int value);
     void add_all(int var);
     void remove_all(int var);
+    void inplace_intersection(const CartesianSet &other);
     CartesianSet intersection(const CartesianSet &other) const;
     utils::HashSet<int> var_intersection(const CartesianSet &other, int var) const;
 
@@ -77,16 +80,16 @@ public:
         std::ostream &os, const CartesianSet &cartesian_set);
 
     bool operator==(const CartesianSet &other) const;
+
+    void set_vars_with_mutexes(const std::shared_ptr<std::vector<int>> &vars_with_mutexes);
+    void feed(utils::HashState &hash_state) const;
+    void feed_vars_with_mutexes(utils::HashState &hash_state) const;
 };
 }
 
 namespace utils {
 inline void feed(HashState &hash_state, const cartesian_set::CartesianSet &val) {
-    int n_vars = val.get_n_vars();
-    feed(hash_state, n_vars);
-    for (int var = 0; var < n_vars; var++) {
-        feed(hash_state, val.get_values(var));
-    }
+    val.feed(hash_state);
 }
 }
 

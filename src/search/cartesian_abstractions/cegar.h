@@ -27,6 +27,54 @@ class Abstraction;
 enum class DotGraphVerbosity;
 class ShortestPaths;
 
+struct TransitionElements {
+    int src_id;
+    int op_id;
+    int target_id;
+
+    bool operator==(const TransitionElements &other) const {
+        return src_id == other.src_id && op_id == other.op_id && target_id == other.target_id;
+    }
+};
+
+struct NonSpuriousTransitionsCache {
+    utils::HashSet<TransitionElements> non_spurious_transitions_cache{};
+    utils::HashMap<int, std::vector<TransitionElements>> cached_transitions_per_state{};
+
+    void add(const TransitionElements &tr) {
+        non_spurious_transitions_cache.insert(tr);
+        if (cached_transitions_per_state.contains(tr.src_id)) {
+            std::vector<TransitionElements> &cached = cached_transitions_per_state.at(tr.src_id);
+            cached.push_back(tr);
+            cached_transitions_per_state.insert_or_assign(tr.src_id, move(cached));
+        } else {
+            std::vector<TransitionElements> cached = {tr};
+            cached_transitions_per_state.insert_or_assign(tr.src_id, move(cached));
+        }
+        if (cached_transitions_per_state.contains(tr.target_id)) {
+            std::vector<TransitionElements> &cached = cached_transitions_per_state.at(tr.target_id);
+            cached.push_back(tr);
+            cached_transitions_per_state.insert_or_assign(tr.target_id, move(cached));
+        } else {
+            std::vector<TransitionElements> cached = {tr};
+            cached_transitions_per_state.insert_or_assign(tr.target_id, move(cached));
+        }
+    }
+
+    void remove(int abstract_state_id) {
+        if (cached_transitions_per_state.contains(abstract_state_id)) {
+            for (const TransitionElements &tr : cached_transitions_per_state.at(abstract_state_id)) {
+                non_spurious_transitions_cache.erase(tr);
+            }
+            cached_transitions_per_state.erase(abstract_state_id);
+        }
+    }
+
+    bool contains(const TransitionElements &tr) {
+        return non_spurious_transitions_cache.contains(tr);
+    }
+};
+
 /*
   Iteratively refine a Cartesian abstraction with counterexample-guided
   abstraction refinement (CEGAR).
@@ -41,10 +89,10 @@ class CEGAR {
     const int max_states;
     const int max_non_looping_transitions;
     const PickFlawedAbstractState pick_flawed_abstract_state;
+    bool remove_plan_spurious_transitions;
     const bool refine_init;
 
     std::shared_ptr<MutexInformation> mutex_information;
-    std::shared_ptr<disambiguation::DisambiguationMethod> operators_disambiguation;
     std::shared_ptr<disambiguation::DisambiguationMethod> abstract_space_disambiguation;
     std::shared_ptr<disambiguation::DisambiguationMethod> flaw_search_states_disambiguation;
     std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> operators;
@@ -66,6 +114,10 @@ class CEGAR {
     // Only used for logging progress.
     int old_abstract_solution_cost = -1;
 
+    int removed_optimal_plan_transitions = 0;
+
+    NonSpuriousTransitionsCache non_spurious_transitions_cache;
+
     bool may_keep_refining(bool in_current_direction = false) const;
 
     /*
@@ -80,6 +132,18 @@ class CEGAR {
 
     // Build abstraction.
     void refinement_loop();
+
+    bool remove_first_invalid_transition(std::unique_ptr<Solution> &solution,
+                                         utils::Timer &update_distances_timer);
+    std::unique_ptr<Solution> get_optimal_abstract_solution(utils::Timer &update_distances_timer);
+
+    void update_shortest_paths_incrementally(const std::vector<Transitions> &in,
+                                             const std::vector<Transitions> &out,
+                                             int v, int v1, int v2, bool disambiguated,
+                                             Transitions old_incoming, Transitions old_outgoing,
+                                             const std::unordered_set<int> &goals,
+                                             const int initial_state,
+                                             utils::Timer &update_distances_timer);
 
     void print_statistics() const;
 
@@ -98,6 +162,7 @@ public:
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
         bool intersect_flaw_search_abstract_states,
+        bool remove_plan_spurious_transitions,
         bool refine_init,
         lp::LPSolverType lp_solver,
         std::shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
@@ -116,6 +181,14 @@ public:
 };
 
 Cost get_optimal_plan_cost(const Solution &solution, TaskProxy task_proxy);
+}
+
+namespace utils {
+inline void feed(HashState &hash_state, const cartesian_abstractions::TransitionElements &val) {
+    feed(hash_state, val.src_id);
+    feed(hash_state, val.op_id);
+    feed(hash_state, val.target_id);
+}
 }
 
 #endif

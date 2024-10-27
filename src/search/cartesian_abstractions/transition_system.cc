@@ -25,6 +25,14 @@ static void remove_transitions_with_given_target(
     assert(new_end != transitions.end());
     transitions.erase(new_end, transitions.end());
 }
+static void remove_op_transitions_with_given_target(
+    Transitions &transitions, int state_id, int op_id) {
+    auto new_end = remove_if(
+        transitions.begin(), transitions.end(),
+        [state_id, op_id](const Transition &t) {return t.target_id == state_id && t.op_id == op_id;});
+    assert(new_end != transitions.end());
+    transitions.erase(new_end, transitions.end());
+}
 
 
 TransitionSystem::TransitionSystem(const shared_ptr<vector<DisambiguatedOperator>> &ops)
@@ -63,6 +71,13 @@ void TransitionSystem::add_transition(int src_id, int op_id, int target_id) {
     outgoing[src_id].emplace_back(op_id, target_id);
     incoming[target_id].emplace_back(op_id, src_id);
     ++num_non_loops;
+}
+
+void TransitionSystem::remove_transition(int src_id, int op_id, int target_id) {
+    assert(src_id != target_id);
+    remove_op_transitions_with_given_target(outgoing[src_id], target_id, op_id);
+    remove_op_transitions_with_given_target(incoming[target_id], src_id, op_id);
+    --num_non_loops;
 }
 
 void TransitionSystem::add_loop(int state_id, int op_id) {

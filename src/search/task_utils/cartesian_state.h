@@ -90,6 +90,8 @@ public:
     CartesianSet clone_cartesian_set() const;
     void set_cartesian_set(CartesianSet &&other);
     void set_var_values(int var, const CartesianSet &other);
+    bool remove(const std::vector<FactPair> &values);
+    void inplace_intersection(const CartesianState &other);
     CartesianState intersection(const CartesianState &other) const;
 
     friend std::ostream &operator<<(std::ostream &os, const CartesianState &state) {

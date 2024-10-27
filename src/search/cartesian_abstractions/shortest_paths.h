@@ -14,6 +14,8 @@ class LogProxy;
 }
 
 namespace cartesian_abstractions {
+static const int STATE_NOT_SPLIT = -1;
+
 /*
   The code below requires that all operators have positive cost. Negative
   operators are of course tricky, but 0-cost operators are somewhat tricky,

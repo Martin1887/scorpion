@@ -177,25 +177,28 @@ void ShortestPaths::update_incrementally(
     const bool simulated) {
     assert(in.size() == out.size());
     int num_states = in.size();
-
     if (simulated) {
         // Copy distances and shortest_paths into the simulated ones.
         simulated_shortest_path = shortest_path;
         simulated_reverse_shortest_path = reverse_shortest_path;
         simulated_goal_distances = goal_distances;
         simulated_init_distances = init_distances;
-        simulated_shortest_path.resize(num_states);
-        simulated_reverse_shortest_path.resize(num_states);
-        simulated_goal_distances.resize(num_states, 0);
-        simulated_init_distances.resize(num_states, 0);
-    } else {
+        if (v != STATE_NOT_SPLIT) {
+            simulated_shortest_path.resize(num_states);
+            simulated_reverse_shortest_path.resize(num_states);
+            simulated_goal_distances.resize(num_states, 0);
+            simulated_init_distances.resize(num_states, 0);
+        }
+    } else if (v != STATE_NOT_SPLIT) {
         shortest_path.resize(num_states);
         reverse_shortest_path.resize(num_states);
         goal_distances.resize(num_states, 0);
         init_distances.resize(num_states, 0);
     }
 
-    dirty_candidate.resize(num_states, false);
+    if (v != STATE_NOT_SPLIT) {
+        dirty_candidate.resize(num_states, false);
+    }
     dirty_states.clear();
     update_incrementally_in_direction(in, out, v, v1, v2, disambiguated, old_incoming, old_outgoing, goals, initial_state, false, simulated);
     dirty_states.clear();
@@ -237,7 +240,11 @@ void ShortestPaths::update_incrementally_in_direction(
     }
 
     if (debug) {
-        log << "Reflect splitting " << v << " into " << v1 << " and " << v2;
+        if (v != STATE_NOT_SPLIT) {
+            log << "Reflect splitting " << v << " into " << v1 << " and " << v2;
+        } else {
+            log << "Reflect reconnecting after removed transition for " << v1 << " and " << v2;
+        }
         if (backward) {
             log << " in backward direction";
         }
@@ -260,18 +267,20 @@ void ShortestPaths::update_incrementally_in_direction(
     }
 
     // Copy distance from split state. Distances will be updated if necessary.
-    (*distances)[v1] = (*distances)[v2] = (*distances)[v];
+    if (v != STATE_NOT_SPLIT) {
+        (*distances)[v1] = (*distances)[v2] = (*distances)[v];
 
-    /* Update shortest path tree (SPT) transitions to v. The SPT transitions
-       will be updated again if v1 or v2 are dirty. */
-    for (int state : {v1, v2}) {
-        for (const Transition &incoming : (*virtual_in)[state]) {
-            int u = incoming.target_id;
-            int op = incoming.op_id;
-            Transition &sp = (*virtual_shortest_path)[u];
-            if (sp.target_id == v &&
-                operator_costs[op] == operator_costs[sp.op_id]) {
-                sp = Transition(op, state);
+        /* Update shortest path tree (SPT) transitions to v. The SPT transitions
+           will be updated again if v1 or v2 are dirty. */
+        for (int state : {v1, v2}) {
+            for (const Transition &incoming : (*virtual_in)[state]) {
+                int u = incoming.target_id;
+                int op = incoming.op_id;
+                Transition &sp = (*virtual_shortest_path)[u];
+                if (sp.target_id == v &&
+                    operator_costs[op] == operator_costs[sp.op_id]) {
+                    sp = Transition(op, state);
+                }
             }
         }
     }
@@ -309,10 +318,10 @@ void ShortestPaths::update_incrementally_in_direction(
       add both states to the candidate queue.
     */
     dirty_candidate[v1] = true;
-    dirty_candidate[v2] = true;
     candidate_queue.push((*distances)[v1], v1);
+    dirty_candidate[v2] = true;
     candidate_queue.push((*distances)[v2], v2);
-    // If some of the states has been disambiguated, all outgoing and incoming
+    // If any of the states has been disambiguated, all outgoing and incoming
     // states must be marked as dirty candidates because the optimal transition
     // may have been removed.
     if (disambiguated) {

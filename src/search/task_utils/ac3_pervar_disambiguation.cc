@@ -77,6 +77,7 @@ class AC3PerVarDisambiguationFeature : public plugins::TypedFeature<Disambiguati
 public:
     AC3PerVarDisambiguationFeature() : TypedFeature("PerVarAC3") {
         document_title("AC-3 per variable (weaker) disambiguation method");
+        DisambiguationMethod::add_disambiguation_base_options(*this);
     }
 };
 static plugins::FeaturePlugin<AC3PerVarDisambiguationFeature> _plugin_pervar_ac3;

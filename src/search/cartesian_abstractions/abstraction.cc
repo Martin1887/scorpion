@@ -90,6 +90,10 @@ void Abstraction::mark_state_as_goal(int abstract_state_id) {
     goals.insert(abstract_state_id);
 }
 
+void Abstraction::remove_transition(int src_id, int op_id, int target_id) {
+    transition_system->remove_transition(src_id, op_id, target_id);
+}
+
 void Abstraction::initialize_trivial_abstraction(const vector<int> &domain_sizes) {
     unique_ptr<AbstractState> init_state =
         AbstractState::get_trivial_abstract_state(domain_sizes);

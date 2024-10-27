@@ -81,6 +81,8 @@ public:
                                const std::vector<Transitions> &new_outgoing,
                                const std::vector<Loops> &new_loops);
 
+    void remove_transition(int src_id, int op_id, int target_id);
+
     const cartesian_state::CartesianState &get_preconditions(int op_id) const;
 
     int get_num_states() const;

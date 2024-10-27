@@ -40,6 +40,7 @@ CEGAR::CEGAR(
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
     bool intersect_flaw_search_abstract_states,
+    bool remove_plan_spurious_transitions,
     bool refine_init,
     lp::LPSolverType lp_solver,
     shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
@@ -53,6 +54,7 @@ CEGAR::CEGAR(
       max_states(max_states),
       max_non_looping_transitions(max_non_looping_transitions),
       pick_flawed_abstract_state(pick_flawed_abstract_state),
+      remove_plan_spurious_transitions(remove_plan_spurious_transitions),
       refine_init(refine_init),
       mutex_information(make_shared<MutexInformation>(task->mutex_information())),
       abstract_space_disambiguation(abstract_space_disambiguation),
@@ -180,6 +182,61 @@ bool CEGAR::may_keep_refining(bool in_current_direction) const {
     return true;
 }
 
+bool CEGAR::remove_first_invalid_transition(std::unique_ptr<Solution> &solution,
+                                            utils::Timer &update_distances_timer) {
+    int current_state_id = abstraction->get_initial_state().get_id();
+    for (const Transition &transition : *solution) {
+        TransitionElements tr{current_state_id, transition.op_id, transition.target_id};
+        if (!non_spurious_transitions_cache.contains(tr)) {
+            CartesianState current_state = abstraction->get_state(current_state_id);
+            const DisambiguatedOperator &op = (*operators)[transition.op_id];
+            current_state.inplace_intersection(op.get_precondition());
+            if (current_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(current_state, *mutex_information)))) {
+                abstraction->remove_transition(current_state_id, transition.op_id, transition.target_id);
+                update_shortest_paths_incrementally(abstraction->get_transition_system().get_incoming_transitions(),
+                                                    abstraction->get_transition_system().get_outgoing_transitions(),
+                                                    STATE_NOT_SPLIT, current_state_id, transition.target_id, false,
+                                                    {}, {},
+                                                    abstraction->get_goals(),
+                                                    abstraction->get_initial_state().get_id(),
+                                                    update_distances_timer);
+                removed_optimal_plan_transitions++;
+                return true;
+            }
+            CartesianState successor = abstraction->get_state(current_state_id);
+            successor.progress(op);
+            successor.inplace_intersection(abstraction->get_state(transition.target_id));
+            if (current_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(successor, *mutex_information)))) {
+                abstraction->remove_transition(current_state_id, transition.op_id, transition.target_id);
+                update_shortest_paths_incrementally(abstraction->get_transition_system().get_incoming_transitions(),
+                                                    abstraction->get_transition_system().get_outgoing_transitions(),
+                                                    STATE_NOT_SPLIT, current_state_id, transition.target_id, false,
+                                                    {}, {},
+                                                    abstraction->get_goals(),
+                                                    abstraction->get_initial_state().get_id(),
+                                                    update_distances_timer);
+                removed_optimal_plan_transitions++;
+                return true;
+            }
+            non_spurious_transitions_cache.add(tr);
+        }
+        current_state_id = transition.target_id;
+    }
+
+    return false;
+}
+
+unique_ptr<Solution> CEGAR::get_optimal_abstract_solution(utils::Timer &update_distances_timer) {
+    // If any of the transitions is spurious, another plan must be searched.
+    unique_ptr<Solution> solution;
+    do {
+        solution = shortest_paths->extract_solution(
+            abstraction->get_initial_state().get_id(), abstraction->get_goals());
+    } while (remove_plan_spurious_transitions && remove_first_invalid_transition(solution, update_distances_timer));
+
+    return solution;
+}
+
 void CEGAR::refinement_loop() {
     int stats_iters = 1000;
     int delta_forward_refinements = 0;
@@ -275,9 +332,7 @@ void CEGAR::refinement_loop() {
     bool half_limits_reached = false;
     while (may_keep_refining()) {
         find_trace_timer.resume();
-        unique_ptr<Solution> solution;
-        solution = shortest_paths->extract_solution(
-            abstraction->get_initial_state().get_id(), abstraction->get_goals());
+        unique_ptr<Solution> solution = get_optimal_abstract_solution(update_goal_distances_timer);
         find_trace_timer.stop();
 
         if (solution) {
@@ -335,6 +390,7 @@ void CEGAR::refinement_loop() {
         refine_timer.resume();
         int state_id = split_prop.split->abstract_state_id;
         const AbstractState &abstract_state = abstraction->get_state(state_id);
+        non_spurious_transitions_cache.remove(state_id);
         // This may not happen in the backward direction.
         // assert(!abstraction->get_goals().count(state_id));
 
@@ -401,19 +457,13 @@ void CEGAR::refinement_loop() {
             }
         }
 
-        update_goal_distances_timer.resume();
-        shortest_paths->update_incrementally(
-            abstraction->get_transition_system().get_incoming_transitions(),
-            abstraction->get_transition_system().get_outgoing_transitions(),
-            state_id, get<0>(refinement), get<1>(refinement), get<2>(refinement),
-            get<3>(refinement), get<4>(refinement),
-            abstraction->get_goals(),
-            abstraction->get_initial_state().get_id());
-        assert(shortest_paths->test_distances(
-                   abstraction->get_transition_system().get_incoming_transitions(),
-                   abstraction->get_transition_system().get_outgoing_transitions(),
-                   abstraction->get_goals()));
-        update_goal_distances_timer.stop();
+        update_shortest_paths_incrementally(abstraction->get_transition_system().get_incoming_transitions(),
+                                            abstraction->get_transition_system().get_outgoing_transitions(),
+                                            state_id, get<0>(refinement), get<1>(refinement), get<2>(refinement),
+                                            get<3>(refinement), get<4>(refinement),
+                                            abstraction->get_goals(),
+                                            abstraction->get_initial_state().get_id(),
+                                            update_goal_distances_timer);
 
         if (log.is_at_least_verbose() &&
             abstraction->get_num_states() % 1000 == 0) {
@@ -450,7 +500,25 @@ void CEGAR::refinement_loop() {
             << avg_bw_perc << endl;
         log << "Total number of times the cost of the optimal plan has been increased: "
             << n_optimal_cost_increased << endl;
+        log << "Optimal abstract plan transitions removed: " << removed_optimal_plan_transitions << endl;
     }
+}
+
+void CEGAR::update_shortest_paths_incrementally(const std::vector<Transitions> &in,
+                                                const std::vector<Transitions> &out,
+                                                int v, int v1, int v2, bool disambiguated,
+                                                Transitions old_incoming, Transitions old_outgoing,
+                                                const std::unordered_set<int> &goals,
+                                                const int initial_state,
+                                                utils::Timer &update_distances_timer) {
+    update_distances_timer.resume();
+    shortest_paths->update_incrementally(in, out,
+                                         v, v1, v2, disambiguated,
+                                         old_incoming, old_outgoing,
+                                         goals,
+                                         initial_state);
+    assert(shortest_paths->test_distances(in, out, goals));
+    update_distances_timer.stop();
 }
 
 Cost get_optimal_plan_cost(const Solution &solution, TaskProxy task_proxy) {

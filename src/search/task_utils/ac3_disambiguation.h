@@ -18,7 +18,8 @@ class AC3Disambiguation : public DisambiguationMethod {
                          const std::vector<int> &var_mutex_vars,
                          vars_pair_queue &worklist) const;
 public:
-    AC3Disambiguation(const plugins::Options &) {}
+    AC3Disambiguation(const plugins::Options &opt)
+        : DisambiguationMethod(opt.get<bool>("cache_disambiguations")) {}
     virtual bool disambiguate(CartesianState &, const MutexInformation &, std::optional<int> var) const override;
 };
 }

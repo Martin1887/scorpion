@@ -90,17 +90,21 @@ void CartesianSet::remove_all(int var) {
     domain_subsets[var].reset();
 }
 
-CartesianSet CartesianSet::intersection(const CartesianSet &other) const {
-    CartesianSet intersection(other);
+void CartesianSet::inplace_intersection(const CartesianSet &other) {
     int num_vars = domain_subsets.size();
     for (int var = 0; var < num_vars; ++var) {
         int domain_size = var_size(var);
         for (int value = 0; value < domain_size; ++value) {
-            if (!test(var, value)) {
-                intersection.remove(var, value);
+            if (!other.test(var, value)) {
+                remove(var, value);
             }
         }
     }
+}
+
+CartesianSet CartesianSet::intersection(const CartesianSet &other) const {
+    CartesianSet intersection(*this);
+    intersection.inplace_intersection(other);
     return intersection;
 }
 utils::HashSet<int> CartesianSet::var_intersection(const CartesianSet &other, int var) const {
@@ -296,11 +300,27 @@ bool CartesianSet::operator==(const CartesianSet &other) const {
         return false;
     }
     for (int var = 0; var < n_vars; var++) {
-        if (get_values(var) != other.get_values(var)) {
+        if (!is_equal_in_var(other, var)) {
             return false;
         }
     }
 
     return true;
+}
+
+void CartesianSet::set_vars_with_mutexes(const shared_ptr<vector<int>> &_vars_with_mutexes) {
+    vars_with_mutexes = _vars_with_mutexes;
+}
+
+void CartesianSet::feed(utils::HashState &hash_state) const {
+    for (int var = 0; var < n_vars; var++) {
+        utils::feed(hash_state, domain_subsets[var]);
+    }
+}
+void CartesianSet::feed_vars_with_mutexes(utils::HashState &hash_state) const {
+    assert(vars_with_mutexes);
+    for (int var : *vars_with_mutexes) {
+        utils::feed(hash_state, domain_subsets[var]);
+    }
 }
 }

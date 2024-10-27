@@ -22,6 +22,10 @@ const std::vector<int> &MutexInformation::get_var_mutex_vars(const int var) cons
     return var_mutex_vars[var];
 }
 
+const shared_ptr<vector<int>> &MutexInformation::get_vars_with_mutexes() const {
+    return vars_with_mutexes;
+}
+
 const vars_pair_queue &MutexInformation::get_mutex_vars_queue() const {
     return mutex_vars_queue;
 }
