@@ -116,8 +116,6 @@ vector<CartesianHeuristicFunction> CostSaturation::generate_heuristic_functions(
     // For simplicity this is a member object. Make sure it is in a valid state.
     assert(heuristic_functions.empty());
 
-    utils::CountdownTimer timer(max_time);
-
     TaskProxy task_proxy(*task);
 
     task_properties::verify_no_axioms(task_proxy);
@@ -137,6 +135,8 @@ vector<CartesianHeuristicFunction> CostSaturation::generate_heuristic_functions(
                                                                    operators_disambiguation,
                                                                    mutex_information));
     }
+
+    utils::CountdownTimer timer(max_time);
 
     function<bool()> should_abort =
         [&] () {
