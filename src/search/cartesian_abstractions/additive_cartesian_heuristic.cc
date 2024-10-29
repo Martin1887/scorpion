@@ -40,7 +40,6 @@ static vector<CartesianHeuristicFunction> generate_heuristic_functions(
         opts.get<lp::LPSolverType>("lpsolver"),
         opts.get<shared_ptr<disambiguation::DisambiguationMethod>>("operators_disambiguation"),
         opts.get<shared_ptr<disambiguation::DisambiguationMethod>>("abstract_space_disambiguation"),
-        opts.get<shared_ptr<disambiguation::DisambiguationMethod>>("flaw_search_states_disambiguation"),
         *rng,
         log,
         opts.get<DotGraphVerbosity>("dot_graph_verbosity"));

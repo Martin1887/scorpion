@@ -44,7 +44,7 @@ CEGAR::CEGAR(
     bool refine_init,
     lp::LPSolverType lp_solver,
     shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
-    shared_ptr<disambiguation::DisambiguationMethod> &flaw_search_states_disambiguation,
+    bool disambiguate_flaw_search_states,
     std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> _operators,
     utils::RandomNumberGenerator &rng,
     utils::LogProxy &log,
@@ -58,7 +58,6 @@ CEGAR::CEGAR(
       refine_init(refine_init),
       mutex_information(make_shared<MutexInformation>(task->mutex_information())),
       abstract_space_disambiguation(abstract_space_disambiguation),
-      flaw_search_states_disambiguation(flaw_search_states_disambiguation),
       operators(make_shared<vector<disambiguation::DisambiguatedOperator>>()),
       simulated_transition_system(make_shared<TransitionSystem>(operators)),
       timer(max_time),
@@ -66,6 +65,9 @@ CEGAR::CEGAR(
       log(log),
       dot_graph_verbosity(dot_graph_verbosity) {
     assert(max_states >= 1);
+    if (disambiguate_flaw_search_states) {
+        assert(remove_plan_spurious_transitions);
+    }
     for (auto &op : *_operators) {
         operators->push_back(task->convert_disambiguated_operator(op));
     }
@@ -77,7 +79,9 @@ CEGAR::CEGAR(
         pick_flawed_abstract_state, pick_split, filter_split, tiebreak_split,
         sequence_split, sequence_tiebreak_split,
         max_concrete_states_per_abstract_state, max_state_expansions,
-        intersect_flaw_search_abstract_states, lp_solver, flaw_search_states_disambiguation, log);
+        intersect_flaw_search_abstract_states, lp_solver,
+        disambiguate_flaw_search_states, abstract_space_disambiguation,
+        mutex_information, log);
 
     if (log.is_at_least_normal()) {
         log << "Start building abstraction." << endl;

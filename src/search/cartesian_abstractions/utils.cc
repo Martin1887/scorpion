@@ -251,10 +251,6 @@ void add_common_cegar_options(plugins::Feature &feature) {
         "abstract_space_disambiguation",
         "method to disambiguate abstract states",
         "none()");
-    feature.add_option<shared_ptr<DisambiguationMethod>>(
-        "flaw_search_states_disambiguation",
-        "method to disambiguate partial states obtained during the flaws search",
-        "none()");
 }
 
 static plugins::TypedEnumPlugin<DotGraphVerbosity> _enum_plugin({

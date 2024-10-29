@@ -234,8 +234,7 @@ bool CartesianSet::intersects(const CartesianSet &other, int var) const {
 }
 
 bool CartesianSet::intersects(const CartesianSet &other) const {
-    int num_vars = domain_subsets.size();
-    for (int var = 0; var < num_vars; ++var) {
+    for (int var = 0; var < n_vars; ++var) {
         if (!intersects(other, var)) {
             return false;
         }
