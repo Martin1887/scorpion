@@ -91,8 +91,7 @@ void CartesianSet::remove_all(int var) {
 }
 
 void CartesianSet::inplace_intersection(const CartesianSet &other) {
-    int num_vars = domain_subsets.size();
-    for (int var = 0; var < num_vars; ++var) {
+    for (int var = 0; var < n_vars; ++var) {
         int domain_size = var_size(var);
         for (int value = 0; value < domain_size; ++value) {
             if (!other.test(var, value)) {
