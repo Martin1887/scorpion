@@ -66,6 +66,8 @@ enum class PickSplit {
     OPTIMAL_PLAN_COST_INCREASED,
     // Balance between most refined and closest to goal with the same weight.
     BALANCE_REFINED_CLOSEST_GOAL,
+    // Number of children disambiguated after the refinement (simulated).
+    N_CHILDREN_DISAMBIGUATED,
 };
 
 inline std::ostream &operator<<(std::ostream &os, const PickSplit &s) {
@@ -119,6 +121,8 @@ inline std::ostream &operator<<(std::ostream &os, const PickSplit &s) {
         return os << "optimal_plan_cost_increased";
     case PickSplit::BALANCE_REFINED_CLOSEST_GOAL:
         return os << "balance_refined_closest_goal";
+    case PickSplit::N_CHILDREN_DISAMBIGUATED:
+        return os << "n_children_disambiguated";
     default:
         return os << "invalid pick_split";
     }

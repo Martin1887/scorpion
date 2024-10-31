@@ -416,7 +416,7 @@ double SplitSelector::rate_split(
                                             state_id,
                                             ref.v1_id,
                                             ref.v2_id,
-                                            ref.disambiguated,
+                                            ref.disambiguated_v1 || ref.disambiguated_v2,
                                             ref.old_incoming,
                                             ref.old_outgoing,
                                             ref.goals,
@@ -436,7 +436,7 @@ double SplitSelector::rate_split(
                                             state_id,
                                             ref.v1_id,
                                             ref.v2_id,
-                                            ref.disambiguated,
+                                            ref.disambiguated_v1 || ref.disambiguated_v2,
                                             ref.old_incoming,
                                             ref.old_outgoing,
                                             ref.goals,
@@ -455,6 +455,19 @@ double SplitSelector::rate_split(
         // its distance is used as the maximum of the optimal abstract plan.
         rating = get_refinedness(state, var_id) -
             ((double)shortest_paths.get_64bit_goal_distance(state.get_id()) / init_dist);
+        break;
+    }
+    case PickSplit::N_CHILDREN_DISAMBIGUATED:
+    {
+        SimulatedRefinement ref =
+            abstraction.simulate_refinement(simulated_transition_system, state, var_id, split.values);
+        rating = 0;
+        if (ref.disambiguated_v1) {
+            rating++;
+        }
+        if (ref.disambiguated_v2) {
+            rating++;
+        }
         break;
     }
     default:
@@ -595,7 +608,7 @@ bool SplitSelector::split_is_filtered(const Split &split,
                                             state_id,
                                             ref.v1_id,
                                             ref.v2_id,
-                                            ref.disambiguated,
+                                            ref.disambiguated_v1 || ref.disambiguated_v2,
                                             ref.old_incoming,
                                             ref.old_outgoing,
                                             ref.goals,
@@ -618,7 +631,7 @@ bool SplitSelector::split_is_filtered(const Split &split,
                                             state_id,
                                             ref.v1_id,
                                             ref.v2_id,
-                                            ref.disambiguated,
+                                            ref.disambiguated_v1 || ref.disambiguated_v2,
                                             ref.old_incoming,
                                             ref.old_outgoing,
                                             ref.goals,
@@ -820,7 +833,9 @@ static plugins::TypedEnumPlugin<PickSplit> _enum_plugin({
         {"optimal_plan_cost_increased",
          "amount in which the cost of the optimal plan is increased after the refinement."},
         {"balance_refined_closest_goal",
-         "max_refined and distance of the state before refinement to goal with the same weight."}
+         "max_refined and distance of the state before refinement to goal with the same weight."},
+        {"n_children_disambiguated",
+         "number of children disambiguated after the refinement (simulated)."}
     });
 static plugins::TypedEnumPlugin<FilterSplit> _enum_plugin_filter({
         {"none", "no filter splits"},

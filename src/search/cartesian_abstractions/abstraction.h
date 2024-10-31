@@ -42,21 +42,24 @@ public:
     Goals goals;
     const int v1_id;
     const int v2_id;
-    const bool disambiguated;
+    const bool disambiguated_v1;
+    const bool disambiguated_v2;
     const Transitions old_incoming;
     const Transitions old_outgoing;
     SimulatedRefinement(const std::shared_ptr<TransitionSystem> tr,
                         const Goals goals,
                         const int v1_id,
                         const int v2_id,
-                        const bool disambiguated,
+                        const bool disambiguated_v1,
+                        const bool disambiguated_v2,
                         const Transitions old_incoming,
                         const Transitions old_outgoing)
         : transition_system(tr),
           goals(goals),
           v1_id(v1_id),
           v2_id(v2_id),
-          disambiguated(disambiguated),
+          disambiguated_v1(disambiguated_v1),
+          disambiguated_v2(disambiguated_v2),
           old_incoming(old_incoming),
           old_outgoing(old_outgoing) {
     }

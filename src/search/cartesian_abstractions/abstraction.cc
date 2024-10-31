@@ -317,7 +317,8 @@ SimulatedRefinement Abstraction::simulate_refinement(
                             goals,
                             split_result.v1_id,
                             split_result.v2_id,
-                            disambiguated_v1 || disambiguated_v2,
+                            disambiguated_v1,
+                            disambiguated_v2,
                             get_transition_system().get_incoming_transitions()[v_id],
                             get_transition_system().get_outgoing_transitions()[v_id]);
 
