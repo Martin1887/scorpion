@@ -203,10 +203,9 @@ bool CEGAR::remove_first_invalid_transition(std::unique_ptr<Solution> &solution,
                 removed_optimal_plan_transitions++;
                 return true;
             }
-            CartesianState successor = abstraction->get_state(current_state_id);
-            successor.progress(op);
-            successor.inplace_intersection(abstraction->get_state(transition.target_id));
-            if (current_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(successor, *mutex_information)))) {
+            current_state.progress(op);
+            current_state.inplace_intersection(abstraction->get_state(transition.target_id));
+            if (current_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(current_state, *mutex_information)))) {
                 abstraction->remove_transition(current_state_id, transition.op_id, transition.target_id);
                 update_shortest_paths_incrementally(abstraction->get_transition_system().get_incoming_transitions(),
                                                     abstraction->get_transition_system().get_outgoing_transitions(),
