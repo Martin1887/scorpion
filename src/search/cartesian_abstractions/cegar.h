@@ -91,6 +91,7 @@ class CEGAR {
     const PickFlawedAbstractState pick_flawed_abstract_state;
     bool remove_plan_spurious_transitions;
     const bool refine_init;
+    const bool refine_goals;
 
     std::shared_ptr<MutexInformation> mutex_information;
     std::shared_ptr<disambiguation::DisambiguationMethod> abstract_space_disambiguation;
@@ -164,6 +165,7 @@ public:
         bool intersect_flaw_search_abstract_states,
         bool remove_plan_spurious_transitions,
         bool refine_init,
+        bool refine_goals,
         lp::LPSolverType lp_solver,
         std::shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
         std::shared_ptr<disambiguation::DisambiguationMethod> &flaw_search_states_disambiguation,

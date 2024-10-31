@@ -148,6 +148,7 @@ unique_ptr<cartesian_abstractions::Abstraction> CartesianAbstractionGenerator::b
         subtask.intersect_flaw_search_abstract_states,
         subtask.remove_plan_spurious_transitions,
         subtask.refine_init,
+        subtask.refine_goals,
         lp_solver,
         abstract_space_disambiguation,
         flaw_search_states_disambiguation,

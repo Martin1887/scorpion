@@ -804,25 +804,6 @@ SplitProperties FlawSearch::get_split_and_direction(const Solution &solution,
     }
 }
 
-bool FlawSearch::refine_goals() const {
-    bool refine_goals = false;
-    switch (pick_flawed_abstract_state) {
-    case PickFlawedAbstractState::FIRST:
-    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH:
-    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_UNWANTED_VALUES:
-    case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD_WANTED_VALUES:
-    case PickFlawedAbstractState::RANDOM:
-    case PickFlawedAbstractState::MIN_H:
-    case PickFlawedAbstractState::MAX_H:
-    case PickFlawedAbstractState::BATCH_MIN_H:
-        refine_goals = true;
-        break;
-    default:
-        break;
-    }
-    return refine_goals;
-}
-
 void FlawSearch::update_current_direction(const bool half_limits_reached) {
     switch (pick_flawed_abstract_state) {
     case PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BIDIRECTIONAL_INTERLEAVED:
