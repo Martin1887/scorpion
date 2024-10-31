@@ -97,8 +97,6 @@ class Abstraction {
 
     void initialize_trivial_abstraction(const std::vector<int> &domain_sizes);
 
-    AbstractStateSplit split(
-        const AbstractState &state, int var, const std::vector<int> &wanted) const;
     bool disambiguate_state(int state_id, std::optional<int> var = std::nullopt);
     bool disambiguate_state(AbstractState &state, std::optional<int> var = std::nullopt);
 
@@ -118,6 +116,7 @@ public:
     const AbstractState &get_state(int state_id) const;
     int get_abstract_state_id(const State &state) const;
     const TransitionSystem &get_transition_system() const;
+    const std::shared_ptr<MutexInformation> &get_mutex_information() const;
     std::unique_ptr<RefinementHierarchy> extract_refinement_hierarchy();
 
     /* Needed for CEGAR::separate_facts_unreachable_before_goal(). */
@@ -125,6 +124,14 @@ public:
 
     /* Needed to remove spurious transitions. */
     void remove_transition(int src_id, int op_id, int target_id);
+
+    // Also used by split_selector.
+    AbstractStateSplit split(
+        const AbstractState &state, int var, const std::vector<int> &wanted) const;
+
+    // Apply only disambiguation in split result, useful for split_selector.
+    std::tuple<std::unique_ptr<AbstractState>, std::unique_ptr<AbstractState>, bool, bool>
+        disambiguate_split_result(AbstractStateSplit &&split_result, int var) const;
 
     // Split state into two child states.
     std::tuple<int, int, bool, Transitions, Transitions> refine(
