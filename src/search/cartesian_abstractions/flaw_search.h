@@ -215,8 +215,8 @@ class FlawSearch {
         std::vector<std::vector<Split>> &splits,
         bool split_unwanted_values);
 
-    // Return the first Cartesian state of the abstraction, if it is the
-    // concrete initial state and the index of the abstract state.
+    // Return the first Cartesian state of the abstraction
+    // and the index of the abstract state.
     std::tuple<CartesianState, int> first_flaw_search_state(const Solution &solution,
                                                             InAbstractionFlawSearchKind only_in_abstraction,
                                                             const AbstractState * &abstract_state);
