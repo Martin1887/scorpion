@@ -78,6 +78,10 @@ const TransitionSystem &Abstraction::get_transition_system() const {
     return *transition_system;
 }
 
+const std::shared_ptr<MutexInformation> &Abstraction::get_mutex_information() const {
+    return mutex_information;
+}
+
 unique_ptr<RefinementHierarchy> Abstraction::extract_refinement_hierarchy() {
     assert(refinement_hierarchy);
     return move(refinement_hierarchy);
@@ -137,6 +141,22 @@ AbstractStateSplit Abstraction::split(
     }
 
     return AbstractStateSplit {v1_id, v2_id, v2_values, v1_cartesian_set, v2_cartesian_set};
+}
+
+tuple<unique_ptr<AbstractState>, unique_ptr<AbstractState>, bool, bool>
+    Abstraction::disambiguate_split_result(AbstractStateSplit &&split_result, int var) const {
+    // Node ids are not used in simulated refinements.
+    unique_ptr<AbstractState> v1 = make_unique<AbstractState>(
+        split_result.v1_id, split_result.v1_id, move(split_result.v1_cartesian_set));
+    unique_ptr<AbstractState> v2 = make_unique<AbstractState>(
+        split_result.v2_id, split_result.v2_id, move(split_result.v2_cartesian_set));
+
+    // disambiguate_state function is not called because statistics must not be
+    // increased for simulated refinements.
+    bool disambiguated_v1 = abstract_space_disambiguation->disambiguate(*v1, *mutex_information, var);
+    bool disambiguated_v2 = abstract_space_disambiguation->disambiguate(*v2, *mutex_information, var);
+
+    return {move(v1), move(v2), disambiguated_v1, disambiguated_v2};
 }
 
 tuple<int, int, bool, Transitions, Transitions> Abstraction::refine(
@@ -283,22 +303,16 @@ SimulatedRefinement Abstraction::simulate_refinement(
 
     auto split_result = split(state, var, wanted);
 
-    // Node ids are not used in simulated refinements.
-    unique_ptr<AbstractState> v1 = make_unique<AbstractState>(
-        split_result.v1_id, split_result.v1_id, move(split_result.v1_cartesian_set));
-    unique_ptr<AbstractState> v2 = make_unique<AbstractState>(
-        split_result.v2_id, split_result.v2_id, move(split_result.v2_cartesian_set));
-    assert(state.includes(*v1));
-    assert(state.includes(*v2));
+    auto disambiguated = disambiguate_split_result(move(split_result), var);
+    unique_ptr<AbstractState> &v1 = get<0>(disambiguated);
+    unique_ptr<AbstractState> &v2 = get<1>(disambiguated);
+    bool disambiguated_v1 = get<2>(disambiguated);
+    bool disambiguated_v2 = get<3>(disambiguated);
 
     simulated_transition_system->force_new_transitions(get_transition_system().get_incoming_transitions(),
                                                        get_transition_system().get_outgoing_transitions(),
                                                        get_transition_system().get_loops());
 
-    // disambiguate_state function is not called because statistics must not be
-    // increased for simulated refinements.
-    bool disambiguated_v1 = abstract_space_disambiguation->disambiguate(*v1, *mutex_information, var);
-    bool disambiguated_v2 = abstract_space_disambiguation->disambiguate(*v2, *mutex_information, var);
     vector<int> modified_vars{};
     if (disambiguated_v1 || disambiguated_v2) {
         const CartesianSet &v_set = state.get_cartesian_set();
@@ -317,7 +331,8 @@ SimulatedRefinement Abstraction::simulate_refinement(
                             goals,
                             split_result.v1_id,
                             split_result.v2_id,
-                            disambiguated_v1 || disambiguated_v2,
+                            disambiguated_v1,
+                            disambiguated_v2,
                             get_transition_system().get_incoming_transitions()[v_id],
                             get_transition_system().get_outgoing_transitions()[v_id]);
 

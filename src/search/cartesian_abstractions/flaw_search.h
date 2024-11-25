@@ -352,7 +352,6 @@ public:
                                             const utils::CountdownTimer &cegar_timer,
                                             const bool half_limits_reached);
     SplitProperties get_sequence_splits(const Solution &solution);
-    bool refine_goals() const;
 
     static void add_split(std::vector<std::vector<Split>> &splits, Split &&new_split,
                           bool split_unwanted_values = false);

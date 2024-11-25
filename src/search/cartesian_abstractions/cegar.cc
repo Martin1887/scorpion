@@ -42,6 +42,7 @@ CEGAR::CEGAR(
     bool intersect_flaw_search_abstract_states,
     bool remove_plan_spurious_transitions,
     bool refine_init,
+    bool refine_goals,
     lp::LPSolverType lp_solver,
     shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
     std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> _operators,
@@ -55,6 +56,7 @@ CEGAR::CEGAR(
       pick_flawed_abstract_state(pick_flawed_abstract_state),
       remove_plan_spurious_transitions(remove_plan_spurious_transitions),
       refine_init(refine_init),
+      refine_goals(refine_goals),
       mutex_information(make_shared<MutexInformation>(task->mutex_information())),
       abstract_space_disambiguation(abstract_space_disambiguation),
       operators(make_shared<vector<disambiguation::DisambiguatedOperator>>()),
@@ -260,7 +262,6 @@ void CEGAR::refinement_loop() {
       to simplify the implementation. This way, we don't have to split
       goal states later.
     */
-    bool refine_goals = flaw_search->refine_goals();
     if (task_proxy.get_goals().size() == 1) {
         separate_facts_unreachable_before_goal(refine_goals);
     } else if (refine_goals) {

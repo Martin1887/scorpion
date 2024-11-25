@@ -48,6 +48,7 @@ struct Subtask {
     bool intersect_flaw_search_abstract_states;
     bool remove_plan_spurious_transitions;
     bool refine_init;
+    bool refine_goals;
 };
 using SharedTasks = std::vector<Subtask>;
 
@@ -88,6 +89,7 @@ protected:
     bool intersect_flaw_search_abstract_states;
     bool remove_plan_spurious_transitions;
     bool refine_init;
+    bool refine_goals;
 
     SameParamsSubtaskGenerator(const plugins::Options &opts)
         : pick_flawed_abstract_state(opts.get<PickFlawedAbstractState>("pick_flawed_abstract_state")),
@@ -98,7 +100,8 @@ protected:
           sequence_tiebreak_split(opts.get<PickSequenceFlaw>("sequence_tiebreak_split")),
           intersect_flaw_search_abstract_states(opts.get<bool>("intersect_flaw_search_abstract_states")),
           remove_plan_spurious_transitions(opts.get<bool>("remove_plan_spurious_transitions")),
-          refine_init(opts.get<bool>("refine_init")) {
+          refine_init(opts.get<bool>("refine_init")),
+          refine_goals(opts.get<bool>("refine_goals")) {
     }
 };
 
@@ -164,13 +167,15 @@ protected:
     bool intersect_flaw_search_abstract_states;
     bool remove_plan_spurious_transitions;
     bool refine_init;
+    bool refine_goals;
 
     DiversifiedSubtaskGenerator(const plugins::Options &opts)
         : pick_flawed_abstract_state(opts.get<PickFlawedAbstractState>("pick_flawed_abstract_state")),
           tiebreak_split(opts.get<PickSplit>("tiebreak_split")),
           intersect_flaw_search_abstract_states(opts.get<bool>("intersect_flaw_search_abstract_states")),
           remove_plan_spurious_transitions((opts.get<bool>("remove_plan_spurious_transitions"))),
-          refine_init(opts.get<bool>("refine_init")) {
+          refine_init(opts.get<bool>("refine_init")),
+          refine_goals(opts.get<bool>("refine_goals")) {
     }
 };
 
