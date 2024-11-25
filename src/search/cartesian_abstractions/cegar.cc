@@ -44,7 +44,6 @@ CEGAR::CEGAR(
     bool refine_init,
     lp::LPSolverType lp_solver,
     shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
-    bool disambiguate_flaw_search_states,
     std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> _operators,
     utils::RandomNumberGenerator &rng,
     utils::LogProxy &log,
@@ -65,9 +64,6 @@ CEGAR::CEGAR(
       log(log),
       dot_graph_verbosity(dot_graph_verbosity) {
     assert(max_states >= 1);
-    if (disambiguate_flaw_search_states) {
-        assert(remove_plan_spurious_transitions);
-    }
     for (auto &op : *_operators) {
         operators->push_back(task->convert_disambiguated_operator(op));
     }
@@ -80,8 +76,7 @@ CEGAR::CEGAR(
         sequence_split, sequence_tiebreak_split,
         max_concrete_states_per_abstract_state, max_state_expansions,
         intersect_flaw_search_abstract_states, lp_solver,
-        disambiguate_flaw_search_states, abstract_space_disambiguation,
-        mutex_information, log);
+        log);
 
     if (log.is_at_least_normal()) {
         log << "Start building abstraction." << endl;
@@ -192,7 +187,6 @@ bool CEGAR::remove_first_invalid_transition(std::unique_ptr<Solution> &solution,
     for (const Transition &transition : *solution) {
         TransitionElements tr{current_state_id, transition.op_id, transition.target_id};
         if (!non_spurious_transitions_cache.contains(tr)) {
-            // In progression.
             CartesianState current_state = abstraction->get_state(current_state_id);
             const DisambiguatedOperator &op = (*operators)[transition.op_id];
             current_state.inplace_intersection(op.get_precondition());
@@ -211,35 +205,6 @@ bool CEGAR::remove_first_invalid_transition(std::unique_ptr<Solution> &solution,
             current_state.progress(op);
             current_state.inplace_intersection(abstraction->get_state(transition.target_id));
             if (current_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(current_state, *mutex_information)))) {
-                abstraction->remove_transition(current_state_id, transition.op_id, transition.target_id);
-                update_shortest_paths_incrementally(abstraction->get_transition_system().get_incoming_transitions(),
-                                                    abstraction->get_transition_system().get_outgoing_transitions(),
-                                                    STATE_NOT_SPLIT, current_state_id, transition.target_id, false,
-                                                    {}, {},
-                                                    abstraction->get_goals(),
-                                                    abstraction->get_initial_state().get_id(),
-                                                    update_distances_timer);
-                removed_optimal_plan_transitions++;
-                return true;
-            }
-            // In regression.
-            CartesianState current_regr_state = abstraction->get_state(tr.target_id);
-            current_regr_state.inplace_intersection(op.get_post());
-            if (current_regr_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(current_regr_state, *mutex_information)))) {
-                abstraction->remove_transition(current_state_id, transition.op_id, transition.target_id);
-                update_shortest_paths_incrementally(abstraction->get_transition_system().get_incoming_transitions(),
-                                                    abstraction->get_transition_system().get_outgoing_transitions(),
-                                                    STATE_NOT_SPLIT, current_state_id, transition.target_id, false,
-                                                    {}, {},
-                                                    abstraction->get_goals(),
-                                                    abstraction->get_initial_state().get_id(),
-                                                    update_distances_timer);
-                removed_optimal_plan_transitions++;
-                return true;
-            }
-            current_regr_state.regress(op);
-            current_regr_state.inplace_intersection(abstraction->get_state(current_state_id));
-            if (current_regr_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(current_regr_state, *mutex_information)))) {
                 abstraction->remove_transition(current_state_id, transition.op_id, transition.target_id);
                 update_shortest_paths_incrementally(abstraction->get_transition_system().get_incoming_transitions(),
                                                     abstraction->get_transition_system().get_outgoing_transitions(),

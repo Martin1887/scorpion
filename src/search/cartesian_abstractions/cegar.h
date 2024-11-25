@@ -166,7 +166,6 @@ public:
         bool refine_init,
         lp::LPSolverType lp_solver,
         std::shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
-        bool disambiguate_flaw_search_states,
         std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> _operators,
         utils::RandomNumberGenerator &rng,
         utils::LogProxy &log,

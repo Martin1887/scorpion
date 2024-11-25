@@ -63,17 +63,16 @@ unique_ptr<Split> FlawSearch::last_not_filtered_flaw(vector<LegacyFlaw> &flaws,
     return best_split;
 }
 
-tuple<CartesianState, bool, int> FlawSearch::first_flaw_search_state(const Solution &solution,
-                                                                     InAbstractionFlawSearchKind only_in_abstraction,
-                                                                     const AbstractState * &abstract_state) {
+tuple<CartesianState, int> FlawSearch::first_flaw_search_state(const Solution &solution,
+                                                               InAbstractionFlawSearchKind only_in_abstraction,
+                                                               const AbstractState * &abstract_state) {
     int start_abstract_state_index = 0;
     switch (only_in_abstraction) {
     case InAbstractionFlawSearchKind::TRUE:
-        return {CartesianState(abstraction.get_initial_state()), false, start_abstract_state_index};
+        return {CartesianState(abstraction.get_initial_state()), start_abstract_state_index};
     case InAbstractionFlawSearchKind::FALSE:
         return {CartesianState(get_domain_sizes(task_proxy),
                                task_properties::get_fact_pairs(state_registry->get_initial_state())),
-                true,
                 start_abstract_state_index};
     case InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION:
         // In goal state and in the last state before goal no possible flaw
@@ -83,16 +82,14 @@ tuple<CartesianState, bool, int> FlawSearch::first_flaw_search_state(const Solut
             abstract_state = &abstraction.get_state(solution.at(solution.size() - 3).target_id);
             start_abstract_state_index = solution.size() - 2;
             return {CartesianState(abstraction.get_state(solution.at(solution.size() - 3).target_id)),
-                    false,
                     start_abstract_state_index};
         } else if (solution.size() == 2) {
             start_abstract_state_index = 0;
-            return {CartesianState(abstraction.get_initial_state()), false, start_abstract_state_index};
+            return {CartesianState(abstraction.get_initial_state()), start_abstract_state_index};
         } else {
             start_abstract_state_index = -1;
             return {CartesianState(get_domain_sizes(task_proxy),
                                    task_properties::get_fact_pairs(state_registry->get_initial_state())),
-                    true,
                     start_abstract_state_index};
         }
     }
@@ -123,7 +120,6 @@ void FlawSearch::get_deviation_splits(
       pre(o)[v] undefined, eff(o)[v] defined: no split possible since regression adds whole domain.
       pre(o)[v] and eff(o)[v] undefined: if s[v] \notin t[v], wanted = intersect(a[v], b[v]).
     */
-    bool some_split_added = false;
     const CartesianSet &target_set = target_abs_state.get_cartesian_set();
     const CartesianSet &pre = op.get_precondition().get_cartesian_set();
     int op_cost = op.get_cost();
@@ -156,7 +152,6 @@ void FlawSearch::get_deviation_splits(
             } else {
                 var_intersects_in_state = target_set.intersects_intersection(flaw_search_states[0].get().get_cartesian_set(), pre, var);
             }
-            // cout << "var_intersects_in_state: " << var_intersects_in_state << endl;
             bool wanted_computed = false;
             for (int value = 0; value < domain_sizes[var]; ++value) {
                 int count = 0;
@@ -180,7 +175,6 @@ void FlawSearch::get_deviation_splits(
                     i++;
                 }
                 if (count) {
-                    some_split_added = true;
                     if (!split_unwanted_values && !wanted_computed) {
                         wanted_computed = true;
                         wanted.clear();
@@ -200,41 +194,6 @@ void FlawSearch::get_deviation_splits(
                     } else {
                         FlawSearch::add_split(splits, Split(
                                                   abs_state.get_id(), var, value, wanted,
-                                                  count, op_cost));
-                    }
-                }
-            }
-        }
-    }
-    if (disambiguate_flaw_search_states && !some_split_added) {
-        // The deviation happens because a disambiguation in a subset of the
-        // source abstract state, split by the values in the abstract state
-        // that are not in the fs-state and have some mutex.
-        for (int var : *mutex_information->get_vars_with_mutexes()) {
-            for (int fs_value = 0; fs_value < domain_sizes[var]; ++fs_value) {
-                int count = 0;
-                for (auto &fs_state : flaw_search_states) {
-                    if (fs_state.get().count(var) < abs_state.count(var)) {
-                        count++;
-                    }
-                }
-                if (count) {
-                    if (!split_unwanted_values) {
-                        wanted.clear();
-                        for (int value = 0; value < domain_sizes[var]; ++value) {
-                            if (abs_state.includes(var, value) && value != fs_value) {
-                                wanted.push_back(value);
-                            }
-                        }
-                    }
-                    assert(split_unwanted_values || !wanted.empty());
-                    if (split_unwanted_values) {
-                        FlawSearch::add_split(splits, Split(
-                                                  abs_state.get_id(), var, -1, {fs_value},
-                                                  count, op_cost), true);
-                    } else {
-                        FlawSearch::add_split(splits, Split(
-                                                  abs_state.get_id(), var, fs_value, wanted,
                                                   count, op_cost));
                     }
                 }
@@ -334,20 +293,8 @@ unique_ptr<Split> FlawSearch::create_split(
                 if (!target_hit &&
                     ((applicable[i] && state.reach_with_op(abstraction.get_state(target), op)) ||
                      (!applicable[i] && state.reach_with_inapplicable_op(abstraction.get_state(target), op)))) {
-                    bool disambiguation_deviates = false;
-                    if (disambiguate_flaw_search_states) {
-                        CartesianState progr = state;
-                        progr.progress(op);
-                        progr.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(progr, *mutex_information)));
-                        if (!progr.intersects(abstraction.get_state(target))) {
-                            deviation_states_by_target[target].push_back(ref(state));
-                            disambiguation_deviates = true;
-                        }
-                    }
-                    if (!disambiguation_deviates) {
-                        // No flaw
-                        target_hit = true;
-                    }
+                    // No flaw
+                    target_hit = true;
                 } else {
                     // Deviation flaw
                     deviation_states_by_target[target].push_back(ref(state));
@@ -479,13 +426,10 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
         log << "Check solution:" << endl;
 
     const AbstractState *abstract_state = &abstraction.get_initial_state();
-    auto [ flaw_search_state, is_init, start_abstract_state_index ] =
+    auto [ flaw_search_state, start_abstract_state_index ] =
         first_flaw_search_state(solution,
                                 only_in_abstraction,
                                 abstract_state);
-    if (!is_init && disambiguate_flaw_search_states) {
-        flaw_search_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(flaw_search_state, *mutex_information)));
-    }
 
     assert(abstract_state->intersects(flaw_search_state));
 
@@ -526,12 +470,6 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                                               force_push_filtered_flaws);
                     flaw_search_state.progress(op);
                     if (debug) {
-                        log << "  Flaw-search state before disambiguation: " << flaw_search_state << endl;
-                    }
-                    if (disambiguate_flaw_search_states) {
-                        flaw_search_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(flaw_search_state, *mutex_information)));
-                    }
-                    if (debug) {
                         log << "  Flaw-search state: " << flaw_search_state << endl;
                     }
                     if (!in_sequence ||
@@ -545,43 +483,7 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                         }
                     }
                 } else {
-                    if (disambiguate_flaw_search_states) {
-                        CartesianState prev_flaw_search_state = flaw_search_state;
-                        flaw_search_state.progress(op);
-                        flaw_search_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(flaw_search_state, *mutex_information)));
-                        // The deviation may exist only after desambiguation.
-                        if (!flaw_search_state.intersects(*next_abstract_state)) {
-                            if (debug) {
-                                log << "  Paths deviate after disambiguation." << endl;
-                                log << "  Previous flaw-search state: " << prev_flaw_search_state << endl;
-                                log << "  Previous abstract state: " << *abstract_state << endl;
-                                log << "  Op pre: " << op.get_precondition() << endl << "  Op post: " << op.get_post() << endl;
-                            }
-                            push_flaw_if_not_filtered(flaws,
-                                                      LegacyFlaw(move(prev_flaw_search_state),
-                                                                 abstract_state->get_id(),
-                                                                 false),
-                                                      solution,
-                                                      false,
-                                                      first_filtered_flaw,
-                                                      force_push_filtered_flaws);
-                            if (debug) {
-                                log << "  Flaw-search state: " << flaw_search_state << endl;
-                            }
-                            if (!in_sequence ||
-                                (split_selector.sequence_pick == PickSequenceFlaw::FIRST_FLAW && !flaws.empty())) {
-                                return flaws;
-                            } else {
-                                flaw_search_state.undeviate(*next_abstract_state);
-                                if (debug) {
-                                    log << "  Undeviated state: " << flaw_search_state << endl;
-                                    log << "  Abstract state: " << *next_abstract_state << endl;
-                                }
-                            }
-                        }
-                    } else {
-                        flaw_search_state.progress(op);
-                    }
+                    flaw_search_state.progress(op);
                 }
                 abstract_state = next_abstract_state;
             } else {
@@ -606,9 +508,6 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                     abstract_state = &abstraction.get_state(step.target_id);
                     // Apply the operator as if it were applicable (and undeviate if needed).
                     flaw_search_state.progress(op);
-                    if (disambiguate_flaw_search_states) {
-                        flaw_search_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(flaw_search_state, *mutex_information)));
-                    }
                     if (!abstract_state->intersects(flaw_search_state)) {
                         if (debug) {
                             log << "  The state " << flaw_search_state << " does not intersects" << endl;
@@ -718,9 +617,6 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
     // The goal abstract state is already disambiguated, so no need to disambiguate it again.
     // The same applies for intersection.
     if (only_in_abstraction == InAbstractionFlawSearchKind::FALSE) {
-        if (disambiguate_flaw_search_states) {
-            flaw_search_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(flaw_search_state, *mutex_information)));
-        }
         if (intersect_flaw_search_abstract_states) {
             flaw_search_state = flaw_search_state.intersection(*abstract_state);
         }
@@ -766,9 +662,6 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                                           first_filtered_flaw,
                                           force_push_filtered_flaws);
                 flaw_search_state.regress(op);
-                if (disambiguate_flaw_search_states) {
-                    flaw_search_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(flaw_search_state, *mutex_information)));
-                }
                 if (debug) {
                     log << "  In flaw-search space move to "
                         << flaw_search_state << " with " << op.get_name() << endl;
@@ -786,52 +679,10 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                     }
                 }
             } else {
-                if (disambiguate_flaw_search_states) {
-                    CartesianState prev_flaw_search_state = flaw_search_state;
-                    flaw_search_state.regress(op);
-                    if (debug) {
-                        log << "  Flaw-search state before disambiguation: " << flaw_search_state << endl;
-                    }
-                    flaw_search_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(flaw_search_state, *mutex_information)));
-                    // The deviation may exist only after desambiguation.
-                    if (!flaw_search_state.intersects(*next_abstract_state)) {
-                        if (debug) {
-                            log << "  Paths deviate after disambiguation." << endl;
-                            log << "  Previous flaw-search state: " << prev_flaw_search_state << endl;
-                            log << "  Previous abstract state: " << *abstract_state << endl;
-                            log << "  Op pre: " << op.get_precondition() << endl << "  Op post: " << op.get_post() << endl;
-                        }
-                        push_flaw_if_not_filtered(flaws,
-                                                  LegacyFlaw(move(prev_flaw_search_state),
-                                                             abstract_state->get_id(),
-                                                             false),
-                                                  solution,
-                                                  true,
-                                                  first_filtered_flaw,
-                                                  force_push_filtered_flaws);
-                        if (debug) {
-                            log << "  Flaw-search state: " << flaw_search_state << endl;
-                        }
-                        if (!in_sequence ||
-                            (!flaws.empty() &&
-                             (only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION ||
-                              split_selector.sequence_pick == PickSequenceFlaw::FIRST_FLAW ||
-                              split_selector.sequence_pick == PickSequenceFlaw::CLOSEST_TO_GOAL_FLAW))) {
-                            return flaws;
-                        } else {
-                            flaw_search_state.undeviate(*next_abstract_state);
-                            if (debug) {
-                                log << "  Undeviated state: " << flaw_search_state << endl;
-                                log << "  Abstract state: " << *next_abstract_state << endl;
-                            }
-                        }
-                    }
-                } else {
-                    flaw_search_state.regress(op);
-                    if (debug) {
-                        log << "  In flaw-search space move to "
-                            << flaw_search_state << " with " << op.get_name() << endl;
-                    }
+                flaw_search_state.regress(op);
+                if (debug) {
+                    log << "  In flaw-search space move to "
+                        << flaw_search_state << " with " << op.get_name() << endl;
                 }
             }
             abstract_state = next_abstract_state;
@@ -860,9 +711,6 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                 }
                 // Apply the operator as if it were applicable (and undeviate if needed).
                 flaw_search_state.regress(op);
-                if (disambiguate_flaw_search_states) {
-                    flaw_search_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(flaw_search_state, *mutex_information)));
-                }
                 if (!abstract_state->intersects(flaw_search_state)) {
                     if (debug) {
                         log << "  The state " << flaw_search_state << " does not intersects" << endl;

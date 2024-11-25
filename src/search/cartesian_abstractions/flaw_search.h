@@ -152,9 +152,6 @@ class FlawSearch {
     const int max_state_expansions;
     // Intersect flaw search states with the mapped one to find more flaws.
     const bool intersect_flaw_search_abstract_states;
-    bool disambiguate_flaw_search_states;
-    std::shared_ptr<disambiguation::DisambiguationMethod> abstract_space_disambiguation;
-    std::shared_ptr<MutexInformation> mutex_information;
     mutable utils::LogProxy log;
     mutable utils::LogProxy silent_log;  // For concrete search space.
 
@@ -209,7 +206,7 @@ class FlawSearch {
         std::vector<std::vector<Split>> &splits,
         bool split_unwanted_values);
 
-    void get_deviation_splits(
+    static void get_deviation_splits(
         const AbstractState &abs_state,
         const std::vector<std::reference_wrapper<const CartesianState>> &flaw_search_states,
         const AbstractState &target_abs_state,
@@ -220,9 +217,9 @@ class FlawSearch {
 
     // Return the first Cartesian state of the abstraction, if it is the
     // concrete initial state and the index of the abstract state.
-    std::tuple<CartesianState, bool, int> first_flaw_search_state(const Solution &solution,
-                                                                  InAbstractionFlawSearchKind only_in_abstraction,
-                                                                  const AbstractState * &abstract_state);
+    std::tuple<CartesianState, int> first_flaw_search_state(const Solution &solution,
+                                                            InAbstractionFlawSearchKind only_in_abstraction,
+                                                            const AbstractState * &abstract_state);
 
     int get_abstract_state_id(const State &state) const;
     Cost get_h_value(int abstract_state_id) const;
@@ -349,9 +346,6 @@ public:
         int max_state_expansions,
         bool intersect_flaw_search_abstract_states,
         lp::LPSolverType lp_solver,
-        bool disambiguate_flaw_search_states,
-        std::shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
-        std::shared_ptr<MutexInformation> &mutex_information,
         const utils::LogProxy &log);
 
     SplitProperties get_split_and_direction(const Solution &solution,

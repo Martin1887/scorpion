@@ -234,7 +234,6 @@ void CostSaturation::build_abstractions(
             subtask.refine_init,
             lp_solver,
             abstract_space_disambiguation,
-            subtask.disambiguate_flaw_search_states,
             operators,
             rng,
             log,

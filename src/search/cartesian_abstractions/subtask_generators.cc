@@ -113,7 +113,6 @@ SharedTasks TaskDuplicator::get_subtasks(
         .sequence_tiebreak_split = sequence_tiebreak_split,
         .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
         .remove_plan_spurious_transitions = remove_plan_spurious_transitions,
-        .disambiguate_flaw_search_states = disambiguate_flaw_search_states,
         .refine_init = refine_init
     };
     SharedTasks subtasks;
@@ -151,7 +150,6 @@ SharedTasks GoalDecomposition::get_subtasks(
             .sequence_tiebreak_split = sequence_tiebreak_split,
             .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
             .remove_plan_spurious_transitions = remove_plan_spurious_transitions,
-            .disambiguate_flaw_search_states = disambiguate_flaw_search_states,
             .refine_init = refine_init
         };
         subtasks.push_back(subtask);
@@ -209,7 +207,6 @@ SharedTasks LandmarkDecomposition::get_subtasks(
             .sequence_tiebreak_split = sequence_tiebreak_split,
             .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
             .remove_plan_spurious_transitions = remove_plan_spurious_transitions,
-            .disambiguate_flaw_search_states = disambiguate_flaw_search_states,
             .refine_init = refine_init
         };
         subtasks.push_back(subtask);
@@ -247,7 +244,6 @@ SharedTasks VarsOrdersSubtaskGenerator::get_subtasks(
                 .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
                 .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
                 .remove_plan_spurious_transitions = remove_plan_spurious_transitions,
-                .disambiguate_flaw_search_states = disambiguate_flaw_search_states,
                 .refine_init = refine_init
             }
             );
@@ -275,7 +271,6 @@ SharedTasks BestStrategiesSubtaskGenerator::get_subtasks(
             .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
             .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
             .remove_plan_spurious_transitions = remove_plan_spurious_transitions,
-            .disambiguate_flaw_search_states = disambiguate_flaw_search_states,
             .refine_init = refine_init
         });
     vector<PickSplit> best_strategies = {
@@ -302,7 +297,6 @@ SharedTasks BestStrategiesSubtaskGenerator::get_subtasks(
                 .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
                 .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
                 .remove_plan_spurious_transitions = remove_plan_spurious_transitions,
-                .disambiguate_flaw_search_states = disambiguate_flaw_search_states,
                 .refine_init = refine_init
             });
     }
@@ -354,10 +348,6 @@ static void add_all_base_options(plugins::Feature &feature) {
     feature.add_option<bool>(
         "remove_plan_spurious_transitions",
         "remove optimal abstract plan spurious transitions by using the operators disambiguation method",
-        "false");
-    feature.add_option<bool>(
-        "disambiguate_flaw_search_states",
-        "disambiguate states obtained during the flaw search",
         "false");
     feature.add_option<bool>(
         "refine_init",

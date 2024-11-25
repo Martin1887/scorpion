@@ -149,7 +149,6 @@ unique_ptr<cartesian_abstractions::Abstraction> CartesianAbstractionGenerator::b
         subtask.refine_init,
         lp_solver,
         abstract_space_disambiguation,
-        subtask.disambiguate_flaw_search_states,
         operators,
         *rng,
         log,
