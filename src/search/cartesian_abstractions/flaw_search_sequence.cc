@@ -123,6 +123,7 @@ void FlawSearch::get_deviation_splits(
       pre(o)[v] undefined, eff(o)[v] defined: no split possible since regression adds whole domain.
       pre(o)[v] and eff(o)[v] undefined: if s[v] \notin t[v], wanted = intersect(a[v], b[v]).
     */
+    bool some_split_added = false;
     const CartesianSet &target_set = target_abs_state.get_cartesian_set();
     const CartesianSet &pre = op.get_precondition().get_cartesian_set();
     int op_cost = op.get_cost();
@@ -155,6 +156,7 @@ void FlawSearch::get_deviation_splits(
             } else {
                 var_intersects_in_state = target_set.intersects_intersection(flaw_search_states[0].get().get_cartesian_set(), pre, var);
             }
+            // cout << "var_intersects_in_state: " << var_intersects_in_state << endl;
             bool wanted_computed = false;
             for (int value = 0; value < domain_sizes[var]; ++value) {
                 int count = 0;
@@ -178,6 +180,7 @@ void FlawSearch::get_deviation_splits(
                     i++;
                 }
                 if (count) {
+                    some_split_added = true;
                     if (!split_unwanted_values && !wanted_computed) {
                         wanted_computed = true;
                         wanted.clear();
@@ -197,6 +200,41 @@ void FlawSearch::get_deviation_splits(
                     } else {
                         FlawSearch::add_split(splits, Split(
                                                   abs_state.get_id(), var, value, wanted,
+                                                  count, op_cost));
+                    }
+                }
+            }
+        }
+    }
+    if (disambiguate_flaw_search_states && !some_split_added) {
+        // The deviation happens because a disambiguation in a subset of the
+        // source abstract state, split by the values in the abstract state
+        // that are not in the fs-state and have some mutex.
+        for (int var : *mutex_information->get_vars_with_mutexes()) {
+            for (int fs_value = 0; fs_value < domain_sizes[var]; ++fs_value) {
+                int count = 0;
+                for (auto &fs_state : flaw_search_states) {
+                    if (fs_state.get().count(var) < abs_state.count(var)) {
+                        count++;
+                    }
+                }
+                if (count) {
+                    if (!split_unwanted_values) {
+                        wanted.clear();
+                        for (int value = 0; value < domain_sizes[var]; ++value) {
+                            if (abs_state.includes(var, value) && value != fs_value) {
+                                wanted.push_back(value);
+                            }
+                        }
+                    }
+                    assert(split_unwanted_values || !wanted.empty());
+                    if (split_unwanted_values) {
+                        FlawSearch::add_split(splits, Split(
+                                                  abs_state.get_id(), var, -1, {fs_value},
+                                                  count, op_cost), true);
+                    } else {
+                        FlawSearch::add_split(splits, Split(
+                                                  abs_state.get_id(), var, fs_value, wanted,
                                                   count, op_cost));
                     }
                 }
@@ -296,8 +334,20 @@ unique_ptr<Split> FlawSearch::create_split(
                 if (!target_hit &&
                     ((applicable[i] && state.reach_with_op(abstraction.get_state(target), op)) ||
                      (!applicable[i] && state.reach_with_inapplicable_op(abstraction.get_state(target), op)))) {
-                    // No flaw
-                    target_hit = true;
+                    bool disambiguation_deviates = false;
+                    if (disambiguate_flaw_search_states) {
+                        CartesianState progr = state;
+                        progr.progress(op);
+                        progr.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(progr, *mutex_information)));
+                        if (!progr.intersects(abstraction.get_state(target))) {
+                            deviation_states_by_target[target].push_back(ref(state));
+                            disambiguation_deviates = true;
+                        }
+                    }
+                    if (!disambiguation_deviates) {
+                        // No flaw
+                        target_hit = true;
+                    }
                 } else {
                     // Deviation flaw
                     deviation_states_by_target[target].push_back(ref(state));
@@ -475,6 +525,9 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                                               first_filtered_flaw,
                                               force_push_filtered_flaws);
                     flaw_search_state.progress(op);
+                    if (debug) {
+                        log << "  Flaw-search state before disambiguation: " << flaw_search_state << endl;
+                    }
                     if (disambiguate_flaw_search_states) {
                         flaw_search_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(flaw_search_state, *mutex_information)));
                     }
@@ -736,6 +789,9 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                 if (disambiguate_flaw_search_states) {
                     CartesianState prev_flaw_search_state = flaw_search_state;
                     flaw_search_state.regress(op);
+                    if (debug) {
+                        log << "  Flaw-search state before disambiguation: " << flaw_search_state << endl;
+                    }
                     flaw_search_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(flaw_search_state, *mutex_information)));
                     // The deviation may exist only after desambiguation.
                     if (!flaw_search_state.intersects(*next_abstract_state)) {

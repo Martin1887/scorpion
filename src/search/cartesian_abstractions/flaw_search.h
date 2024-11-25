@@ -209,7 +209,7 @@ class FlawSearch {
         std::vector<std::vector<Split>> &splits,
         bool split_unwanted_values);
 
-    static void get_deviation_splits(
+    void get_deviation_splits(
         const AbstractState &abs_state,
         const std::vector<std::reference_wrapper<const CartesianState>> &flaw_search_states,
         const AbstractState &target_abs_state,

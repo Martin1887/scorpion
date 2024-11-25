@@ -148,13 +148,25 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                 if (!source_hit &&
                     ((applicable[i] && state.reach_backwards_with_op(abstraction.get_state(source), op)) ||
                      (!applicable[i] && state.reach_backwards_with_inapplicable_op(abstraction.get_state(source), op)))) {
-                    // No flaw
-                    source_hit = true;
-                    if (log.is_at_least_debug()) {
-                        log << "source_hit, state: " << state << ", source: "
-                            << source << endl;
-                        log << "source: " << abstraction.get_state(source) << endl;
-                        log << "state: " << state << endl;
+                    bool disambiguation_deviates = false;
+                    if (disambiguate_flaw_search_states) {
+                        CartesianState regr = state;
+                        regr.regress(op);
+                        regr.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(regr, *mutex_information)));
+                        if (!regr.intersects(abstraction.get_state(source))) {
+                            deviation_states_by_source[source].push_back(ref(state));
+                            disambiguation_deviates = true;
+                        }
+                    }
+                    if (!disambiguation_deviates) {
+                        // No flaw
+                        source_hit = true;
+                        if (log.is_at_least_debug()) {
+                            log << "source_hit, state: " << state << ", source: "
+                                << source << endl;
+                            log << "source: " << abstraction.get_state(source) << endl;
+                            log << "state: " << state << endl;
+                        }
                     }
                 } else {
                     // Deviation flaw
