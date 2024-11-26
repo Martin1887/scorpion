@@ -1,8 +1,12 @@
 #ifndef CARTESIAN_ABSTRACTIONS_TRANSITION_SYSTEM_H
 #define CARTESIAN_ABSTRACTIONS_TRANSITION_SYSTEM_H
 
+#include "abstract_state.h"
 #include "types.h"
 
+#include "../task_proxy.h"
+
+#include <map>
 #include <vector>
 
 struct FactPair;
@@ -13,12 +17,25 @@ class LogProxy;
 }
 
 namespace cartesian_abstractions {
+struct CondEffectsOpPostValue {
+    bool for_v1;
+    bool for_v2;
+    int value;
+};
+struct CondEffect {
+    std::vector<FactPair> conds;
+    FactPair effect;
+};
 /*
   Rewire transitions after each split.
 */
 class TransitionSystem {
     const std::vector<std::vector<FactPair>> preconditions_by_operator;
     const std::vector<std::vector<FactPair>> postconditions_by_operator;
+    std::map<int, std::vector<CondEffect>> cond_effects_by_op_id;
+    // Vector used to store post values for each child for ops with conditional
+    // effects.
+    std::vector<CondEffectsOpPostValue> post_values;
 
     // Transitions from and to other abstract states.
     std::vector<Transitions> incoming;
@@ -37,9 +54,38 @@ class TransitionSystem {
 
     int get_precondition_value(int op_id, int var) const;
     int get_postcondition_value(int op_id, int var) const;
+    void compute_post_values_in_children_for_cond_effects_op(const AbstractState &v1,
+                                                             const AbstractState &v2,
+                                                             int var,
+                                                             int op_id,
+                                                             int pre);
 
     void add_transition(int src_id, int op_id, int target_id);
     void add_loop(int state_id, int op_id);
+
+    void add_incoming_transitions_for_post(const AbstractState &u,
+                                           const AbstractState &v1,
+                                           const AbstractState &v2,
+                                           int var,
+                                           int op_id,
+                                           int post);
+    void add_outgoing_transitions_for_post(const AbstractState &w,
+                                           const AbstractState &v1,
+                                           const AbstractState &v2,
+                                           int var,
+                                           int op_id,
+                                           int pre,
+                                           int post,
+                                           bool for_v1 = true,
+                                           bool for_v2 = true);
+    void add_loop_for_post(const AbstractState &v1,
+                           const AbstractState &v2,
+                           int var,
+                           int op_id,
+                           int pre,
+                           int post,
+                           bool for_v1 = true,
+                           bool for_v2 = true);
 
     void rewire_incoming_transitions(
         const Transitions &old_incoming, const AbstractStates &states,

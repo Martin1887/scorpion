@@ -188,11 +188,31 @@ static void add_split(vector<vector<Split>> &splits, Split &&new_split) {
 }
 
 static vector<int> get_unaffected_variables(
-    const OperatorProxy &op, int num_variables) {
+    const OperatorProxy &op, int num_variables, const vector<State> &conc_states) {
     vector<bool> affected(num_variables);
     for (EffectProxy effect : op.get_effects()) {
-        FactPair fact = effect.get_fact().get_pair();
-        affected[fact.var] = true;
+        // Conditional effects with some precondition not met in the concrete
+        // state are unaffected.
+        bool satisfied = true;
+        auto conds = effect.get_conditions();
+        for (const FactProxy &cond : conds) {
+            satisfied = false;
+            bool all_satisfied = true;
+            FactPair cond_pair = cond.get_pair();
+            for (const State &s : conc_states) {
+                if (s[cond_pair.var].get_value() == cond_pair.value) {
+                    all_satisfied = false;
+                    break;
+                }
+            }
+            if (all_satisfied) {
+                satisfied = true;
+            }
+        }
+        if (satisfied) {
+            FactPair fact = effect.get_fact().get_pair();
+            affected[fact.var] = true;
+        }
     }
     for (FactProxy precondition : op.get_preconditions()) {
         FactPair fact = precondition.get_pair();
@@ -342,7 +362,7 @@ unique_ptr<Split> FlawSearch::create_split(
                 int num_vars = domain_sizes.size();
                 get_deviation_splits(
                     abstract_state, deviation_states,
-                    get_unaffected_variables(op, num_vars),
+                    get_unaffected_variables(op, num_vars, deviation_states),
                     abstraction.get_state(target), domain_sizes, splits);
             }
         }
