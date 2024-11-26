@@ -22,5 +22,6 @@ in
     valgrind
     pkgs-unstable.gmp
     pkgs-unstable.soplex
+    qcachegrind
   ];
 }
