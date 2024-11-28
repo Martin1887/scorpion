@@ -424,17 +424,17 @@ void TransitionSystem::rewire_incoming_transitions(
             vector<CondEffect> cond_effects = cond_effects_by_op_id[op_id];
             // The most probable thing is that some state not satisfying
             // all conditions exist in the source abstract state, and then
-            // post = pre.
+            // post = pre. If for some effect all states satisfy all
+            // conditions, then the post=pre case does not happen.
             // But also some states satisfying conditions can exist.
             bool some_effect_without_states_not_satisfying_conds = false;
+            bool states_not_satisfying_conds = false;
             for (CondEffect cond_effect : cond_effects) {
                 FactPair fact = cond_effect.effect;
                 if (fact.var == var) {
-                    bool states_satisfying_conds = false;
-                    bool states_not_satisfying_conds = false;
+                    bool states_satisfying_conds = true;
                     for (FactPair cond_fact : cond_effect.conds) {
                         if (u.contains(cond_fact.var, cond_fact.value)) {
-                            states_satisfying_conds = true;
                             if (u.count(cond_fact.var) > 1) {
                                 states_not_satisfying_conds = true;
                             }
