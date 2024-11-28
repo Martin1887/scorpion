@@ -193,23 +193,24 @@ static vector<int> get_unaffected_variables(
     for (EffectProxy effect : op.get_effects()) {
         // Conditional effects with some precondition not met in the concrete
         // state are unaffected.
-        bool satisfied = true;
+        bool effect_triggered_forall = true;
         auto conds = effect.get_conditions();
         for (const FactProxy &cond : conds) {
-            satisfied = false;
-            bool all_satisfied = true;
+            bool cond_satisfied_forall = true;
+
             FactPair cond_pair = cond.get_pair();
             for (const State &s : conc_states) {
-                if (s[cond_pair.var].get_value() == cond_pair.value) {
-                    all_satisfied = false;
+                if (s[cond_pair.var].get_value() != cond_pair.value) {
+                    cond_satisfied_forall = false;
                     break;
                 }
             }
-            if (all_satisfied) {
-                satisfied = true;
+            effect_triggered_forall = cond_satisfied_forall;
+            if (!cond_satisfied_forall) {
+                break;
             }
         }
-        if (satisfied) {
+        if (effect_triggered_forall) {
             FactPair fact = effect.get_fact().get_pair();
             affected[fact.var] = true;
         }
