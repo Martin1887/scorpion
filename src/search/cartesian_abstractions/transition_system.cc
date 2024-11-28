@@ -30,7 +30,7 @@ static vector<vector<FactPair>> get_preconditions_by_operator(
 
 static vector<FactPair> get_postconditions(
     const OperatorProxy &op,
-    map<int, vector<CondEffect>> &cond_effects_by_op_id) {
+    unordered_map<int, vector<CondEffect>> &cond_effects_by_op_id) {
     // Use map to obtain sorted postconditions.
     map<int, int> var_to_post;
     for (FactProxy fact : op.get_preconditions()) {
@@ -68,7 +68,7 @@ static vector<FactPair> get_postconditions(
 
 static vector<vector<FactPair>> get_postconditions_by_operator(
     const OperatorsProxy &ops,
-    map<int, vector<CondEffect>> &cond_effects_by_op_id) {
+    unordered_map<int, vector<CondEffect>> &cond_effects_by_op_id) {
     vector<vector<FactPair>> postconditions_by_operator;
     postconditions_by_operator.reserve(ops.size());
     for (OperatorProxy op : ops) {
