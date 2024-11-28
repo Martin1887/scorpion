@@ -304,6 +304,7 @@ void TransitionSystem::add_outgoing_transitions_for_post(const AbstractState &w,
                                                          int post,
                                                          bool for_v1,
                                                          bool for_v2) {
+    assert(for_v1 || for_v2);
     if (post == UNDEFINED) {
         assert(pre == UNDEFINED);
         int v1_id = v1.get_id();
@@ -346,6 +347,7 @@ void TransitionSystem::add_loop_for_post(const AbstractState &v1,
                                          int post,
                                          bool for_v1,
                                          bool for_v2) {
+    assert(for_v1 || for_v2);
     int v1_id = v1.get_id();
     int v2_id = v2.get_id();
     if (pre == UNDEFINED) {
