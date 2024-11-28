@@ -169,7 +169,7 @@ void TransitionSystem::compute_post_values_in_children_for_cond_effects_op(const
     // But also some states satisfying conditions can exist.
     bool some_effect_without_states_not_satisfying_conds_v1 = false;
     bool some_effect_without_states_not_satisfying_conds_v2 = false;
-    for (CondEffect cond_effect : cond_effects) {
+    for (const CondEffect &cond_effect : cond_effects) {
         FactPair fact = cond_effect.effect;
         if (fact.var == var) {
             bool states_satisfying_conds_v1 = false;
@@ -431,7 +431,7 @@ void TransitionSystem::rewire_incoming_transitions(
             // But also some states satisfying conditions can exist.
             bool some_effect_without_states_not_satisfying_conds = false;
             bool states_not_satisfying_conds = false;
-            for (CondEffect cond_effect : cond_effects) {
+            for (const CondEffect &cond_effect : cond_effects) {
                 FactPair fact = cond_effect.effect;
                 if (fact.var == var) {
                     bool states_satisfying_conds = true;
