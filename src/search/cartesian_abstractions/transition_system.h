@@ -30,9 +30,9 @@ struct CondEffect {
   Rewire transitions after each split.
 */
 class TransitionSystem {
+    std::unordered_map<int, std::vector<CondEffect>> cond_effects_by_op_id;
     const std::vector<std::vector<FactPair>> preconditions_by_operator;
     const std::vector<std::vector<FactPair>> postconditions_by_operator;
-    std::unordered_map<int, std::vector<CondEffect>> cond_effects_by_op_id;
     // Vector used to store post values for each child for ops with conditional
     // effects.
     std::vector<CondEffectsOpPostValue> post_values;
