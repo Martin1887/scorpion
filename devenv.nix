@@ -5,7 +5,7 @@ in
 {
   enterShell = ''
     export PATH="$PATH:$HOME/workspace/uncrustify/uncrustify-uncrustify-0.72.0/build/bin"
-    export soplex_DIR="/nix/store/gpih1cs4dypyv5q31ny1avb9b6r1mrnw-soplex-7.1.0"
+    export soplex_DIR="/nix/store/3lj32g14bydv3hg567kz26dp32xbwjs6-soplex-712"
   '';
 
   languages.python = {
