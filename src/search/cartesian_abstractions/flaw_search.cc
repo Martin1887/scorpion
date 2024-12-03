@@ -196,17 +196,14 @@ static vector<int> get_unaffected_variables(
         bool effect_triggered_forall = true;
         auto conds = effect.get_conditions();
         for (const FactProxy &cond : conds) {
-            bool cond_satisfied_forall = true;
-
             FactPair cond_pair = cond.get_pair();
             for (const State &s : conc_states) {
                 if (s[cond_pair.var].get_value() != cond_pair.value) {
-                    cond_satisfied_forall = false;
+                    effect_triggered_forall = false;
                     break;
                 }
             }
-            effect_triggered_forall = cond_satisfied_forall;
-            if (!cond_satisfied_forall) {
+            if (!effect_triggered_forall) {
                 break;
             }
         }
