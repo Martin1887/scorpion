@@ -256,7 +256,13 @@ static void get_deviation_splits(
     for (const State &conc_state : conc_states) {
         for (int var : unaffected_variables) {
             int state_value = conc_state[var].get_value();
-            ++fact_count[var][state_value];
+            // With conditional effects, the source of the deviation can be
+            // the condition variable or the effect variable, or both. But if
+            // the abstract state has only a single value in the variable for
+            // some of them, such a variable cannot be the cause.
+            if (abs_state.count(var) > 1) {
+                ++fact_count[var][state_value];
+            }
         }
     }
     for (size_t var = 0; var < domain_sizes.size(); ++var) {
