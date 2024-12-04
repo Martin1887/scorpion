@@ -110,8 +110,7 @@ static void remove_transitions_with_given_target(
 
 
 TransitionSystem::TransitionSystem(const OperatorsProxy &ops)
-    : cond_effects_by_op_id(),
-      preconditions_by_operator(get_preconditions_by_operator(ops)),
+    : preconditions_by_operator(get_preconditions_by_operator(ops)),
       postconditions_by_operator(get_postconditions_by_operator(ops, cond_effects_by_op_id)),
       num_non_loops(0),
       num_loops(0) {
