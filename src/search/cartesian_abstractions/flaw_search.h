@@ -36,6 +36,12 @@ enum class PickFlawedAbstractState {
     BATCH_MIN_H
 };
 
+struct Deviation {
+    int direct_count;
+    int cond_effect_count;
+    std::unordered_set<int> cond_effect_wanted;
+};
+
 using OptimalTransitions = phmap::flat_hash_map<int, std::vector<int>>;
 
 class FlawSearch {

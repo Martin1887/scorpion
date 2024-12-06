@@ -30,6 +30,16 @@ Cost ShortestPaths::add_costs(Cost a, Cost b) {
     return (a == INF_COSTS || b == INF_COSTS) ? INF_COSTS : a + b;
 }
 
+int ShortestPaths::convert_to_actual_cost_for_epsilon_transformed_costs(Cost cost) {
+    if (cost == INF_COSTS) {
+        return INF;
+    } else if (cost > numeric_limits<int>::max()) {
+        return static_cast<int>(cost >> 32);
+    } else {
+        return cost;
+    }
+}
+
 int ShortestPaths::convert_to_32_bit_cost(Cost cost) const {
     assert(cost != DIRTY);
     if (cost == INF_COSTS) {
@@ -361,6 +371,14 @@ bool ShortestPaths::test_distances(
             assert(count(out[i].begin(), out[i].end(), t) == 1);
             assert(goal_distances[i] ==
                    add_costs(operator_costs[t.op_id], goal_distances[t.target_id]));
+            if (debug) {
+                log << "Op cost: " << operator_costs[t.op_id] << " ("
+                    << convert_to_32_bit_cost(operator_costs[t.op_id]) << ")" << endl;
+                log << "Target distance: " << goal_distances[t.target_id] << " ("
+                    << convert_to_32_bit_cost(goal_distances[t.target_id]) << ")" << endl;
+            }
+        } else if (goals.count(i)) {
+            assert(goal_distances[i] == 0);
         }
     }
 

@@ -121,6 +121,8 @@ public:
     int get_32bit_goal_distance(int abstract_state_id) const;
     bool is_optimal_transition(int start_id, int op_id, int target_id) const;
 
+    static int convert_to_actual_cost_for_epsilon_transformed_costs(Cost cost);
+
     // For debugging.
     bool test_distances(
         const std::vector<Transitions> &in,

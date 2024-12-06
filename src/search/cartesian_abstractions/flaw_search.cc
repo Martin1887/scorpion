@@ -148,6 +148,28 @@ SearchStatus FlawSearch::step() {
                 if (!found_flaw) {
                     add_flaw(abs_id, s);
                     found_flaw = true;
+                    if (log.is_at_least_debug()) {
+                        s.unpack();
+                        succ_state.unpack();
+                        log << "Deviation flaw in transition " << endl << s.get_unpacked_values()
+                            << endl << "->" << endl << succ_state.get_unpacked_values() << endl;
+                        log << abstraction.get_state(abs_id) << endl << "->" << endl
+                            << abstraction.get_state(target) << endl;
+                        log << "Op: " << op.get_name() << endl;
+                        log << "Pre:" << endl;
+                        for (auto pre : op.get_preconditions()) {
+                            log << pre.get_pair().var << "=" << pre.get_pair().value << ", ";
+                        }
+                        log << endl << "Effects:";
+                        for (auto eff : op.get_effects()) {
+                            log << endl << "Effect: " << eff.get_fact().get_pair().var << "=" << eff.get_fact().get_pair().value << ", " << endl;
+                            log << "Conds: ";
+                            for (auto cond : eff.get_conditions()) {
+                                log << cond.get_pair().var << "=" << cond.get_pair().value << ", ";
+                            }
+                        }
+                        log << endl;
+                    }
                 }
                 if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST) {
                     return FAILED;
@@ -188,7 +210,7 @@ static void add_split(vector<vector<Split>> &splits, Split &&new_split) {
 }
 
 static vector<int> get_unaffected_variables(
-    const OperatorProxy &op, int num_variables, const vector<State> &conc_states) {
+    const OperatorProxy &op, int num_variables, const vector<tuple<State, State>> &conc_states_with_succ) {
     vector<bool> affected(num_variables);
     for (EffectProxy effect : op.get_effects()) {
         // Conditional effects with some precondition not met in the concrete
@@ -197,7 +219,7 @@ static vector<int> get_unaffected_variables(
         auto conds = effect.get_conditions();
         for (const FactProxy &cond : conds) {
             FactPair cond_pair = cond.get_pair();
-            for (const State &s : conc_states) {
+            for (const auto &[s, succ] : conc_states_with_succ) {
                 if (s[cond_pair.var].get_value() != cond_pair.value) {
                     effect_triggered_forall = false;
                     break;
@@ -228,8 +250,9 @@ static vector<int> get_unaffected_variables(
 
 static void get_deviation_splits(
     const AbstractState &abs_state,
-    const vector<State> &conc_states,
+    const vector<tuple<State, State>> &conc_states_with_succ,
     const vector<int> &unaffected_variables,
+    const OperatorProxy &op,
     const AbstractState &target_abs_state,
     const vector<int> &domain_sizes,
     vector<vector<Split>> &splits) {
@@ -248,12 +271,12 @@ static void get_deviation_splits(
       pre(o)[v] undefined, eff(o)[v] defined: no split possible since regression adds whole domain.
       pre(o)[v] and eff(o)[v] undefined: if s[v] \notin t[v], wanted = intersect(a[v], b[v]).
     */
-    // Note: it could be faster to use an efficient hash map for this.
-    vector<vector<int>> fact_count(domain_sizes.size());
+    // NOTE: It could be faster to use an efficient hash map for this.
+    vector<vector<Deviation>> fact_count(domain_sizes.size());
     for (size_t var = 0; var < domain_sizes.size(); ++var) {
-        fact_count[var].resize(domain_sizes[var], 0);
+        fact_count[var].resize(domain_sizes[var], Deviation(0, 0, {}));
     }
-    for (const State &conc_state : conc_states) {
+    for (const auto &[conc_state, succ_state] : conc_states_with_succ) {
         for (int var : unaffected_variables) {
             int state_value = conc_state[var].get_value();
             // With conditional effects, the source of the deviation can be
@@ -261,13 +284,36 @@ static void get_deviation_splits(
             // the abstract state has only a single value in the variable for
             // some of them, such a variable cannot be the cause.
             if (abs_state.count(var) > 1) {
-                ++fact_count[var][state_value];
+                ++fact_count[var][state_value].direct_count;
+                // cout << "++direct_count, var: " << var << ", state_value: " << state_value << endl;
+            }
+            for (auto eff : op.get_effects()) {
+                FactPair eff_pair = eff.get_fact().get_pair();
+                if (eff_pair.var == var) {
+                    for (auto cond : eff.get_conditions()) {
+                        FactPair cond_pair = cond.get_pair();
+                        int cond_state_value = conc_state[cond_pair.var].get_value();
+                        // The deviation can be fixed forcing the condition
+                        // value that makes the variable as affected.
+                        // The wanted values are the one that satisfies the condition
+                        // (for all conditions with effect on this variable).
+                        if (cond_state_value != cond_pair.value &&
+                            succ_state[eff_pair.var].get_value() != eff_pair.value &&
+                            !target_abs_state.contains(var, state_value) &&
+                            abs_state.count(cond_pair.var) > 1 &&
+                            abs_state.contains(cond_pair.var, cond_pair.value)) {
+                            fact_count[cond_pair.var][cond_state_value].cond_effect_count++;
+                            fact_count[cond_pair.var][cond_state_value].cond_effect_wanted.insert(cond_pair.value);
+                        }
+                    }
+                }
             }
         }
     }
     for (size_t var = 0; var < domain_sizes.size(); ++var) {
         for (int value = 0; value < domain_sizes[var]; ++value) {
-            if (fact_count[var][value] && !target_abs_state.contains(var, value)) {
+            // Direct deviations in unaffected variables.
+            if (fact_count[var][value].direct_count && !target_abs_state.contains(var, value)) {
                 // Note: we could precompute the "wanted" vector, but not the split.
                 vector<int> wanted;
                 for (int value = 0; value < domain_sizes[var]; ++value) {
@@ -279,7 +325,15 @@ static void get_deviation_splits(
                 assert(!wanted.empty());
                 add_split(splits, Split(
                               abs_state.get_id(), var, value, move(wanted),
-                              fact_count[var][value]));
+                              fact_count[var][value].direct_count));
+            }
+            // Deviations caused by non-satisfied effects conditions.
+            if (fact_count[var][value].cond_effect_count) {
+                add_split(splits, Split(
+                              abs_state.get_id(), var, value,
+                              vector<int>(make_move_iterator(fact_count[var][value].cond_effect_wanted.begin()),
+                                          make_move_iterator(fact_count[var][value].cond_effect_wanted.end())),
+                              fact_count[var][value].cond_effect_count));
             }
         }
     }
@@ -333,7 +387,7 @@ unique_ptr<Split> FlawSearch::create_split(
             }
         }
 
-        phmap::flat_hash_map<int, vector<State>> deviation_states_by_target;
+        phmap::flat_hash_map<int, vector<tuple<State, State>>> deviation_states_by_target;
         for (size_t i = 0; i < states.size(); ++i) {
             if (!applicable[i]) {
                 continue;
@@ -354,19 +408,20 @@ unique_ptr<Split> FlawSearch::create_split(
                 } else {
                     // Deviation flaw
                     assert(target != get_abstract_state_id(succ_state));
-                    deviation_states_by_target[target].push_back(state);
+                    deviation_states_by_target[target].push_back({state, succ_state});
                 }
             }
         }
 
         for (auto &pair : deviation_states_by_target) {
             int target = pair.first;
-            const vector<State> &deviation_states = pair.second;
+            const vector<tuple<State, State>> &deviation_states = pair.second;
             if (!deviation_states.empty()) {
                 int num_vars = domain_sizes.size();
                 get_deviation_splits(
                     abstract_state, deviation_states,
                     get_unaffected_variables(op, num_vars, deviation_states),
+                    op,
                     abstraction.get_state(target), domain_sizes, splits);
             }
         }

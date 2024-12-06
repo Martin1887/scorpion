@@ -40,7 +40,9 @@ struct FlawedState {
 
     friend std::ostream &operator<<(std::ostream &os, const FlawedState &s) {
         return os << "id=" << s.abs_id << ", h=" << s.h
-                  << ", states=" << s.concrete_states.size();
+                  << " (actual h for epsilon transformed costs: "
+                  << ShortestPaths::convert_to_actual_cost_for_epsilon_transformed_costs(s.h)
+                  << "), states=" << s.concrete_states.size();
     }
 
     static const FlawedState no_state;
