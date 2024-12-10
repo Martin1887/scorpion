@@ -11,6 +11,7 @@
 #include "../utils/logging.h"
 
 #include <algorithm>
+#include <iterator>
 #include <map>
 #include <unordered_set>
 
@@ -45,6 +46,7 @@ static vector<FactPair> get_postconditions(
     }
     for (EffectProxy effect : op.get_effects()) {
         FactPair fact = effect.get_fact().get_pair();
+        int op_id = op.get_id();
         if (effect.get_conditions().empty()) {
             // If some effect in the var has no condition, effects in the same
             // var cannot exist.
@@ -55,7 +57,6 @@ static vector<FactPair> get_postconditions(
             // var without conditions cannot exist.
             assert(var_to_post.count(fact.var) == 0 || var_to_post[fact.var] == var_to_pre[fact.var] || var_to_post[fact.var] == OP_WITH_CONDS);
             var_to_post[fact.var] = OP_WITH_CONDS;
-            int op_id = op.get_id();
             vector<FactPair> conds;
             for (auto cond : effect.get_conditions()) {
                 conds.push_back(cond.get_pair());
@@ -114,10 +115,6 @@ TransitionSystem::TransitionSystem(const OperatorsProxy &ops)
       postconditions_by_operator(get_postconditions_by_operator(ops, cond_effects_by_op_id)),
       num_non_loops(0),
       num_loops(0) {
-    // This number should be big enough to store all conditional effects possible
-    // values for the operator with the highest number of conditional effects
-    // in the same variable.
-    post_values.reserve(50);
     add_loops_in_trivial_abstraction();
 }
 
@@ -157,118 +154,90 @@ void TransitionSystem::add_loop(int state_id, int op_id) {
     loops[state_id].push_back(op_id);
     ++num_loops;
 }
+CartesianSet TransitionSystem::get_cartesian_post(const AbstractState &child,
+                                                  int op_id,
+                                                  int var,
+                                                  vector<int> &affected_vars) {
+    // The only modified vars respect to the parent are the split var and the
+    // conditional effects with conditions in the split var (but all
+    // conditional effects are used instead for simplicity with low overhead).
+    // TODO: Use only the actually needed modified_vars, overhead is significant.
+    // TODO: Reuse an aux Cartesian set for all posts setting only the modified
+    // vars.
+    unordered_set<int> affected_vars_set{};
+    unordered_set<int> vars_changed_set{};
+    CartesianSet post_set = child.clone_cartesian_set();
 
-void TransitionSystem::compute_post_values_in_children_for_cond_effects_op(const AbstractState &v1,
-                                                                           const AbstractState &v2,
-                                                                           int var,
-                                                                           int op_id,
-                                                                           int pre) {
-    post_values.clear();
-    // If the effect has conditions, all effects in this var must be
-    // checked.
-
-    // TODO: A more efficient implementation would probably use
-    // Cartesian sets for conditions to apply intersections with the
-    // source abstract state.
-
-    // TODO: Probably too much duplicated code, but it seems the most
-    // efficient way of not repeating checks for each child.
-    vector<CondEffect> cond_effects = cond_effects_by_op_id[op_id];
+    const vector<CondEffect> &cond_effects = cond_effects_by_op_id[op_id];
     // The most probable thing is that some state not satisfying
     // all conditions exist in the source abstract state, and then
     // post = pre.
-    bool some_effect_without_states_not_satisfying_conds_v1 = false;
-    bool some_effect_without_states_not_satisfying_conds_v2 = false;
+    int n_vars = post_set.n_vars();
+    vector<bool> some_effect_always_triggered(n_vars, false);
     for (const CondEffect &cond_effect : cond_effects) {
-        FactPair effect_fact = cond_effect.effect;
-        if (effect_fact.var == var) {
-            // But also some states satisfying conditions can exist.
-            bool some_state_satisfying_conds_v1 = false;
-            bool some_state_satisfying_conds_v2 = false;
-            bool some_state_not_satisfying_conds_v1 = false;
-            bool some_state_not_satisfying_conds_v2 = false;
-            bool v1_has_break = false;
-            bool v2_has_break = false;
-            for (FactPair cond_fact : cond_effect.conds) {
-                if (cond_fact.var == var) {
-                    if (!v1_has_break) {
-                        if (v1.contains(cond_fact.var, cond_fact.value)) {
-                            some_state_satisfying_conds_v1 = true;
-                            if (v1.count(cond_fact.var) > 1) {
-                                some_state_not_satisfying_conds_v1 = true;
-                            }
-                        } else {
-                            some_state_not_satisfying_conds_v1 = true;
-                            some_state_satisfying_conds_v1 = false;
-                            v1_has_break = true;
-                        }
-                    }
-                    if (!v2_has_break) {
-                        if (v2.contains(cond_fact.var, cond_fact.value)) {
-                            some_state_satisfying_conds_v2 = true;
-                            if (v2.count(cond_fact.var) > 1) {
-                                some_state_not_satisfying_conds_v2 = true;
-                            }
-                        } else {
-                            some_state_not_satisfying_conds_v2 = true;
-                            some_state_satisfying_conds_v2 = false;
-                            v2_has_break = true;
-                        }
-                    }
-                    if (v1_has_break && v2_has_break) {
-                        break;
-                    }
+        const FactPair &effect_fact = cond_effect.effect;
+        if (some_effect_always_triggered[effect_fact.var]) {
+            continue;
+        }
+        // But also some states satisfying conditions can exist.
+        bool some_state_satisfying_conds = false;
+        bool some_state_not_satisfying_conds = false;
+        for (const FactPair &cond_fact : cond_effect.conds) {
+            some_effect_always_triggered[effect_fact.var] = false;
+            if (child.contains(cond_fact.var, cond_fact.value)) {
+                some_state_satisfying_conds = true;
+                if (child.count(cond_fact.var) > 1) {
+                    some_state_not_satisfying_conds = true;
+                }
+            } else {
+                some_state_satisfying_conds = false;
+                some_state_not_satisfying_conds = true;
+                affected_vars_set.insert(effect_fact.var);
+                break;
+            }
+            if (!some_state_not_satisfying_conds) {
+                some_effect_always_triggered[effect_fact.var] = true;
+            }
+            if (some_state_satisfying_conds) {
+                // If this is the first effect setting a value, set it as the
+                // single value, otherwise it is an additional possible effect.
+                if (!vars_changed_set.count(effect_fact.var)) {
+                    post_set.set_single_value(effect_fact.var, effect_fact.value);
                 } else {
-                    // If the condition is not in the split var, any
-                    // child can be used for the two children because they have
-                    // the same value in that var.
-                    if (v1.contains(cond_fact.var, cond_fact.value)) {
-                        if (!v1_has_break) {
-                            some_state_satisfying_conds_v1 = true;
-                        }
-                        if (!v2_has_break) {
-                            some_state_satisfying_conds_v2 = true;
-                        }
-                        if (v1.count(cond_fact.var) > 1) {
-                            if (!v1_has_break) {
-                                some_state_not_satisfying_conds_v1 = true;
-                            }
-                            if (!v2_has_break) {
-                                some_state_not_satisfying_conds_v2 = true;
-                            }
-                        }
-                    } else {
-                        some_state_not_satisfying_conds_v1 = true;
-                        some_state_satisfying_conds_v1 = false;
-                        some_state_not_satisfying_conds_v2 = true;
-                        some_state_satisfying_conds_v2 = false;
-                        break;
-                    }
+                    post_set.add(effect_fact.var, effect_fact.value);
                 }
             }
-            if (!some_state_not_satisfying_conds_v1) {
-                some_effect_without_states_not_satisfying_conds_v1 = true;
-            }
-            if (!some_state_not_satisfying_conds_v2) {
-                some_effect_without_states_not_satisfying_conds_v2 = true;
-            }
-            if (some_state_satisfying_conds_v1 && some_state_satisfying_conds_v2) {
-                post_values.push_back(CondEffectsOpPostValue {true, true, effect_fact.value});
-            } else if (some_state_satisfying_conds_v1) {
-                post_values.push_back(CondEffectsOpPostValue {true, false, effect_fact.value});
-            } else if (some_state_satisfying_conds_v2) {
-                post_values.push_back(CondEffectsOpPostValue {false, true, effect_fact.value});
+            affected_vars_set.insert(effect_fact.var);
+            vars_changed_set.insert(effect_fact.var);
+        }
+    }
+    // post = pre (or the child values) for variables without triggered effect.
+    for (int var = 0; var < n_vars; var++) {
+        if (!some_effect_always_triggered[var]) {
+            int pre = get_precondition_value(op_id, var);
+            if (vars_changed_set.count(var)) {
+                if (pre != UNDEFINED) {
+                    post_set.add(var, pre);
+                } else {
+                    post_set.var_union(child.get_cartesian_set(), var);
+                }
+            } else if (pre != UNDEFINED) {
+                // post_set has currently the child values in var.
+                post_set.set_single_value(var, pre);
             }
         }
     }
-    // post = pre (or undefined if no pre in var).
-    if (!some_effect_without_states_not_satisfying_conds_v1 && !some_effect_without_states_not_satisfying_conds_v2) {
-        post_values.push_back(CondEffectsOpPostValue {true, true, pre});
-    } else if (!some_effect_without_states_not_satisfying_conds_v1) {
-        post_values.push_back(CondEffectsOpPostValue {true, false, pre});
-    } else if (!some_effect_without_states_not_satisfying_conds_v2) {
-        post_values.push_back(CondEffectsOpPostValue {false, true, pre});
+    const vector<FactPair> &effects = postconditions_by_operator[op_id];
+    for (const FactPair &eff : effects) {
+        if (eff.value != OP_WITH_CONDS) {
+            post_set.set_single_value(eff.var, eff.value);
+        }
     }
+
+    affected_vars_set.insert(var);
+    affected_vars = vector<int>(make_move_iterator(affected_vars_set.begin()),
+                                make_move_iterator(affected_vars_set.end()));
+    return post_set;
 }
 
 AddTransitionToChild TransitionSystem::get_incoming_transitions_for_post(const AbstractState &u,
@@ -307,114 +276,18 @@ AddTransitionToChild TransitionSystem::get_incoming_transitions_for_post(const A
         return AddTransitionToChild::SECOND;
     }
 }
-AddTransitionToChild TransitionSystem::get_outgoing_transitions_for_post(const AbstractState &w,
-                                                                         const AbstractState &v1,
-                                                                         const AbstractState &v2,
-                                                                         int var,
-                                                                         int pre,
-                                                                         int post,
-                                                                         bool for_v1,
-                                                                         bool for_v2) {
-    assert(for_v1 || for_v2);
-    bool from_v1 = false;
-    bool from_v2 = false;
-    if (post == UNDEFINED) {
-        assert(pre == UNDEFINED);
-        // op has no precondition and no effect on var.
-        bool v1_and_w_intersect = v1.domain_subsets_intersect(w, var);
-        if (for_v1 && v1_and_w_intersect) {
-            from_v1 = true;
-        }
-        /* If v1 and w don't intersect, we must add the other transition
-           and can avoid an intersection test. */
-        if (for_v2 && (!v1_and_w_intersect || v2.domain_subsets_intersect(w, var))) {
-            from_v2 = true;
-        }
-        if (from_v1) {
-            if (from_v2) {
-                return AddTransitionToChild::BOTH;
-            } else {
-                return AddTransitionToChild::FIRST;
-            }
-        } else if (from_v2) {
-            return AddTransitionToChild::SECOND;
-        }
-    } else if (pre == UNDEFINED) {
-        // op has no precondition, but an effect on var.
-        if (for_v1) {
-            if (for_v2) {
-                return AddTransitionToChild::BOTH;
-            } else {
-                return AddTransitionToChild::FIRST;
-            }
-        } else {
-            return AddTransitionToChild::SECOND;
-        }
-    } else if (for_v1 && v1.contains(var, pre)) {
-        // op can only start in v1.
-        return AddTransitionToChild::FIRST;
-    } else if (for_v2 && (for_v1 || v2.contains(var, pre))) {
-        // op can only start in v2 if checked for v1 (v1 does not contain pre).
-        assert(v2.contains(var, pre));
-        return AddTransitionToChild::SECOND;
+bool TransitionSystem::exists_outgoing_transition(int var,
+                                                  int pre,
+                                                  const AbstractState &target,
+                                                  const AbstractState &source,
+                                                  const CartesianSet &source_post,
+                                                  const vector<int> &affected_vars) {
+    if ((pre == UNDEFINED || source.contains(var, pre)) &&
+        target.domain_subsets_intersect(source_post, affected_vars)) {
+        return true;
     }
-    return AddTransitionToChild::NONE;
-}
 
-AddTransitionToChild TransitionSystem::get_loops_and_intertransitions_for_post(const AbstractState &v1,
-                                                                               const AbstractState &v2,
-                                                                               int var,
-                                                                               int pre,
-                                                                               int post,
-                                                                               bool for_v1,
-                                                                               bool for_v2) {
-    assert(for_v1 || for_v2);
-    if (pre == UNDEFINED) {
-        // op has no precondition on var --> it must start in v1 and v2.
-        if (post == UNDEFINED) {
-            // op has no effect on var --> it must end in v1 and v2.
-            if (for_v1) {
-                if (for_v2) {
-                    return AddTransitionToChild::BOTH;
-                } else {
-                    return AddTransitionToChild::FIRST;
-                }
-            } else {
-                return AddTransitionToChild::SECOND;
-            }
-        } else if (for_v2 && v2.contains(var, post)) {
-            // op must end in v2.
-            return AddTransitionToChild::FROM_FIRST_TO_SECOND_AND_SECOND;
-        } else if (for_v1 && (for_v2 || v1.contains(var, post))) {
-            // op must end in v1.
-            assert(v1.contains(var, post));
-            return AddTransitionToChild::FROM_SECOND_TO_FIRST_AND_FIRST;
-        }
-    } else if (v1.contains(var, pre)) {
-        // op must start in v1.
-        assert(post != UNDEFINED);
-        if (for_v1 && v1.contains(var, post)) {
-            // op must end in v1.
-            return AddTransitionToChild::FIRST;
-        } else if (for_v2 && (for_v1 || v2.contains(var, post))) {
-            // op must end in v2.
-            assert(v2.contains(var, post));
-            return AddTransitionToChild::FROM_FIRST_TO_SECOND;
-        }
-    } else {
-        // op must start in v2.
-        assert(v2.contains(var, pre));
-        assert(post != UNDEFINED);
-        if (for_v1 && v1.contains(var, post)) {
-            // op must end in v1.
-            return AddTransitionToChild::FROM_SECOND_TO_FIRST;
-        } else if (for_v2 && (for_v1 || v2.contains(var, post))) {
-            // op must end in v2.
-            assert(v2.contains(var, post));
-            return AddTransitionToChild::SECOND;
-        }
-    }
-    return AddTransitionToChild::NONE;
+    return false;
 }
 
 void TransitionSystem::rewire_incoming_transitions(
@@ -449,7 +322,7 @@ void TransitionSystem::rewire_incoming_transitions(
             // Cartesian sets for conditions to apply intersections with the
             // source abstract state.
 
-            vector<CondEffect> cond_effects = cond_effects_by_op_id[op_id];
+            const vector<CondEffect> &cond_effects = cond_effects_by_op_id[op_id];
             // The most probable thing is that some state not satisfying
             // all conditions exist in the source abstract state, and then
             // post = pre. If for some effect all states satisfy all
@@ -461,10 +334,10 @@ void TransitionSystem::rewire_incoming_transitions(
                 }
                 // But also some states satisfying conditions can exist.
                 bool some_state_not_satisfying_conds = false;
-                FactPair effect_fact = cond_effect.effect;
+                const FactPair &effect_fact = cond_effect.effect;
                 if (effect_fact.var == var) {
                     bool some_state_satisfying_conds = true;
-                    for (FactPair cond_fact : cond_effect.conds) {
+                    for (const FactPair &cond_fact : cond_effect.conds) {
                         if (u.contains(cond_fact.var, cond_fact.value)) {
                             if (u.count(cond_fact.var) > 1) {
                                 some_state_not_satisfying_conds = true;
@@ -562,50 +435,13 @@ void TransitionSystem::rewire_outgoing_transitions(
         int w_id = transition.target_id;
         const AbstractState &w = *states[w_id];
         int pre = get_precondition_value(op_id, var);
-        int post = get_postcondition_value(op_id, var);
-        bool transition_from_v1 = false;
-        bool transition_from_v2 = false;
-        if (post == OP_WITH_CONDS) {
-            compute_post_values_in_children_for_cond_effects_op(v1, v2, var, op_id, pre);
-            for (const CondEffectsOpPostValue &post : post_values) {
-                if (transition_from_v1 && transition_from_v2) {
-                    break;
-                }
-                switch (get_outgoing_transitions_for_post(w, v1, v2, var, pre, post.value, post.for_v1, post.for_v2)) {
-                case AddTransitionToChild::BOTH:
-                    transition_from_v1 = true;
-                    transition_from_v2 = true;
-                    break;
-                case AddTransitionToChild::FIRST:
-                    transition_from_v1 = true;
-                    break;
-                case AddTransitionToChild::SECOND:
-                    transition_from_v2 = true;
-                    break;
-                default:
-                    break;
-                }
-            }
-        } else {
-            switch (get_outgoing_transitions_for_post(w, v1, v2, var, pre, post)) {
-            case AddTransitionToChild::BOTH:
-                transition_from_v1 = true;
-                transition_from_v2 = true;
-                break;
-            case AddTransitionToChild::FIRST:
-                transition_from_v1 = true;
-                break;
-            case AddTransitionToChild::SECOND:
-                transition_from_v2 = true;
-                break;
-            default:
-                break;
-            }
-        }
-        if (transition_from_v1) {
+        vector<int> affected_vars;
+        CartesianSet post_v1 = get_cartesian_post(v1, op_id, var, affected_vars);
+        if (exists_outgoing_transition(var, pre, w, v1, post_v1, affected_vars)) {
             add_transition(v1_id, op_id, w_id);
         }
-        if (transition_from_v2) {
+        CartesianSet post_v2 = get_cartesian_post(v2, op_id, var, affected_vars);
+        if (exists_outgoing_transition(var, pre, w, v2, post_v2, affected_vars)) {
             add_transition(v2_id, op_id, w_id);
         }
     }
@@ -619,88 +455,21 @@ void TransitionSystem::rewire_loops(
     int v1_id = v1.get_id();
     int v2_id = v2.get_id();
     for (int op_id : old_loops) {
-        bool transition_to_v1 = false;
-        bool transition_to_v2 = false;
-        bool loop_v1 = false;
-        bool loop_v2 = false;
         int pre = get_precondition_value(op_id, var);
-        int post = get_postcondition_value(op_id, var);
-        if (post == OP_WITH_CONDS) {
-            compute_post_values_in_children_for_cond_effects_op(v1, v2, var, op_id, pre);
-            for (const CondEffectsOpPostValue &post : post_values) {
-                if (transition_to_v1 && transition_to_v2 && loop_v1 && loop_v2) {
-                    break;
-                }
-                switch (get_loops_and_intertransitions_for_post(v1, v2, var, pre, post.value, post.for_v1, post.for_v2)) {
-                case AddTransitionToChild::BOTH:
-                    loop_v1 = true;
-                    loop_v2 = true;
-                    break;
-                case AddTransitionToChild::FIRST:
-                    loop_v1 = true;
-                    break;
-                case AddTransitionToChild::SECOND:
-                    loop_v2 = true;
-                    break;
-                case AddTransitionToChild::FROM_FIRST_TO_SECOND:
-                    transition_to_v2 = true;
-                    break;
-                case AddTransitionToChild::FROM_SECOND_TO_FIRST:
-                    transition_to_v1 = true;
-                    break;
-                case AddTransitionToChild::FROM_FIRST_TO_SECOND_AND_SECOND:
-                    transition_to_v2 = true;
-                    loop_v2 = true;
-                    break;
-                case AddTransitionToChild::FROM_SECOND_TO_FIRST_AND_FIRST:
-                    transition_to_v1 = true;
-                    loop_v1 = true;
-                    break;
-                case AddTransitionToChild::NONE:
-                    break;
-                }
-            }
-        } else {
-            switch (get_loops_and_intertransitions_for_post(v1, v2, var, pre, post)) {
-            case AddTransitionToChild::BOTH:
-                loop_v1 = true;
-                loop_v2 = true;
-                break;
-            case AddTransitionToChild::FIRST:
-                loop_v1 = true;
-                break;
-            case AddTransitionToChild::SECOND:
-                loop_v2 = true;
-                break;
-            case AddTransitionToChild::FROM_FIRST_TO_SECOND:
-                transition_to_v2 = true;
-                break;
-            case AddTransitionToChild::FROM_SECOND_TO_FIRST:
-                transition_to_v1 = true;
-                break;
-            case AddTransitionToChild::FROM_FIRST_TO_SECOND_AND_SECOND:
-                transition_to_v2 = true;
-                loop_v2 = true;
-                break;
-            case AddTransitionToChild::FROM_SECOND_TO_FIRST_AND_FIRST:
-                transition_to_v1 = true;
-                loop_v1 = true;
-                break;
-            case AddTransitionToChild::NONE:
-                break;
-            }
-        }
-        if (loop_v1) {
+        vector<int> affected_vars;
+        CartesianSet post_v1 = get_cartesian_post(v1, op_id, var, affected_vars);
+        if (exists_outgoing_transition(var, pre, v1, v1, post_v1, affected_vars)) {
             add_loop(v1_id, op_id);
         }
-        if (loop_v2) {
+        if (exists_outgoing_transition(var, pre, v2, v1, post_v1, affected_vars)) {
+            add_transition(v1_id, op_id, v2_id);
+        }
+        CartesianSet post_v2 = get_cartesian_post(v2, op_id, var, affected_vars);
+        if (exists_outgoing_transition(var, pre, v2, v2, post_v2, affected_vars)) {
             add_loop(v2_id, op_id);
         }
-        if (transition_to_v1) {
+        if (exists_outgoing_transition(var, pre, v1, v2, post_v2, affected_vars)) {
             add_transition(v2_id, op_id, v1_id);
-        }
-        if (transition_to_v2) {
-            add_transition(v1_id, op_id, v2_id);
         }
     }
     num_loops -= old_loops.size();

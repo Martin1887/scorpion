@@ -285,7 +285,6 @@ static void get_deviation_splits(
             // some of them, such a variable cannot be the cause.
             if (abs_state.count(var) > 1) {
                 ++fact_count[var][state_value].direct_count;
-                // cout << "++direct_count, var: " << var << ", state_value: " << state_value << endl;
             }
             for (auto eff : op.get_effects()) {
                 FactPair eff_pair = eff.get_fact().get_pair();

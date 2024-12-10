@@ -20,6 +20,7 @@ class CartesianSet {
 public:
     explicit CartesianSet(const std::vector<int> &domain_sizes);
 
+    int n_vars() const;
     void add(int var, int value);
     void set_single_value(int var, int value);
     void remove(int var, int value);
@@ -34,6 +35,7 @@ public:
     std::vector<int> get_values(int var) const;
     bool intersects(const CartesianSet &other, int var) const;
     bool is_superset_of(const CartesianSet &other) const;
+    void var_union(const CartesianSet &other, int var);
 
     friend std::ostream &operator<<(
         std::ostream &os, const CartesianSet &cartesian_set);

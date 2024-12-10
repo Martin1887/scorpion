@@ -19,6 +19,17 @@ AbstractState::AbstractState(
       cartesian_set(move(cartesian_set)) {
 }
 
+int AbstractState::n_vars() const {
+    return cartesian_set.n_vars();
+}
+
+const CartesianSet &AbstractState::get_cartesian_set() const {
+    return cartesian_set;
+}
+CartesianSet AbstractState::clone_cartesian_set() const {
+    return cartesian_set;
+}
+
 int AbstractState::count(int var) const {
     return cartesian_set.count(var);
 }
@@ -65,6 +76,20 @@ CartesianSet AbstractState::regress(const OperatorProxy &op) const {
         regression.set_single_value(var_id, precondition.get_value());
     }
     return regression;
+}
+
+bool AbstractState::domain_subsets_intersect(const CartesianSet &other, const vector<int> &vars) const {
+    for (int var : vars) {
+        if (!domain_subsets_intersect(other, var)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool AbstractState::domain_subsets_intersect(const CartesianSet &other, int var) const {
+    return cartesian_set.intersects(other, var);
 }
 
 bool AbstractState::domain_subsets_intersect(const AbstractState &other, int var) const {

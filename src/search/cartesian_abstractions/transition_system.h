@@ -29,12 +29,7 @@ struct CondEffect {
 enum AddTransitionToChild {
     FIRST,
     SECOND,
-    FROM_FIRST_TO_SECOND,
-    FROM_SECOND_TO_FIRST,
-    FROM_FIRST_TO_SECOND_AND_SECOND,
-    FROM_SECOND_TO_FIRST_AND_FIRST,
     BOTH,
-    NONE,
 };
 /*
   Rewire transitions after each split.
@@ -43,9 +38,6 @@ class TransitionSystem {
     std::unordered_map<int, std::vector<CondEffect>> cond_effects_by_op_id = {};
     const std::vector<std::vector<FactPair>> preconditions_by_operator;
     const std::vector<std::vector<FactPair>> postconditions_by_operator;
-    // Vector used to store post values for each child for ops with conditional
-    // effects.
-    std::vector<CondEffectsOpPostValue> post_values;
 
     // Transitions from and to other abstract states.
     std::vector<Transitions> incoming;
@@ -64,12 +56,12 @@ class TransitionSystem {
 
     int get_precondition_value(int op_id, int var) const;
     int get_postcondition_value(int op_id, int var) const;
-    void compute_post_values_in_children_for_cond_effects_op(const AbstractState &v1,
-                                                             const AbstractState &v2,
-                                                             int var,
-                                                             int op_id,
-                                                             int pre);
-
+    bool exists_outgoing_transition(int var,
+                                    int pre,
+                                    const AbstractState &target,
+                                    const AbstractState &source,
+                                    const CartesianSet &source_post,
+                                    const std::vector<int> &affected_vars);
     void add_transition(int src_id, int op_id, int target_id);
     void add_loop(int state_id, int op_id);
 
@@ -78,22 +70,11 @@ class TransitionSystem {
                                                            const AbstractState &v2,
                                                            int var,
                                                            int post);
-    AddTransitionToChild get_outgoing_transitions_for_post(const AbstractState &w,
-                                                           const AbstractState &v1,
-                                                           const AbstractState &v2,
-                                                           int var,
-                                                           int pre,
-                                                           int post,
-                                                           bool for_v1 = true,
-                                                           bool for_v2 = true);
-    AddTransitionToChild get_loops_and_intertransitions_for_post(const AbstractState &v1,
-                                                                 const AbstractState &v2,
-                                                                 int var,
-                                                                 int pre,
-                                                                 int post,
-                                                                 bool for_v1 = true,
-                                                                 bool for_v2 = true);
 
+    CartesianSet get_cartesian_post(const AbstractState &child,
+                                    int op_id,
+                                    int var,
+                                    std::vector<int> &affected_vars);
     void rewire_incoming_transitions(
         const Transitions &old_incoming, const AbstractStates &states,
         int v_id, const AbstractState &v1, const AbstractState &v2, int var);

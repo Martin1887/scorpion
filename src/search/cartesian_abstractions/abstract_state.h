@@ -30,6 +30,13 @@ public:
 
     AbstractState(const AbstractState &) = delete;
 
+    const CartesianSet &get_cartesian_set() const;
+    CartesianSet clone_cartesian_set() const;
+
+    int n_vars() const;
+
+    bool domain_subsets_intersect(const CartesianSet &other, const std::vector<int> &vars) const;
+    bool domain_subsets_intersect(const CartesianSet &other, int var) const;
     bool domain_subsets_intersect(const AbstractState &other, int var) const;
 
     // Return the size of var's abstract domain for this state.

@@ -14,6 +14,10 @@ CartesianSet::CartesianSet(const vector<int> &domain_sizes) {
     }
 }
 
+int CartesianSet::n_vars() const {
+    return domain_subsets.size();
+}
+
 void CartesianSet::add(int var, int value) {
     domain_subsets[var].set(value);
 }
@@ -61,6 +65,16 @@ bool CartesianSet::is_superset_of(const CartesianSet &other) const {
             return false;
     }
     return true;
+}
+
+void CartesianSet::var_union(const CartesianSet &other, int var) {
+    assert(other.n_vars() == n_vars());
+    int n_values = domain_subsets[var].size();
+    for (int value = 0; value < n_values; value++) {
+        if (other.test(var, value)) {
+            add(var, value);
+        }
+    }
 }
 
 ostream &operator<<(ostream &os, const CartesianSet &cartesian_set) {
