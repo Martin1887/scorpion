@@ -36,6 +36,7 @@ public:
     bool intersects(const CartesianSet &other, int var) const;
     bool is_superset_of(const CartesianSet &other) const;
     void var_union(const CartesianSet &other, int var);
+    void set_var_values(const CartesianSet &other, int var);
 
     friend std::ostream &operator<<(
         std::ostream &os, const CartesianSet &cartesian_set);

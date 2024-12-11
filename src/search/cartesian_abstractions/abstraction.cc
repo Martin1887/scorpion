@@ -20,7 +20,8 @@ using namespace std;
 
 namespace cartesian_abstractions {
 Abstraction::Abstraction(const shared_ptr<AbstractTask> &task, utils::LogProxy &log)
-    : transition_system(utils::make_unique_ptr<TransitionSystem>(TaskProxy(*task).get_operators())),
+    : transition_system(utils::make_unique_ptr<TransitionSystem>(TaskProxy(*task).get_operators(),
+                                                                 get_domain_sizes(TaskProxy(*task)))),
       concrete_initial_state(TaskProxy(*task).get_initial_state()),
       goal_facts(task_properties::get_fact_pairs(TaskProxy(*task).get_goals())),
       refinement_hierarchy(utils::make_unique_ptr<RefinementHierarchy>(task)),

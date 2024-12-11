@@ -38,6 +38,7 @@ class TransitionSystem {
     std::unordered_map<int, std::vector<CondEffect>> cond_effects_by_op_id = {};
     const std::vector<std::vector<FactPair>> preconditions_by_operator;
     const std::vector<std::vector<FactPair>> postconditions_by_operator;
+    CartesianSet partial_post_set;
 
     // Transitions from and to other abstract states.
     std::vector<Transitions> incoming;
@@ -58,9 +59,8 @@ class TransitionSystem {
     int get_postcondition_value(int op_id, int var) const;
     bool exists_outgoing_transition(int var,
                                     int pre,
-                                    const AbstractState &target,
                                     const AbstractState &source,
-                                    const CartesianSet &source_post,
+                                    const AbstractState &target,
                                     const std::vector<int> &affected_vars);
     void add_transition(int src_id, int op_id, int target_id);
     void add_loop(int state_id, int op_id);
@@ -71,10 +71,9 @@ class TransitionSystem {
                                                            int var,
                                                            int post);
 
-    CartesianSet get_cartesian_post(const AbstractState &child,
-                                    int op_id,
-                                    int var,
-                                    std::vector<int> &affected_vars);
+    std::vector<int> compute_partial_post_cartesian_set(const AbstractState &child,
+                                                        int op_id,
+                                                        int var);
     void rewire_incoming_transitions(
         const Transitions &old_incoming, const AbstractStates &states,
         int v_id, const AbstractState &v1, const AbstractState &v2, int var);
@@ -86,7 +85,8 @@ class TransitionSystem {
         const AbstractState &v1, const AbstractState &v2, int var);
 
 public:
-    explicit TransitionSystem(const OperatorsProxy &ops);
+    explicit TransitionSystem(const OperatorsProxy &ops,
+                              const std::vector<int> &domain_sizes);
 
     // Update transition system after v has been split for var into v1 and v2.
     void rewire(

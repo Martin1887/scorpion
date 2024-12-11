@@ -77,6 +77,12 @@ void CartesianSet::var_union(const CartesianSet &other, int var) {
     }
 }
 
+void CartesianSet::set_var_values(const CartesianSet &other, int var) {
+    assert(other.n_vars() == n_vars());
+    remove_all(var);
+    var_union(other, var);
+}
+
 ostream &operator<<(ostream &os, const CartesianSet &cartesian_set) {
     int num_vars = cartesian_set.domain_subsets.size();
     string var_sep;
