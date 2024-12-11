@@ -88,6 +88,18 @@ bool AbstractState::domain_subsets_intersect(const CartesianSet &other, const ve
     return true;
 }
 
+bool AbstractState::domain_subsets_intersect(const CartesianSet &other, const vector<bool> &vars) const {
+    int i = 0;
+    for (bool var : vars) {
+        if (var && !domain_subsets_intersect(other, i)) {
+            return false;
+        }
+        i++;
+    }
+
+    return true;
+}
+
 bool AbstractState::domain_subsets_intersect(const CartesianSet &other, int var) const {
     return cartesian_set.intersects(other, var);
 }

@@ -36,6 +36,7 @@ public:
     int n_vars() const;
 
     bool domain_subsets_intersect(const CartesianSet &other, const std::vector<int> &vars) const;
+    bool domain_subsets_intersect(const CartesianSet &other, const std::vector<bool> &vars) const;
     bool domain_subsets_intersect(const CartesianSet &other, int var) const;
     bool domain_subsets_intersect(const AbstractState &other, int var) const;
 

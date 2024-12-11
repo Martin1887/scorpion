@@ -115,6 +115,8 @@ TransitionSystem::TransitionSystem(const OperatorsProxy &ops,
     : preconditions_by_operator(get_preconditions_by_operator(ops)),
       postconditions_by_operator(get_postconditions_by_operator(ops, cond_effects_by_op_id)),
       partial_post_set(domain_sizes),
+      affected_vars(domain_sizes.size(), false),
+      vars_changed(domain_sizes.size(), false),
       num_non_loops(0),
       num_loops(0) {
     add_loops_in_trivial_abstraction();
@@ -156,24 +158,24 @@ void TransitionSystem::add_loop(int state_id, int op_id) {
     loops[state_id].push_back(op_id);
     ++num_loops;
 }
-vector<int> TransitionSystem::compute_partial_post_cartesian_set(const AbstractState &child,
-                                                                 int op_id,
-                                                                 int var) {
+void TransitionSystem::compute_partial_post_cartesian_set(const AbstractState &child,
+                                                          int op_id,
+                                                          int var) {
+    int n_vars = partial_post_set.n_vars();
     // The only affected vars respect to the parent are the split var and the
     // conditional effects with conditions in the split var.
     // The partial post Cartesian set is only updated for affected vars.
-    unordered_set<int> affected_vars_set{};
+    affected_vars.assign(n_vars, false);
     // This set maintains the variables that have been modified for some
     // conditional effect to make decisions about the values assigned to the
     // partial post Cartesian set for affected vars.
-    unordered_set<int> vars_changed_set{};
+    vars_changed.assign(n_vars, false);
     const CartesianSet &child_set = child.get_cartesian_set();
 
     const vector<CondEffect> &cond_effects = cond_effects_by_op_id[op_id];
     // The most probable thing is that some state not satisfying
     // all conditions exist in the source abstract state, and then
     // post = pre.
-    int n_vars = partial_post_set.n_vars();
     vector<bool> some_effect_always_triggered(n_vars, false);
     for (const CondEffect &cond_effect : cond_effects) {
         const FactPair &effect_fact = cond_effect.effect;
@@ -183,7 +185,7 @@ vector<int> TransitionSystem::compute_partial_post_cartesian_set(const AbstractS
         // But also some states satisfying conditions can exist.
         for (const FactPair &cond_fact : cond_effect.conds) {
             if (cond_fact.var == var) {
-                affected_vars_set.insert(effect_fact.var);
+                affected_vars[effect_fact.var] = true;
             }
             // This is re-checked for each condition, since all conditions must
             // be always satisfied to always trigger the effect.
@@ -194,23 +196,23 @@ vector<int> TransitionSystem::compute_partial_post_cartesian_set(const AbstractS
                 }
                 // If this is the first effect setting a value, set it as the
                 // single value, otherwise it is an additional possible effect.
-                if (!vars_changed_set.count(effect_fact.var)) {
+                if (!vars_changed[effect_fact.var]) {
                     partial_post_set.set_single_value(effect_fact.var, effect_fact.value);
                 } else {
                     partial_post_set.add(effect_fact.var, effect_fact.value);
                 }
-                vars_changed_set.insert(effect_fact.var);
+                vars_changed[effect_fact.var] = true;
             } else {
                 break;
             }
         }
     }
     // post = pre (or the child values) for variables without triggered effect.
-    affected_vars_set.insert(var);
+    affected_vars[var] = true;
     for (int iter_var = 0; iter_var < n_vars; iter_var++) {
-        if (!some_effect_always_triggered[iter_var] && affected_vars_set.count(iter_var)) {
+        if (!some_effect_always_triggered[iter_var] && affected_vars[iter_var]) {
             int pre = get_precondition_value(op_id, iter_var);
-            if (vars_changed_set.count(iter_var)) {
+            if (vars_changed[iter_var]) {
                 if (pre != UNDEFINED) {
                     partial_post_set.add(iter_var, pre);
                 } else {
@@ -232,9 +234,6 @@ vector<int> TransitionSystem::compute_partial_post_cartesian_set(const AbstractS
             break;
         }
     }
-
-    return vector<int>(make_move_iterator(affected_vars_set.begin()),
-                       make_move_iterator(affected_vars_set.end()));
 }
 
 AddTransitionToChild TransitionSystem::get_incoming_transitions_for_post(const AbstractState &u,
@@ -276,8 +275,7 @@ AddTransitionToChild TransitionSystem::get_incoming_transitions_for_post(const A
 bool TransitionSystem::exists_outgoing_transition(int var,
                                                   int pre,
                                                   const AbstractState &source,
-                                                  const AbstractState &target,
-                                                  const vector<int> &affected_vars) {
+                                                  const AbstractState &target) {
     if ((pre == UNDEFINED || source.contains(var, pre)) &&
         target.domain_subsets_intersect(partial_post_set, affected_vars)) {
         return true;
@@ -431,12 +429,12 @@ void TransitionSystem::rewire_outgoing_transitions(
         int w_id = transition.target_id;
         const AbstractState &w = *states[w_id];
         int pre = get_precondition_value(op_id, var);
-        vector<int> affected_vars = compute_partial_post_cartesian_set(v1, op_id, var);
-        if (exists_outgoing_transition(var, pre, v1, w, affected_vars)) {
+        compute_partial_post_cartesian_set(v1, op_id, var);
+        if (exists_outgoing_transition(var, pre, v1, w)) {
             add_transition(v1_id, op_id, w_id);
         }
-        affected_vars = compute_partial_post_cartesian_set(v2, op_id, var);
-        if (exists_outgoing_transition(var, pre, v2, w, affected_vars)) {
+        compute_partial_post_cartesian_set(v2, op_id, var);
+        if (exists_outgoing_transition(var, pre, v2, w)) {
             add_transition(v2_id, op_id, w_id);
         }
     }
@@ -451,18 +449,18 @@ void TransitionSystem::rewire_loops(
     int v2_id = v2.get_id();
     for (int op_id : old_loops) {
         int pre = get_precondition_value(op_id, var);
-        vector<int> affected_vars = compute_partial_post_cartesian_set(v1, op_id, var);
-        if (exists_outgoing_transition(var, pre, v1, v1, affected_vars)) {
+        compute_partial_post_cartesian_set(v1, op_id, var);
+        if (exists_outgoing_transition(var, pre, v1, v1)) {
             add_loop(v1_id, op_id);
         }
-        if (exists_outgoing_transition(var, pre, v1, v2, affected_vars)) {
+        if (exists_outgoing_transition(var, pre, v1, v2)) {
             add_transition(v1_id, op_id, v2_id);
         }
-        affected_vars = compute_partial_post_cartesian_set(v2, op_id, var);
-        if (exists_outgoing_transition(var, pre, v2, v2, affected_vars)) {
+        compute_partial_post_cartesian_set(v2, op_id, var);
+        if (exists_outgoing_transition(var, pre, v2, v2)) {
             add_loop(v2_id, op_id);
         }
-        if (exists_outgoing_transition(var, pre, v2, v1, affected_vars)) {
+        if (exists_outgoing_transition(var, pre, v2, v1)) {
             add_transition(v2_id, op_id, v1_id);
         }
     }

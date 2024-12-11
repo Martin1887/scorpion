@@ -38,7 +38,11 @@ class TransitionSystem {
     std::unordered_map<int, std::vector<CondEffect>> cond_effects_by_op_id = {};
     const std::vector<std::vector<FactPair>> preconditions_by_operator;
     const std::vector<std::vector<FactPair>> postconditions_by_operator;
+    // Variables used to not allocate new objects to each call to
+    // compute_partial_post_cartesian_set.
     CartesianSet partial_post_set;
+    std::vector<bool> affected_vars;
+    std::vector<bool> vars_changed;
 
     // Transitions from and to other abstract states.
     std::vector<Transitions> incoming;
@@ -60,8 +64,7 @@ class TransitionSystem {
     bool exists_outgoing_transition(int var,
                                     int pre,
                                     const AbstractState &source,
-                                    const AbstractState &target,
-                                    const std::vector<int> &affected_vars);
+                                    const AbstractState &target);
     void add_transition(int src_id, int op_id, int target_id);
     void add_loop(int state_id, int op_id);
 
@@ -71,9 +74,9 @@ class TransitionSystem {
                                                            int var,
                                                            int post);
 
-    std::vector<int> compute_partial_post_cartesian_set(const AbstractState &child,
-                                                        int op_id,
-                                                        int var);
+    void compute_partial_post_cartesian_set(const AbstractState &child,
+                                            int op_id,
+                                            int var);
     void rewire_incoming_transitions(
         const Transitions &old_incoming, const AbstractStates &states,
         int v_id, const AbstractState &v1, const AbstractState &v2, int var);
