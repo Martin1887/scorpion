@@ -158,10 +158,8 @@ CartesianSet TransitionSystem::get_cartesian_post(const AbstractState &child,
                                                   int op_id,
                                                   int var,
                                                   vector<int> &affected_vars) {
-    // The only modified vars respect to the parent are the split var and the
-    // conditional effects with conditions in the split var (but all
-    // conditional effects are used instead for simplicity with low overhead).
-    // TODO: Use only the actually needed modified_vars, overhead is significant.
+    // The only affected vars respect to the parent are the split var and the
+    // conditional effects with conditions in the split var.
     // TODO: Reuse an aux Cartesian set for all posts setting only the modified
     // vars.
     unordered_set<int> affected_vars_set{};
@@ -192,7 +190,9 @@ CartesianSet TransitionSystem::get_cartesian_post(const AbstractState &child,
             } else {
                 some_state_satisfying_conds = false;
                 some_state_not_satisfying_conds = true;
-                affected_vars_set.insert(effect_fact.var);
+                if (cond_fact.var == var) {
+                    affected_vars_set.insert(effect_fact.var);
+                }
                 break;
             }
             if (!some_state_not_satisfying_conds) {
@@ -207,7 +207,9 @@ CartesianSet TransitionSystem::get_cartesian_post(const AbstractState &child,
                     post_set.add(effect_fact.var, effect_fact.value);
                 }
             }
-            affected_vars_set.insert(effect_fact.var);
+            if (cond_fact.var == var) {
+                affected_vars_set.insert(effect_fact.var);
+            }
             vars_changed_set.insert(effect_fact.var);
         }
     }
