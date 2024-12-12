@@ -276,12 +276,8 @@ bool TransitionSystem::exists_outgoing_transition(int var,
                                                   int pre,
                                                   const AbstractState &source,
                                                   const AbstractState &target) {
-    if ((pre == UNDEFINED || source.contains(var, pre)) &&
-        target.domain_subsets_intersect(partial_post_set, affected_vars)) {
-        return true;
-    }
-
-    return false;
+    return (pre == UNDEFINED || source.contains(var, pre)) &&
+           target.domain_subsets_intersect(partial_post_set, affected_vars);
 }
 
 void TransitionSystem::rewire_incoming_transitions(
