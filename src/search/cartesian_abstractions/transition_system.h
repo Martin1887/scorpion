@@ -26,16 +26,27 @@ struct CondEffect {
     std::vector<FactPair> conds;
     FactPair effect;
 };
-enum AddTransitionToChild {
-    FIRST,
-    SECOND,
-    BOTH,
+struct AddTransitionTo {
+    bool first = false;
+    bool second = false;
+    bool first_loop = false;
+    bool second_loop = false;
+
+    void reset() {
+        first = false;
+        second = false;
+        first_loop = false;
+        second_loop = false;
+    }
 };
 /*
   Rewire transitions after each split.
 */
 class TransitionSystem {
-    std::unordered_map<int, std::vector<CondEffect>> cond_effects_by_op_id = {};
+    const int n_vars;
+    AddTransitionTo add_transition_to;
+    const std::unordered_map<int, std::vector<CondEffect>> cond_effects_by_op;
+    const std::vector<std::vector<bool>> exists_effect_condition_in_var_by_op;
     const std::vector<std::vector<FactPair>> preconditions_by_operator;
     const std::vector<std::vector<FactPair>> postconditions_by_operator;
     // Variables used to not allocate new objects to each call to
@@ -68,12 +79,23 @@ class TransitionSystem {
     void add_transition(int src_id, int op_id, int target_id);
     void add_loop(int state_id, int op_id);
 
-    AddTransitionToChild get_incoming_transitions_for_post(const AbstractState &u,
-                                                           const AbstractState &v1,
-                                                           const AbstractState &v2,
-                                                           int var,
-                                                           int post);
-
+    void update_incoming_transitions_for_post(const AbstractState &u,
+                                              const AbstractState &v1,
+                                              const AbstractState &v2,
+                                              int var,
+                                              int post);
+    void update_outgoing_transitions_for_post(const AbstractState &w,
+                                              const AbstractState &v1,
+                                              const AbstractState &v2,
+                                              int var,
+                                              int pre,
+                                              int post,
+                                              bool with_condition = false);
+    void update_loops_and_intertransitions_for_post(const AbstractState &v1,
+                                                    const AbstractState &v2,
+                                                    int var,
+                                                    int pre,
+                                                    int post);
     void compute_partial_post_cartesian_set(const AbstractState &child,
                                             int op_id,
                                             int var);
