@@ -48,7 +48,7 @@ pair<CartesianSet, CartesianSet> AbstractState::split_domain(
 
     CartesianSet v1_cartesian_set(cartesian_set);
     // cartesian_set is not used anymore.
-    CartesianSet v2_cartesian_set = move(cartesian_set);
+    CartesianSet v2_cartesian_set(move(cartesian_set));
 
     v2_cartesian_set.remove_all(var);
     for (int value : wanted) {
@@ -62,7 +62,7 @@ pair<CartesianSet, CartesianSet> AbstractState::split_domain(
         v2_cartesian_set.add(var, value);
     }
     assert(v2_cartesian_set.count(var) == num_wanted);
-    return make_pair(v1_cartesian_set, v2_cartesian_set);
+    return make_pair(move(v1_cartesian_set), move(v2_cartesian_set));
 }
 
 CartesianSet AbstractState::regress(const OperatorProxy &op) const {
