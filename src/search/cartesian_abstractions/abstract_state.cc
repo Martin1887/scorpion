@@ -47,12 +47,13 @@ pair<CartesianSet, CartesianSet> AbstractState::split_domain(
     assert(cartesian_set.count(var) > num_wanted);
 
     CartesianSet v1_cartesian_set(cartesian_set);
-    CartesianSet v2_cartesian_set(cartesian_set);
+    // cartesian_set is not used anymore.
+    CartesianSet v2_cartesian_set = move(cartesian_set);
 
     v2_cartesian_set.remove_all(var);
     for (int value : wanted) {
         // The wanted value has to be in the set of possible values.
-        assert(cartesian_set.test(var, value));
+        assert(v1_cartesian_set.test(var, value));
 
         // In v1 var can have all of the previous values except the wanted ones.
         v1_cartesian_set.remove(var, value);
@@ -60,7 +61,6 @@ pair<CartesianSet, CartesianSet> AbstractState::split_domain(
         // In v2 var can only have the wanted values.
         v2_cartesian_set.add(var, value);
     }
-    assert(v1_cartesian_set.count(var) == cartesian_set.count(var) - num_wanted);
     assert(v2_cartesian_set.count(var) == num_wanted);
     return make_pair(v1_cartesian_set, v2_cartesian_set);
 }
