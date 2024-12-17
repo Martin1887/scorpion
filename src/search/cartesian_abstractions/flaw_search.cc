@@ -661,7 +661,7 @@ FlawSearch::FlawSearch(
     pick_split_timer(false) {
     deviation_fact_count = vector<vector<Deviation>>(domain_sizes.size());
     for (size_t var = 0; var < domain_sizes.size(); ++var) {
-        deviation_fact_count[var].resize(domain_sizes[var], Deviation(0, 0, {}));
+        deviation_fact_count[var].resize(domain_sizes[var], Deviation{0, 0, {}});
     }
     effects_in_unaffected_vars = vector<vector<EffectProxy>>(domain_sizes.size(), vector<EffectProxy>{});
     for (size_t var = 0; var < domain_sizes.size(); ++var) {
