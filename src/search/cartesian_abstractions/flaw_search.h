@@ -69,6 +69,15 @@ class FlawSearch {
     FlawedState last_refined_flawed_state;
     Cost best_flaw_h;
     FlawedStates flawed_states;
+    // Aux vector to get deviation splits (creating it inside
+    // get_deviation_splits is very expensive.
+    std::vector<std::vector<Deviation>> deviation_fact_count;
+    // Aux vector to store effects in unaffected variables.
+    std::vector<std::vector<EffectProxy>> effects_in_unaffected_vars;
+    // Aux vector to store affected vars.
+    std::vector<bool> affected_vars;
+    // Aux set to update affected vars.
+    std::unordered_set<int> conditionally_affected_vars;
 
     // Statistics
     int num_searches;

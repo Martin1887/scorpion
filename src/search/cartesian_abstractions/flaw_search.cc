@@ -155,7 +155,7 @@ SearchStatus FlawSearch::step() {
                             << endl << "->" << endl << succ_state.get_unpacked_values() << endl;
                         log << abstraction.get_state(abs_id) << endl << "->" << endl
                             << abstraction.get_state(target) << endl;
-                        log << "Op: " << op.get_name() << endl;
+                        log << "Op: " << op.get_id() << ", " << op.get_name() << endl;
                         log << "Pre:" << endl;
                         for (auto pre : op.get_preconditions()) {
                             log << pre.get_pair().var << "=" << pre.get_pair().value << ", ";
@@ -209,10 +209,14 @@ static void add_split(vector<vector<Split>> &splits, Split &&new_split) {
     }
 }
 
-static vector<int> get_unaffected_variables(
-    const OperatorProxy &op, int num_variables, const AbstractState &state) {
-    vector<bool> affected(num_variables);
-    unordered_set<int> conditionally_affected{};
+static void update_affected_variables(
+    const OperatorProxy &op,
+    int num_variables,
+    const AbstractState &state,
+    vector<bool> &affected_vars,
+    unordered_set<int> &conditionally_affected_vars) {
+    conditionally_affected_vars.clear();
+    affected_vars.assign(num_variables, false);
     for (EffectProxy effect : op.get_effects()) {
         // Conditional effects with conditions satisfied by some states
         // of the abstract state and not satisfied by other are unaffected
@@ -232,34 +236,28 @@ static vector<int> get_unaffected_variables(
             // Effects never triggered in a variable with a single value in the
             // abstract state cannot be set as affected because other effects
             // in the same variable but other values can exist.
-            affected[effect_pair.var] = true;
+            affected_vars[effect_pair.var] = true;
         } else {
-            conditionally_affected.insert(effect_pair.var);
+            conditionally_affected_vars.insert(effect_pair.var);
         }
     }
     for (FactProxy precondition : op.get_preconditions()) {
         const FactPair &fact = precondition.get_pair();
-        if (!conditionally_affected.count(fact.var)) {
-            affected[fact.var] = true;
+        if (!conditionally_affected_vars.count(fact.var)) {
+            affected_vars[fact.var] = true;
         }
     }
-    vector<int> unaffected_vars;
-    unaffected_vars.reserve(num_variables);
-    for (int var = 0; var < num_variables; ++var) {
-        if (!affected[var]) {
-            unaffected_vars.push_back(var);
-        }
-    }
-    return unaffected_vars;
 }
 
 static void get_deviation_splits(
     const AbstractState &abs_state,
     const vector<State> &conc_states,
-    const vector<int> &unaffected_variables,
+    const vector<bool> &affected_variables,
     const OperatorProxy &op,
     const AbstractState &target_abs_state,
     const vector<int> &domain_sizes,
+    vector<vector<Deviation>> &fact_count,
+    vector<vector<EffectProxy>> &effects_in_unaffected_vars,
     vector<vector<Split>> &splits) {
     /*
       For each fact in the concrete state that is not contained in the
@@ -276,27 +274,32 @@ static void get_deviation_splits(
       pre(o)[v] undefined, eff(o)[v] defined: no split possible since regression adds whole domain.
       pre(o)[v] and eff(o)[v] undefined: if s[v] \notin t[v], wanted = intersect(a[v], b[v]).
     */
-    // NOTE: It could be faster to use an efficient hash map for this.
-    vector<vector<Deviation>> fact_count(domain_sizes.size());
-    for (size_t var = 0; var < domain_sizes.size(); ++var) {
-        fact_count[var].resize(domain_sizes[var], Deviation(0, 0, {}));
+    int n_vars = domain_sizes.size();
+    for (int i = 0; i < n_vars; i++) {
+        fact_count[i].assign(domain_sizes[i], Deviation{0, 0, {}});
+        effects_in_unaffected_vars[i].clear();
+    }
+    for (auto eff : op.get_effects()) {
+        int var = eff.get_fact().get_variable().get_id();
+        if (!affected_variables[var]) {
+            effects_in_unaffected_vars[var].push_back(eff);
+        }
     }
     for (const State &conc_state : conc_states) {
-        for (int var : unaffected_variables) {
-            int state_value = conc_state[var].get_value();
-            // With conditional effects, the source of the deviation can be
-            // the condition variable or the effect variable, or both. But
-            // if the abstract state has only a single value in the variable for
-            // some of them, such a variable cannot be the cause (but the
-            // conditions variables).
-            if (abs_state.count(var) > 1) {
-                ++fact_count[var][state_value].direct_count;
-            }
-            for (auto eff : op.get_effects()) {
-                FactPair eff_pair = eff.get_fact().get_pair();
-                if (eff_pair.var == var) {
+        for (int var = 0; var < n_vars; var++) {
+            if (!affected_variables[var]) {
+                int state_value = conc_state[var].get_value();
+                // With conditional effects, the source of the deviation can be
+                // the condition variable or the effect variable, or both. But
+                // if the abstract state has only a single value in the variable for
+                // some of them, such a variable cannot be the cause (but the
+                // conditions variables).
+                if (abs_state.count(var) > 1) {
+                    ++fact_count[var][state_value].direct_count;
+                }
+                for (auto eff : effects_in_unaffected_vars[var]) {
                     bool target_contains_state_value = target_abs_state.contains(var, state_value);
-                    bool target_contains_effect_value = target_abs_state.contains(var, eff_pair.value);
+                    bool target_contains_effect_value = target_abs_state.contains(var, eff.get_fact().get_value());
                     // The deviation exists if the target abstract state
                     // does not contain the state value or the effect value.
                     if (!target_contains_state_value || !target_contains_effect_value) {
@@ -440,11 +443,13 @@ unique_ptr<Split> FlawSearch::create_split(
             const vector<State> &deviation_states = pair.second;
             if (!deviation_states.empty()) {
                 int num_vars = domain_sizes.size();
+                update_affected_variables(op, num_vars, abstract_state, affected_vars, conditionally_affected_vars);
                 get_deviation_splits(
                     abstract_state, deviation_states,
-                    get_unaffected_variables(op, num_vars, abstract_state),
+                    affected_vars,
                     op,
-                    abstraction.get_state(target), domain_sizes, splits);
+                    abstraction.get_state(target), domain_sizes,
+                    deviation_fact_count, effects_in_unaffected_vars, splits);
             }
         }
     }
@@ -654,6 +659,17 @@ FlawSearch::FlawSearch(
     flaw_search_timer(false),
     compute_splits_timer(false),
     pick_split_timer(false) {
+    deviation_fact_count = vector<vector<Deviation>>(domain_sizes.size());
+    for (size_t var = 0; var < domain_sizes.size(); ++var) {
+        deviation_fact_count[var].resize(domain_sizes[var], Deviation(0, 0, {}));
+    }
+    effects_in_unaffected_vars = vector<vector<EffectProxy>>(domain_sizes.size(), vector<EffectProxy>{});
+    for (size_t var = 0; var < domain_sizes.size(); ++var) {
+        effects_in_unaffected_vars[var].reserve(10);
+    }
+    affected_vars = vector<bool>(domain_sizes.size(), false);
+    conditionally_affected_vars = {};
+    conditionally_affected_vars.reserve(domain_sizes.size());
 }
 
 unique_ptr<Split> FlawSearch::get_split(const utils::CountdownTimer &cegar_timer) {
