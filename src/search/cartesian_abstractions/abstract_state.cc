@@ -213,7 +213,7 @@ bool AbstractState::includes(const vector<FactPair> &facts) const {
     return true;
 }
 
-bool AbstractState::includes_any(int var, const std::unordered_set<int> &values) const {
+bool AbstractState::includes_any(int var, const unordered_set<int> &values) const {
     for (int value : values) {
         if (contains(var, value)) {
             return true;

@@ -187,11 +187,11 @@ void ShortestPaths::update_incrementally(
 }
 
 void ShortestPaths::update_incrementally_in_direction(
-    const std::vector<Transitions> &in,
-    const std::vector<Transitions> &out,
+    const vector<Transitions> &in,
+    const vector<Transitions> &out,
     int v, int v1, int v2,
     const Transitions &old_incoming, const Transitions &old_outgoing,
-    const std::unordered_set<int> &goals,
+    const unordered_set<int> &goals,
     const int initial_state,
     const bool backward) {
     vector<Cost> *distances;
