@@ -236,6 +236,10 @@ void add_common_cegar_options(plugins::Feature &feature) {
         "intersect_bw_flaw_search_states",
         "intersect states found during backward flaw search with the corresponding abstract state to find more flaws",
         "false");
+    feature.add_option<bool>(
+        "bw_progression_flaw_fallback",
+        "get a progression flaw when a flaw has not been found backward",
+        "false");
 }
 
 static plugins::TypedEnumPlugin<DotGraphVerbosity> _enum_plugin({

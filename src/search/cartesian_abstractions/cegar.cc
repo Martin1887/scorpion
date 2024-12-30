@@ -31,6 +31,7 @@ CEGAR::CEGAR(
     PickSplit pick_split,
     PickSplit tiebreak_split,
     bool intersect_bw_flaw_search_states,
+    bool bw_progression_flaw_fallback,
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
     utils::RandomNumberGenerator &rng,
@@ -52,6 +53,7 @@ CEGAR::CEGAR(
         task, *abstraction, *shortest_paths, rng,
         pick_flawed_abstract_state, pick_split, tiebreak_split,
         intersect_bw_flaw_search_states,
+        bw_progression_flaw_fallback,
         max_concrete_states_per_abstract_state, max_state_expansions, log);
 
     if (log.is_at_least_normal()) {

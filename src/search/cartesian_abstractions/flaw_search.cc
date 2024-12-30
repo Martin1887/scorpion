@@ -872,6 +872,7 @@ FlawSearch::FlawSearch(
     PickSplit pick_split,
     PickSplit tiebreak_split,
     bool intersect_bw_flaw_search_states,
+    bool bw_progression_flaw_fallback,
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
     const utils::LogProxy &log) :
@@ -883,6 +884,7 @@ FlawSearch::FlawSearch(
     rng(rng),
     pick_flawed_abstract_state(pick_flawed_abstract_state),
     intersect_bw_flaw_search_states(intersect_bw_flaw_search_states),
+    bw_progression_flaw_fallback(bw_progression_flaw_fallback),
     max_concrete_states_per_abstract_state(max_concrete_states_per_abstract_state),
     max_state_expansions(max_state_expansions),
     log(log),
@@ -1066,8 +1068,14 @@ unique_ptr<Split> FlawSearch::get_backward_split(const Solution &solution) {
     }
     assert(initial_abstract_state->get_id() == abstract_state->get_id());
     if (flaw_search_state.includes(task_proxy.get_initial_state())) {
-        // No flaws, a concrete solution has been found.
-        return nullptr;
+        // No flaws, search a progression flaw or handle it as a concrete
+        // solution has been found (probably not because the over-approximation
+        // of non-Cartesian regression).
+        if (bw_progression_flaw_fallback) {
+            return get_split_legacy(solution);
+        } else {
+            return nullptr;
+        }
     } else {
         if (debug)
             log << "  Initial state test failed." << endl;

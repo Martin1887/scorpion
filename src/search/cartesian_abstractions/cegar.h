@@ -76,6 +76,7 @@ public:
         PickSplit pick_split,
         PickSplit tiebreak_split,
         bool intersect_bw_flaw_search_states,
+        bool bw_progression_flaw_fallback,
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
         utils::RandomNumberGenerator &rng,

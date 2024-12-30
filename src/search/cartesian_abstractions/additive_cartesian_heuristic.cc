@@ -35,6 +35,7 @@ static vector<CartesianHeuristicFunction> generate_heuristic_functions(
         opts.get<PickSplit>("pick_split"),
         opts.get<PickSplit>("tiebreak_split"),
         opts.get<bool>("intersect_bw_flaw_search_states"),
+        opts.get<bool>("bw_progression_flaw_fallback"),
         opts.get<int>("max_concrete_states_per_abstract_state"),
         opts.get<int>("max_state_expansions"),
         opts.get<int>("memory_padding"),
