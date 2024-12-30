@@ -110,6 +110,7 @@ CartesianAbstractionGenerator::CartesianAbstractionGenerator(
           opts.get<cartesian_abstractions::PickFlawedAbstractState>("pick_flawed_abstract_state")),
       pick_split(opts.get<cartesian_abstractions::PickSplit>("pick_split")),
       tiebreak_split(opts.get<cartesian_abstractions::PickSplit>("tiebreak_split")),
+      intersect_bw_flaw_search_states(opts.get<bool>("intersect_bw_flaw_search_states")),
       max_concrete_states_per_abstract_state(
           opts.get<int>("max_concrete_states_per_abstract_state")),
       max_state_expansions(opts.get<int>("max_state_expansions")),
@@ -140,6 +141,7 @@ unique_ptr<cartesian_abstractions::Abstraction> CartesianAbstractionGenerator::b
         pick_flawed_abstract_state,
         pick_split,
         tiebreak_split,
+        intersect_bw_flaw_search_states,
         max_concrete_states_per_abstract_state,
         max_state_expansions,
         *rng,

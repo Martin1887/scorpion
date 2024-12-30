@@ -23,6 +23,7 @@ public:
     explicit CartesianSet(const std::vector<int> &domain_sizes, const std::vector<FactPair> &facts);
 
     int n_vars() const;
+    int n_values(int var) const;
     void add(int var, int value);
     void set_single_value(int var, int value);
     void remove(int var, int value);

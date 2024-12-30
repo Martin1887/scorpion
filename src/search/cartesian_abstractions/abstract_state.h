@@ -50,8 +50,10 @@ public:
     bool is_backward_applicable(const std::vector<std::unordered_set<int>> &post) const;
     bool is_backward_applicable(int var, const std::unordered_set<int> &var_post) const;
     bool reach_backwards_with_op(const AbstractState &other, const OperatorProxy &op) const;
-    // Return the Cartesian set in which applying "op" can lead to this state.
+    // Transform the Cartesian set into the one which applying "op" can lead to this state.
     void regress(const OperatorProxy &op);
+    // Inner intersection with another abstract state.
+    void intersect(const AbstractState &other);
 
     /*
       Separate the "wanted" values from the other values in the abstract domain

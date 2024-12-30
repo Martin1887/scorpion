@@ -152,6 +152,17 @@ void AbstractState::regress(const OperatorProxy &op) {
     }
 }
 
+void AbstractState::intersect(const AbstractState &other) {
+    int n_vars = cartesian_set.n_vars();
+    for (int var = 0; var < n_vars; var++) {
+        for (int value = 0; value < cartesian_set.n_values(var); value++) {
+            if (!other.contains(var, value)) {
+                cartesian_set.remove(var, value);
+            }
+        }
+    }
+}
+
 bool AbstractState::domain_subsets_intersect(const CartesianSet &other, const vector<int> &vars) const {
     for (int var : vars) {
         if (!domain_subsets_intersect(other, var)) {

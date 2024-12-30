@@ -75,6 +75,7 @@ public:
         PickFlawedAbstractState pick_flawed_abstract_state,
         PickSplit pick_split,
         PickSplit tiebreak_split,
+        bool intersect_bw_flaw_search_states,
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
         utils::RandomNumberGenerator &rng,

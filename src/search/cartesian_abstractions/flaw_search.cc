@@ -871,6 +871,7 @@ FlawSearch::FlawSearch(
     PickFlawedAbstractState pick_flawed_abstract_state,
     PickSplit pick_split,
     PickSplit tiebreak_split,
+    bool intersect_bw_flaw_search_states,
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
     const utils::LogProxy &log) :
@@ -881,6 +882,7 @@ FlawSearch::FlawSearch(
     split_selector(task, pick_split, tiebreak_split, log.is_at_least_debug()),
     rng(rng),
     pick_flawed_abstract_state(pick_flawed_abstract_state),
+    intersect_bw_flaw_search_states(intersect_bw_flaw_search_states),
     max_concrete_states_per_abstract_state(max_concrete_states_per_abstract_state),
     max_state_expansions(max_state_expansions),
     log(log),
@@ -1006,9 +1008,11 @@ unique_ptr<Split> FlawSearch::get_backward_split(const Solution &solution) {
     }
 
     // The concrete transition system trace starts in the goals.
-    GoalsProxy goals = task_proxy.get_goals();
     vector<FactPair> goals_facts = task_properties::get_fact_pairs(task_proxy.get_goals());
-    AbstractState flaw_search_state = AbstractState(-1, -1, get_domain_sizes(task_proxy), move(goals_facts));
+    // The goal state if intersect with abstract states and goals otherwise.
+    AbstractState flaw_search_state = intersect_bw_flaw_search_states ?
+        AbstractState(-1, -1, abstract_state->clone_cartesian_set()) :
+        AbstractState(-1, -1, get_domain_sizes(task_proxy), move(goals_facts));
     if (debug) {
         log << "  Initial abstract state: " << *initial_abstract_state << endl;
         log << "  Start (goal) abstract state: " << *abstract_state << endl;
@@ -1043,8 +1047,11 @@ unique_ptr<Split> FlawSearch::get_backward_split(const Solution &solution) {
                 }
                 return create_backward_split(move(flaw_search_state), abstract_state->get_id());
             } else {
-                flaw_search_state.regress(op);
                 abstract_state = next_abstract_state;
+                flaw_search_state.regress(op);
+                if (intersect_bw_flaw_search_states) {
+                    flaw_search_state.intersect(*abstract_state);
+                }
                 if (debug) {
                     log << "  In flaw-search space move to "
                         << flaw_search_state << " with " << op.get_name() << endl;

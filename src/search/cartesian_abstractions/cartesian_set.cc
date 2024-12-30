@@ -31,6 +31,10 @@ int CartesianSet::n_vars() const {
     return domain_subsets.size();
 }
 
+int CartesianSet::n_values(int var) const {
+    return domain_subsets[var].size();
+}
+
 void CartesianSet::add(int var, int value) {
     domain_subsets[var].set(value);
 }

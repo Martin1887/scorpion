@@ -230,6 +230,12 @@ void add_common_cegar_options(plugins::Feature &feature) {
         "maximum number of state expansions per flaw search",
         "1M",
         plugins::Bounds("1", "infinity"));
+
+    // Regression flaws parameters.
+    feature.add_option<bool>(
+        "intersect_bw_flaw_search_states",
+        "intersect states found during backward flaw search with the corresponding abstract state to find more flaws",
+        "false");
 }
 
 static plugins::TypedEnumPlugin<DotGraphVerbosity> _enum_plugin({

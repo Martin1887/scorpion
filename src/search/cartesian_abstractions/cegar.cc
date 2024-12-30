@@ -30,6 +30,7 @@ CEGAR::CEGAR(
     PickFlawedAbstractState pick_flawed_abstract_state,
     PickSplit pick_split,
     PickSplit tiebreak_split,
+    bool intersect_bw_flaw_search_states,
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
     utils::RandomNumberGenerator &rng,
@@ -50,6 +51,7 @@ CEGAR::CEGAR(
     flaw_search = utils::make_unique_ptr<FlawSearch>(
         task, *abstraction, *shortest_paths, rng,
         pick_flawed_abstract_state, pick_split, tiebreak_split,
+        intersect_bw_flaw_search_states,
         max_concrete_states_per_abstract_state, max_state_expansions, log);
 
     if (log.is_at_least_normal()) {

@@ -32,6 +32,7 @@ class CartesianAbstractionGenerator : public AbstractionGenerator {
     const cartesian_abstractions::PickFlawedAbstractState pick_flawed_abstract_state;
     const cartesian_abstractions::PickSplit pick_split;
     const cartesian_abstractions::PickSplit tiebreak_split;
+    const bool intersect_bw_flaw_search_states;
     const int max_concrete_states_per_abstract_state;
     const int max_state_expansions;
     const int extra_memory_padding_mb;
