@@ -27,6 +27,8 @@ class AbstractState {
 
 public:
     AbstractState(int state_id, NodeID node_id, CartesianSet &&cartesian_set);
+    AbstractState(AbstractState &&abstract_state) = default;
+    AbstractState(int state_id, NodeID node_id, const std::vector<int> &domain_sizes, std::vector<FactPair> facts);
 
     AbstractState(const AbstractState &) = delete;
 
@@ -45,8 +47,11 @@ public:
 
     bool contains(int var, int value) const;
 
+    bool is_backward_applicable(const std::vector<std::unordered_set<int>> &post) const;
+    bool is_backward_applicable(int var, const std::unordered_set<int> &var_post) const;
+    bool reach_backwards_with_op(const AbstractState &other, const OperatorProxy &op) const;
     // Return the Cartesian set in which applying "op" can lead to this state.
-    CartesianSet regress(const OperatorProxy &op) const;
+    void regress(const OperatorProxy &op);
 
     /*
       Separate the "wanted" values from the other values in the abstract domain
@@ -58,6 +63,7 @@ public:
     bool includes(const AbstractState &other) const;
     bool includes(const State &concrete_state) const;
     bool includes(const std::vector<FactPair> &facts) const;
+    bool includes_any(int var, const std::unordered_set<int> &values) const;
 
     // IDs are consecutive, so they can be used to index states in vectors.
     int get_id() const;

@@ -49,6 +49,7 @@ class TransitionSystem {
     const std::vector<std::vector<bool>> exists_effect_condition_in_var_by_op;
     const std::vector<std::vector<FactPair>> preconditions_by_operator;
     const std::vector<std::vector<FactPair>> postconditions_by_operator;
+    const std::vector<std::vector<std::unordered_set<int>>> postcondition_set_by_operator;
     // Variables used to not allocate new objects to each call to
     // compute_partial_post_cartesian_set.
     CartesianSet partial_post_set;
@@ -114,7 +115,7 @@ public:
                               const std::vector<int> &domain_sizes);
 
     // Update transition system after v has been split for var into v1 and v2.
-    void rewire(
+    std::pair<Transitions, Transitions> rewire(
         const AbstractStates &states, int v_id,
         const AbstractState &v1, const AbstractState &v2, int var);
 
@@ -123,6 +124,7 @@ public:
     const std::vector<Loops> &get_loops() const;
 
     const std::vector<FactPair> &get_preconditions(int op_id) const;
+    const std::vector<std::unordered_set<int>> &get_postconditions(int op_id) const;
 
     int get_num_states() const;
     int get_num_operators() const;

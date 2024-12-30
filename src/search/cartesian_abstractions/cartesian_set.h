@@ -2,6 +2,7 @@
 #define CARTESIAN_ABSTRACTIONS_CARTESIAN_SET_H
 
 #include "../algorithms/dynamic_bitset.h"
+#include "../task_proxy.h"
 
 #include <ostream>
 #include <vector>
@@ -19,6 +20,7 @@ class CartesianSet {
 
 public:
     explicit CartesianSet(const std::vector<int> &domain_sizes);
+    explicit CartesianSet(const std::vector<int> &domain_sizes, const std::vector<FactPair> &facts);
 
     int n_vars() const;
     void add(int var, int value);

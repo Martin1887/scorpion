@@ -64,6 +64,35 @@ static vector<FactPair> get_postconditions(const OperatorProxy &op) {
     return postconditions;
 }
 
+static vector<unordered_set<int>> get_postcondition_set(const OperatorProxy &op, const vector<int> &domain_sizes) {
+    // All effects are possible in some state, so they are valid without
+    // checking conditions.
+    vector<unordered_set<int>> post_values(domain_sizes.size(), unordered_set<int>{});
+    vector<bool> post_value_always_determined(domain_sizes.size(), false);
+    for (const EffectProxy &ef : op.get_effects()) {
+        int ef_var = ef.get_fact().get_variable().get_id();
+        post_values[ef_var].insert(ef.get_fact().get_value());
+        if (ef.get_conditions().empty() || static_cast<int>(post_values[ef_var].size()) == domain_sizes[ef_var]) {
+            post_value_always_determined[ef_var] = true;
+        }
+    }
+    // Prevail conditions (if the whole variable's domain is not catched by effects).
+    for (const FactProxy &cond : op.get_preconditions()) {
+        int cond_var = cond.get_variable().get_id();
+        if (!post_value_always_determined[cond_var]) {
+            post_values[cond_var].insert(cond.get_value());
+            post_value_always_determined[cond_var] = true;
+        }
+    }
+    int n_vars = domain_sizes.size();
+    for (int var = 0; var < n_vars; var++) {
+        if (!post_value_always_determined[var] && !post_values[var].empty()) {
+            post_values[var].insert(UNDEFINED);
+        }
+    }
+    return post_values;
+}
+
 static vector<bool> get_exists_effect_condition_in_var(int n_vars,
                                                        const OperatorProxy &op) {
     vector<bool> exists_cond_in_var(n_vars, false);
@@ -96,6 +125,16 @@ static vector<vector<FactPair>> get_postconditions_by_operator(const OperatorsPr
         postconditions_by_operator.push_back(get_postconditions(op));
     }
     return postconditions_by_operator;
+}
+
+static vector<vector<unordered_set<int>>> get_postcondition_set_by_operator(const OperatorsProxy &ops,
+                                                                            const vector<int> &domain_sizes) {
+    vector<vector<unordered_set<int>>> postcondition_set_by_operator;
+    postcondition_set_by_operator.reserve(ops.size());
+    for (OperatorProxy op : ops) {
+        postcondition_set_by_operator.push_back(get_postcondition_set(op, domain_sizes));
+    }
+    return postcondition_set_by_operator;
 }
 
 static vector<vector<bool>> get_exists_effect_condition_in_var_by_op(
@@ -147,6 +186,7 @@ TransitionSystem::TransitionSystem(const OperatorsProxy &ops,
       exists_effect_condition_in_var_by_op(get_exists_effect_condition_in_var_by_op(n_vars, ops)),
       preconditions_by_operator(get_preconditions_by_operator(ops)),
       postconditions_by_operator(get_postconditions_by_operator(ops)),
+      postcondition_set_by_operator(get_postcondition_set_by_operator(ops, domain_sizes)),
       partial_post_set(domain_sizes),
       affected_vars(n_vars, false),
       vars_changed(n_vars, false),
@@ -656,7 +696,7 @@ void TransitionSystem::rewire_loops(
     num_loops -= old_loops.size();
 }
 
-void TransitionSystem::rewire(
+pair<Transitions, Transitions> TransitionSystem::rewire(
     const AbstractStates &states, int v_id,
     const AbstractState &v1, const AbstractState &v2, int var) {
     // Retrieve old transitions and make space for new transitions.
@@ -675,6 +715,8 @@ void TransitionSystem::rewire(
     rewire_incoming_transitions(old_incoming, states, v_id, v1, v2, var);
     rewire_outgoing_transitions(old_outgoing, states, v_id, v1, v2, var);
     rewire_loops(old_loops, v1, v2, var);
+
+    return {old_incoming, old_outgoing};
 }
 
 const vector<Transitions> &TransitionSystem::get_incoming_transitions() const {
@@ -692,6 +734,11 @@ const vector<Loops> &TransitionSystem::get_loops() const {
 const vector<FactPair> &TransitionSystem::get_preconditions(int op_id) const {
     assert(utils::in_bounds(op_id, preconditions_by_operator));
     return preconditions_by_operator[op_id];
+}
+
+const vector<unordered_set<int>> &TransitionSystem::get_postconditions(int op_id) const {
+    assert(utils::in_bounds(op_id, postcondition_set_by_operator));
+    return postcondition_set_by_operator[op_id];
 }
 
 int TransitionSystem::get_num_states() const {

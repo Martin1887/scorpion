@@ -80,7 +80,7 @@ void Abstraction::initialize_trivial_abstraction(const vector<int> &domain_sizes
     states.push_back(move(init_state));
 }
 
-pair<int, int> Abstraction::refine(
+tuple<int, int, Transitions, Transitions> Abstraction::refine(
     const AbstractState &state, int var, const vector<int> &wanted) {
     if (log.is_at_least_debug())
         log << "Refine " << state << " for " << var << "=" << wanted << endl;
@@ -139,7 +139,7 @@ pair<int, int> Abstraction::refine(
         }
     }
 
-    transition_system->rewire(states, v_id, *v1, *v2, var);
+    auto [old_incoming, old_outgoing] = transition_system->rewire(states, v_id, *v1, *v2, var);
 
     states.emplace_back();
     states[v1_id] = move(v1);
@@ -148,7 +148,7 @@ pair<int, int> Abstraction::refine(
     assert(init_id == 0);
     assert(get_initial_state().includes(concrete_initial_state));
 
-    return {v1_id, v2_id};
+    return {v1_id, v2_id, old_incoming, old_outgoing};
 }
 
 void Abstraction::print_statistics() const {
