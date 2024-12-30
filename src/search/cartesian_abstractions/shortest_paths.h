@@ -109,7 +109,7 @@ class ShortestPaths {
         const std::unordered_set<int> &goals);
     void recompute_backward(
         const std::vector<Transitions> &out,
-        const int initial_state);
+        int initial_state);
 
     void update_incrementally_in_direction(
         const std::vector<Transitions> &in,
@@ -117,8 +117,8 @@ class ShortestPaths {
         int v, int v1, int v2,
         const Transitions &old_incoming, const Transitions &old_outgoing,
         const std::unordered_set<int> &goals,
-        const int initial_state,
-        const bool backward);
+        int initial_state,
+        bool backward);
 public:
     ShortestPaths(const std::vector<int> &costs, utils::LogProxy &log);
 
@@ -127,7 +127,7 @@ public:
         const std::vector<Transitions> &in,
         const std::vector<Transitions> &out,
         const Goals &goals,
-        const int initial_state);
+        int initial_state);
     // Reflect the split of v into v1 and v2.
     void update_incrementally(
         const std::vector<Transitions> &in,
@@ -135,7 +135,7 @@ public:
         int v, int v1, int v2,
         const Transitions &old_incoming, const Transitions &old_outgoing,
         const std::unordered_set<int> &goals,
-        const int initial_state);
+        int initial_state);
     // Extract solution from shortest path tree.
     std::unique_ptr<Solution> extract_solution(
         int init_id,

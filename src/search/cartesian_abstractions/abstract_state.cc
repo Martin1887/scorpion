@@ -21,7 +21,7 @@ AbstractState::AbstractState(
 }
 
 AbstractState::AbstractState(
-    int state_id, NodeID node_id, const vector<int> &domain_sizes, vector<FactPair> facts)
+    int state_id, NodeID node_id, const vector<int> &domain_sizes, const vector<FactPair> &facts)
     : state_id(state_id),
       node_id(node_id),
       cartesian_set(domain_sizes, facts) {
