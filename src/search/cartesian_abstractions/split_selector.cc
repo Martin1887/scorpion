@@ -56,9 +56,11 @@ SplitSelector::SplitSelector(
     const shared_ptr<AbstractTask> &task,
     PickSplit pick,
     PickSplit tiebreak_pick,
+    const ShortestPaths &shortest_paths,
     bool debug)
     : task(task),
       task_proxy(*task),
+      shortest_paths(shortest_paths),
       debug(debug),
       first_pick(pick),
       tiebreak_pick(tiebreak_pick) {
@@ -149,6 +151,17 @@ double SplitSelector::rate_split(
     case PickSplit::MAX_CG:
         rating = var_id;
         break;
+    case PickSplit::BALANCE_REFINED_CLOSEST_GOAL:
+    {
+        int int_init_dist = shortest_paths.get_64bit_goal_distance(0);
+        double init_dist = int_init_dist == 0 ? 1.0 : (double)int_init_dist;
+        // Refinedness is negative between 0 and -1.
+        // The initial state is always 0 and to normalize between 0 and 1
+        // its distance is used as the maximum of the optimal abstract plan.
+        rating = get_refinedness(state, var_id) -
+            ((double)shortest_paths.get_64bit_goal_distance(state.get_id()) / init_dist);
+        break;
+    }
     default:
         cerr << "Invalid pick strategy for rate_split(): "
              << static_cast<int>(pick) << endl;
@@ -330,6 +343,8 @@ static plugins::TypedEnumPlugin<PickSplit> _enum_plugin({
         {"max_cg",
          "order by decreasing position in partial ordering of causal graph"},
         {"max_cover",
-         "compute split that covers the maximum number of flaws for several concrete states."}
+         "compute split that covers the maximum number of flaws for several concrete states."},
+        {"balance_refined_closest_goal",
+         "a 50%-50% balance between refinedness and lower distance to goal"}
     });
 }

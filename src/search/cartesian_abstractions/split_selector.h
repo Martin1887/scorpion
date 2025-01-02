@@ -4,6 +4,7 @@
 #include "../task_proxy.h"
 
 #include "../utils/logging.h"
+#include "shortest_paths.h"
 
 #include <memory>
 #include <vector>
@@ -36,7 +37,9 @@ enum class PickSplit {
     MIN_CG,
     MAX_CG,
     // Compute split that covers the maximum number of flaws for several concrete states.
-    MAX_COVER
+    MAX_COVER,
+    // A 50%-50% balance between refinedness and lower distance to goal.
+    BALANCE_REFINED_CLOSEST_GOAL,
 };
 
 
@@ -83,6 +86,7 @@ struct Split {
 class SplitSelector {
     const std::shared_ptr<AbstractTask> task;
     const TaskProxy task_proxy;
+    const ShortestPaths &shortest_paths;
     const bool debug;
     std::unique_ptr<additive_heuristic::AdditiveHeuristic> additive_heuristic;
 
@@ -111,6 +115,7 @@ public:
         const std::shared_ptr<AbstractTask> &task,
         PickSplit pick,
         PickSplit tiebreak_pick,
+        const ShortestPaths &shortest_paths,
         bool debug);
     ~SplitSelector();
 

@@ -880,7 +880,7 @@ FlawSearch::FlawSearch(
     domain_sizes(get_domain_sizes(task_proxy)),
     abstraction(abstraction),
     shortest_paths(shortest_paths),
-    split_selector(task, pick_split, tiebreak_split, log.is_at_least_debug()),
+    split_selector(task, pick_split, tiebreak_split, shortest_paths, log.is_at_least_debug()),
     rng(rng),
     pick_flawed_abstract_state(pick_flawed_abstract_state),
     intersect_bw_flaw_search_states(intersect_bw_flaw_search_states),
