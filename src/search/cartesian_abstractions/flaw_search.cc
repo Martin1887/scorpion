@@ -381,6 +381,7 @@ static void get_deviation_splits(
 
 static void get_backward_deviation_splits(
     const AbstractState &abs_state,
+    const AbstractState &flaw_search_state,
     const vector<bool> &affected_variables,
     const AbstractState &source_abs_state,
     const vector<int> &domain_sizes,
@@ -394,9 +395,7 @@ static void get_backward_deviation_splits(
         if (!affected_variables[var]) {
             bool abs_state_has_multiple_values_in_var = abs_state.count(var) > 1;
             for (int state_value = 0; state_value < domain_sizes[var]; state_value++) {
-                // If the value is in the abstract state, it must also be in the
-                // flaw-search state (a deviation would be happened before otherwise).
-                if (abs_state.contains(var, state_value)) {
+                if (abs_state.contains(var, state_value) && flaw_search_state.contains(var, state_value)) {
                     // For conditional effects, the deviation is not always real
                     // because conditions could be satisfied in the source state,
                     // if the abstract state has only a single value in the variable
@@ -629,6 +628,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(AbstractState &&state, int a
             update_affected_variables(op, n_vars, source_state, affected_vars, conditionally_affected_vars);
             get_backward_deviation_splits(
                 abstract_state,
+                state,
                 affected_vars,
                 source_state, domain_sizes,
                 backward_deviation_fact_count, splits);
