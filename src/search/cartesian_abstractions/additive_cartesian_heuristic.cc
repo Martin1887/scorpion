@@ -2,6 +2,7 @@
 
 #include "cartesian_heuristic_function.h"
 #include "cost_saturation.h"
+#include "flaw_search.h"
 #include "types.h"
 #include "utils.h"
 
@@ -32,6 +33,7 @@ static vector<CartesianHeuristicFunction> generate_heuristic_functions(
         opts.get<double>("max_time"),
         opts.get<bool>("use_general_costs"),
         opts.get<PickFlawedAbstractState>("pick_flawed_abstract_state"),
+        opts.get<PickSequenceFlaw>("pick_sequence_flaw"),
         opts.get<PickSplit>("pick_split"),
         opts.get<PickSplit>("tiebreak_split"),
         opts.get<bool>("intersect_bw_flaw_search_states"),

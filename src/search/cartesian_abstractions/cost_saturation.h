@@ -34,6 +34,7 @@ class CostSaturation {
     const double max_time;
     const bool use_general_costs;
     const PickFlawedAbstractState pick_flawed_abstract_state;
+    const PickSequenceFlaw pick_sequence_flaw;
     const PickSplit pick_split;
     const PickSplit tiebreak_split;
     const bool intersect_bw_flaw_search_states;
@@ -69,6 +70,7 @@ public:
         double max_time,
         bool use_general_costs,
         PickFlawedAbstractState pick_flawed_abstract_state,
+        PickSequenceFlaw pick_sequence_flaw,
         PickSplit pick_split,
         PickSplit tiebreak_split,
         bool intersect_bw_flaw_search_states,

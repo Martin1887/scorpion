@@ -71,8 +71,6 @@ class TransitionSystem {
     // Add self-loops to single abstract state in trivial abstraction.
     void add_loops_in_trivial_abstraction();
 
-    int get_precondition_value(int op_id, int var) const;
-    int get_postcondition_value(int op_id, int var) const;
     bool exists_outgoing_transition(int var,
                                     int pre,
                                     const AbstractState &source,
@@ -125,6 +123,8 @@ public:
 
     const std::vector<FactPair> &get_preconditions(int op_id) const;
     const std::vector<std::unordered_set<int>> &get_postconditions(int op_id) const;
+    int get_precondition_value(int op_id, int var) const;
+    int get_postcondition_value(int op_id, int var) const;
 
     int get_num_states() const;
     int get_num_operators() const;

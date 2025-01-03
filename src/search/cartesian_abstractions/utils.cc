@@ -107,6 +107,10 @@ static void add_pick_flawed_abstract_state_strategies(plugins::Feature &feature)
         "pick_flawed_abstract_state",
         "flaw-selection strategy",
         "batch_min_h");
+    feature.add_option<cartesian_abstractions::PickSequenceFlaw>(
+        "pick_sequence_flaw",
+        "sequence flaws selection strategy",
+        "all_flaws");
 }
 
 static void add_pick_split_strategies(plugins::Feature &feature) {

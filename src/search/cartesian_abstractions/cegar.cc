@@ -28,6 +28,7 @@ CEGAR::CEGAR(
     int max_non_looping_transitions,
     double max_time,
     PickFlawedAbstractState pick_flawed_abstract_state,
+    PickSequenceFlaw pick_sequence_flaw,
     PickSplit pick_split,
     PickSplit tiebreak_split,
     bool intersect_bw_flaw_search_states,
@@ -51,7 +52,8 @@ CEGAR::CEGAR(
         task_properties::get_operator_costs(task_proxy), log);
     flaw_search = utils::make_unique_ptr<FlawSearch>(
         task, *abstraction, *shortest_paths, rng,
-        pick_flawed_abstract_state, pick_split, tiebreak_split,
+        pick_flawed_abstract_state, pick_sequence_flaw,
+        pick_split, tiebreak_split,
         intersect_bw_flaw_search_states,
         bw_progression_flaw_fallback,
         max_concrete_states_per_abstract_state, max_state_expansions, log);
@@ -230,6 +232,8 @@ void CEGAR::refinement_loop() {
             split = flaw_search->get_split_legacy(*solution);
         } else if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD) {
             split = flaw_search->get_backward_split(*solution);
+        } else if (pick_flawed_abstract_state == PickFlawedAbstractState::SEQUENCE) {
+            split = flaw_search->get_sequence_split(*solution);
         } else {
             split = flaw_search->get_split(timer);
         }

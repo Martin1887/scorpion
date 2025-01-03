@@ -34,7 +34,13 @@ enum class PickFlawedAbstractState {
     RANDOM,
     MIN_H,
     MAX_H,
-    BATCH_MIN_H
+    BATCH_MIN_H,
+    SEQUENCE,
+};
+
+enum class PickSequenceFlaw {
+    ALL_FLAWS,
+    LAST_FLAW,
 };
 
 struct Deviation {
@@ -53,6 +59,7 @@ class FlawSearch {
     const SplitSelector split_selector;
     utils::RandomNumberGenerator &rng;
     const PickFlawedAbstractState pick_flawed_abstract_state;
+    const PickSequenceFlaw pick_sequence_flaw;
     const bool intersect_bw_flaw_search_states;
     const bool bw_progression_flaw_fallback;
     const int max_concrete_states_per_abstract_state;
@@ -104,6 +111,10 @@ class FlawSearch {
 
     std::unique_ptr<Split> create_split(
         const std::vector<StateID> &state_ids, int abstract_state_id);
+    std::unique_ptr<Split> create_split(
+        const AbstractState &flaw_search_state, int abstract_state_id);
+    std::unique_ptr<Split> create_split_from_goals(
+        const AbstractState &flaw_search_state, int abstract_state_id);
     std::unique_ptr<Split> create_backward_split(AbstractState &&flaw_search_state, int abstract_state_id);
     std::unique_ptr<Split> create_backward_split_from_init_state(AbstractState &&flaw_search_state, int abstract_state_id);
 
@@ -118,6 +129,7 @@ public:
         const ShortestPaths &shortest_paths,
         utils::RandomNumberGenerator &rng,
         PickFlawedAbstractState pick_flawed_abstract_state,
+        PickSequenceFlaw pick_sequence_flaw,
         PickSplit pick_split,
         PickSplit tiebreak_split,
         bool intersect_bw_flaw_search_states,
@@ -129,6 +141,7 @@ public:
     std::unique_ptr<Split> get_split(const utils::CountdownTimer &cegar_timer);
     std::unique_ptr<Split> get_split_legacy(const Solution &solution);
     std::unique_ptr<Split> get_backward_split(const Solution &solution);
+    std::unique_ptr<Split> get_sequence_split(const Solution &solution);
 
     void print_statistics() const;
 };

@@ -14,6 +14,7 @@ namespace cartesian_abstractions {
 class Abstraction;
 enum class DotGraphVerbosity;
 enum class PickFlawedAbstractState;
+enum class PickSequenceFlaw;
 enum class PickSplit;
 class SubtaskGenerator;
 }
@@ -30,6 +31,7 @@ class CartesianAbstractionGenerator : public AbstractionGenerator {
     const int max_transitions;
     const double max_time;
     const cartesian_abstractions::PickFlawedAbstractState pick_flawed_abstract_state;
+    const cartesian_abstractions::PickSequenceFlaw pick_sequence_flaw;
     const cartesian_abstractions::PickSplit pick_split;
     const cartesian_abstractions::PickSplit tiebreak_split;
     const bool intersect_bw_flaw_search_states;

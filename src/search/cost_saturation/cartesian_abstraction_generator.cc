@@ -108,6 +108,7 @@ CartesianAbstractionGenerator::CartesianAbstractionGenerator(
       max_time(opts.get<double>("max_time")),
       pick_flawed_abstract_state(
           opts.get<cartesian_abstractions::PickFlawedAbstractState>("pick_flawed_abstract_state")),
+      pick_sequence_flaw(opts.get<cartesian_abstractions::PickSequenceFlaw>("pick_sequence_flaw")),
       pick_split(opts.get<cartesian_abstractions::PickSplit>("pick_split")),
       tiebreak_split(opts.get<cartesian_abstractions::PickSplit>("tiebreak_split")),
       intersect_bw_flaw_search_states(opts.get<bool>("intersect_bw_flaw_search_states")),
@@ -140,6 +141,7 @@ unique_ptr<cartesian_abstractions::Abstraction> CartesianAbstractionGenerator::b
         max(1, (max_transitions - num_transitions) / remaining_subtasks),
         timer.get_remaining_time() / remaining_subtasks,
         pick_flawed_abstract_state,
+        pick_sequence_flaw,
         pick_split,
         tiebreak_split,
         intersect_bw_flaw_search_states,

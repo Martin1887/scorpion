@@ -13,6 +13,7 @@ class State;
 class TaskProxy;
 
 namespace cartesian_abstractions {
+class TransitionSystem;
 /*
   Store the Cartesian set and the ID of the node in the refinement hierarchy
   for an abstract state.
@@ -28,9 +29,8 @@ class AbstractState {
 public:
     AbstractState(int state_id, NodeID node_id, CartesianSet &&cartesian_set);
     AbstractState(AbstractState &&abstract_state) = default;
+    AbstractState(const AbstractState &abstract_state) = default;
     AbstractState(int state_id, NodeID node_id, const std::vector<int> &domain_sizes, const std::vector<FactPair> &facts);
-
-    AbstractState(const AbstractState &) = delete;
 
     const CartesianSet &get_cartesian_set() const;
     CartesianSet clone_cartesian_set() const;
@@ -47,13 +47,20 @@ public:
 
     bool contains(int var, int value) const;
 
+    bool is_applicable(const OperatorProxy &op) const;
     bool is_backward_applicable(const std::vector<std::unordered_set<int>> &post) const;
     bool is_backward_applicable(int var, const std::unordered_set<int> &var_post) const;
+    bool reach_with_op(const AbstractState &other, const OperatorProxy &op, const TransitionSystem &ts) const;
     bool reach_backwards_with_op(const AbstractState &other, const OperatorProxy &op) const;
+    // Transform the Cartesian set into the succesor.
+    void progress(const OperatorProxy &op);
     // Transform the Cartesian set into the one which applying "op" can lead to this state.
     void regress(const OperatorProxy &op);
     // Inner intersection with another abstract state.
     void intersect(const AbstractState &other);
+    void undeviate(const AbstractState &mapped);
+    bool intersects(const AbstractState &other) const;
+    bool intersects(const AbstractState &other, int var) const;
 
     /*
       Separate the "wanted" values from the other values in the abstract domain

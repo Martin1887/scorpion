@@ -73,6 +73,7 @@ public:
         int max_non_looping_transitions,
         double max_time,
         PickFlawedAbstractState pick_flawed_abstract_state,
+        PickSequenceFlaw pick_sequence_flaw,
         PickSplit pick_split,
         PickSplit tiebreak_split,
         bool intersect_bw_flaw_search_states,
