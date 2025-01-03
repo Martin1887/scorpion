@@ -46,7 +46,13 @@ enum class PickSequenceFlaw {
 struct Deviation {
     int direct_count;
     int cond_effect_count;
-    std::unordered_set<int> cond_effect_wanted;
+    std::vector<bool> cond_effect_wanted;
+
+    void clear() {
+        direct_count = 0;
+        cond_effect_count = 0;
+        cond_effect_wanted.assign(cond_effect_wanted.size(), false);
+    }
 };
 
 using OptimalTransitions = phmap::flat_hash_map<int, std::vector<int>>;
@@ -88,8 +94,8 @@ class FlawSearch {
     std::vector<std::vector<EffectProxy>> effects_in_unaffected_vars;
     // Aux vector to store affected vars.
     std::vector<bool> affected_vars;
-    // Aux set to update affected vars.
-    std::unordered_set<int> conditionally_affected_vars;
+    // Aux vector to store conditionally affected vars.
+    std::vector<bool> conditionally_affected_vars;
 
     // Statistics
     int num_searches;

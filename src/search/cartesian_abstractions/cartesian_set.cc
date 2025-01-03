@@ -14,16 +14,14 @@ CartesianSet::CartesianSet(const vector<int> &domain_sizes) {
     }
 }
 
-CartesianSet::CartesianSet(const vector<int> &domain_sizes, const vector<FactPair> &facts)
-    : CartesianSet(domain_sizes) {
-    vector<bool> reset_vars(domain_sizes.size(), false);
+CartesianSet::CartesianSet(const vector<int> &domain_sizes, const vector<FactPair> &facts) {
+    // Create empty Cartesian set, then add facts.
+    domain_subsets.reserve(domain_sizes.size());
+    for (int domain_size : domain_sizes) {
+        domain_subsets.push_back(Bitset(domain_size));
+    }
     for (FactPair fact : facts) {
-        if (!reset_vars[fact.var]) {
-            set_single_value(fact.var, fact.value);
-            reset_vars[fact.var] = true;
-        } else {
-            add(fact.var, fact.value);
-        }
+        add(fact.var, fact.value);
     }
 }
 
