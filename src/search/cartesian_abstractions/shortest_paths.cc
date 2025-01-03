@@ -234,12 +234,16 @@ void ShortestPaths::update_incrementally_in_direction(
     // necessary for a transition, so some transitions can be in none of the
     // children after the split.
     for (Transition t : old_incoming) {
-        dirty_candidate[t.target_id] = true;
-        candidate_queue.push((*distances)[t.target_id], t.target_id);
+        if (shortest_path[t.target_id].target_id == v) {
+            dirty_candidate[t.target_id] = true;
+            candidate_queue.push((*distances)[t.target_id], t.target_id);
+        }
     }
     for (Transition t : old_outgoing) {
-        dirty_candidate[t.target_id] = true;
-        candidate_queue.push((*distances)[t.target_id], t.target_id);
+        if (reverse_shortest_path[t.target_id].target_id == v) {
+            dirty_candidate[t.target_id] = true;
+            candidate_queue.push((*distances)[t.target_id], t.target_id);
+        }
     }
     for (int state : {v1, v2}) {
         for (const Transition &incoming : (*virtual_in)[state]) {
