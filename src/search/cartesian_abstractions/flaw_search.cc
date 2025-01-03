@@ -1124,6 +1124,7 @@ FlawSearch::FlawSearch(
     PickSplit tiebreak_split,
     bool intersect_bw_flaw_search_states,
     bool bw_progression_flaw_fallback,
+    bool cache_splits,
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
     const utils::LogProxy &log) :
@@ -1137,6 +1138,7 @@ FlawSearch::FlawSearch(
     pick_sequence_flaw(pick_sequence_flaw),
     intersect_bw_flaw_search_states(intersect_bw_flaw_search_states),
     bw_progression_flaw_fallback(bw_progression_flaw_fallback),
+    cache_splits(cache_splits),
     max_concrete_states_per_abstract_state(max_concrete_states_per_abstract_state),
     max_state_expansions(max_state_expansions),
     log(log),
@@ -1423,6 +1425,8 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
     if (flaws.empty()) {
         return nullptr;
     } else {
+        // Cache is useless when splits are computed only in one state
+        // because it is invalidated for the split state.
         if (pick_sequence_flaw == PickSequenceFlaw::LAST_FLAW) {
             auto [flaw_search_state, abstract_state_id, in_goals] = move(flaws.back());
             if (in_goals) {
@@ -1432,16 +1436,27 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
             }
         } else {
             vector<vector<Split>> splits(task_proxy.get_variables().size());
-            for (const auto &[flaw_search_state, abstract_state_id, in_goals] : flaws) {
-                if (in_goals) {
-                    add_sequence_split(splits, move(*create_split_from_goals(flaw_search_state, abstract_state_id)));
+            for (auto &&[flaw_search_state, abstract_state_id, in_goals] : flaws) {
+                if (cache_splits) {
+                    add_sequence_split(splits,
+                                       splits_cache_get(move(flaw_search_state),
+                                                        abstract_state_id,
+                                                        in_goals));
                 } else {
-                    add_sequence_split(splits, move(*create_split(flaw_search_state, abstract_state_id)));
+                    if (in_goals) {
+                        add_sequence_split(splits, move(*create_split_from_goals(flaw_search_state, abstract_state_id)));
+                    } else {
+                        add_sequence_split(splits, move(*create_split(flaw_search_state, abstract_state_id)));
+                    }
                 }
             }
             pick_split_timer.resume();
             Split split = split_selector.pick_split(move(splits), rng);
             pick_split_timer.stop();
+            // The state is split, so cache must be invalidated for it.
+            if (cache_splits) {
+                splits_cache_invalidate(split.abstract_state_id);
+            }
             return utils::make_unique_ptr<Split>(move(split));
         }
     }
@@ -1463,6 +1478,50 @@ void FlawSearch::print_statistics() const {
         log << "Average number of expanded concrete states per flaw search: "
             << expansions / static_cast<float>(num_searches) << endl;
         log << "Average flaw search time: " << flaw_search_timer() / num_searches << endl;
+    }
+}
+
+Split FlawSearch::splits_cache_get(AbstractState &&flaw_search_state,
+                                   int abstract_state_id,
+                                   bool split_goals) {
+    tuple<AbstractState, int, bool> flaw = {move(flaw_search_state), abstract_state_id, split_goals};
+    OptimalTransitions opt_tr = get_f_optimal_transitions(abstract_state_id);
+    // Check split is cached and f-optimal transitions have not changed.
+    if (splits_cache.count(abstract_state_id) == 0 ||
+        splits_cache[abstract_state_id].count(flaw) == 0 ||
+        opt_tr_cache[abstract_state_id] != opt_tr) {
+        splits_cache[abstract_state_id].erase(flaw);
+        if (split_goals) {
+            splits_cache[abstract_state_id].emplace(flaw, create_split_from_goals(get<0>(flaw), abstract_state_id));
+        } else {
+            splits_cache[abstract_state_id].emplace(flaw, create_split(get<0>(flaw), abstract_state_id));
+        }
+        opt_tr_cache.erase(abstract_state_id);
+        opt_tr_cache.emplace(abstract_state_id, std::move(opt_tr));
+    }
+    auto split =
+        splits_cache[abstract_state_id].at(flaw);
+    return Split(
+        split->abstract_state_id, split->var_id, split->value,
+        vector<int>(split->values), split->count);
+}
+
+void FlawSearch::splits_cache_invalidate(int abstract_state_id) {
+    if (!splits_cache.empty()) {
+        splits_cache.erase(abstract_state_id);
+        // Invalidate cache of flaws with incoming/outgoing
+        // transitions to this state. f-optimal only are not
+        // enough, all transitions must be invalidated.
+        // Flaws in goals are not necessary
+        // to be invalidated, but detecting them is more expensive and they are
+        // a low percentage of flaws.
+        for (auto &&tr :
+             abstraction.get_transition_system().get_incoming_transitions()[abstract_state_id]) {
+            if (splits_cache.count(tr.target_id) > 0) {
+                splits_cache.erase(tr.target_id);
+                opt_tr_cache.erase(tr.target_id);
+            }
+        }
     }
 }
 

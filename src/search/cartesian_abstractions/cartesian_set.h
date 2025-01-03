@@ -38,12 +38,20 @@ public:
     std::vector<int> get_values(int var) const;
     bool intersects(const CartesianSet &other, int var) const;
     bool is_superset_of(const CartesianSet &other) const;
+    bool is_equal_in_var(const CartesianSet &other, int var) const;
     void var_union(const CartesianSet &other, int var);
     void set_var_values(const CartesianSet &other, int var);
 
     friend std::ostream &operator<<(
         std::ostream &os, const CartesianSet &cartesian_set);
+    bool operator==(const CartesianSet &other) const;
+
+    void feed(utils::HashState &hash_state) const;
 };
 }
-
+namespace utils {
+inline void feed(HashState &hash_state, const cartesian_abstractions::CartesianSet &val) {
+    val.feed(hash_state);
+}
+}
 #endif

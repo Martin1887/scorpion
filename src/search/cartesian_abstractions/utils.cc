@@ -244,6 +244,12 @@ void add_common_cegar_options(plugins::Feature &feature) {
         "bw_progression_flaw_fallback",
         "get a progression flaw when a flaw has not been found backward",
         "false");
+
+    // Sequence flaws paramters.
+    feature.add_option<bool>(
+        "cache_splits",
+        "cache splits when flaws are searched in all abstract states of the plan",
+        "true");
 }
 
 static plugins::TypedEnumPlugin<DotGraphVerbosity> _enum_plugin({

@@ -82,11 +82,21 @@ public:
     friend std::ostream &operator<<(std::ostream &os, const AbstractState &state) {
         return os << "#" << state.get_id() << state.cartesian_set;
     }
+    bool operator==(const AbstractState &other) const {
+        return state_id == other.state_id && node_id == other.node_id &&
+               cartesian_set == other.cartesian_set;
+    }
 
     // Create the initial, unrefined abstract state.
     static std::unique_ptr<AbstractState> get_trivial_abstract_state(
         const std::vector<int> &domain_sizes);
 };
 }
-
+namespace utils {
+inline void feed(HashState &hash_state, const cartesian_abstractions::AbstractState &val) {
+    feed(hash_state, val.get_id());
+    feed(hash_state, val.get_node_id());
+    feed(hash_state, val.get_cartesian_set());
+}
+}
 #endif

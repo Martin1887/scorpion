@@ -21,6 +21,8 @@ class LogProxy;
 class RandomNumberGenerator;
 }
 
+using utils::HashMap;
+
 namespace cartesian_abstractions {
 class Abstraction;
 class ShortestPaths;
@@ -68,6 +70,7 @@ class FlawSearch {
     const PickSequenceFlaw pick_sequence_flaw;
     const bool intersect_bw_flaw_search_states;
     const bool bw_progression_flaw_fallback;
+    const bool cache_splits;
     const int max_concrete_states_per_abstract_state;
     const int max_state_expansions;
     mutable utils::LogProxy log;
@@ -96,6 +99,12 @@ class FlawSearch {
     std::vector<bool> affected_vars;
     // Aux vector to store conditionally affected vars.
     std::vector<bool> conditionally_affected_vars;
+    //
+    // {AbstractState ID -> {{flaw_search_state,abstract_state_id,split_goals} -> std::shared_ptr<Split>}}
+    HashMap<int, HashMap<std::tuple<AbstractState, int, bool>, std::shared_ptr<Split>>> splits_cache;
+    // If optimal transitions are different the cached split must be recomputed.
+    // {AbstractState ID -> OptimalTransitions}
+    HashMap<int, OptimalTransitions> opt_tr_cache;
 
     // Statistics
     int num_searches;
@@ -128,6 +137,11 @@ class FlawSearch {
     std::unique_ptr<Split> get_single_split(const utils::CountdownTimer &cegar_timer);
     std::unique_ptr<Split> get_min_h_batch_split(const utils::CountdownTimer &cegar_timer);
 
+    Split splits_cache_get(AbstractState &&flaw_search_state,
+                           int abstract_state_id,
+                           bool split_goals);
+    void splits_cache_invalidate(int abstract_state_id);
+
 public:
     FlawSearch(
         const std::shared_ptr<AbstractTask> &task,
@@ -140,6 +154,7 @@ public:
         PickSplit tiebreak_split,
         bool intersect_bw_flaw_search_states,
         bool bw_progression_flaw_fallback,
+        bool cache_splits,
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
         const utils::LogProxy &log);

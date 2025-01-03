@@ -82,6 +82,10 @@ bool CartesianSet::is_superset_of(const CartesianSet &other) const {
     return true;
 }
 
+bool CartesianSet::is_equal_in_var(const CartesianSet &other, int var) const {
+    return domain_subsets[var] == other.domain_subsets[var];
+}
+
 void CartesianSet::var_union(const CartesianSet &other, int var) {
     assert(other.n_vars() == n_vars());
     int n_values = domain_subsets[var].size();
@@ -122,5 +126,26 @@ ostream &operator<<(ostream &os, const CartesianSet &cartesian_set) {
         }
     }
     return os << ">";
+}
+
+bool CartesianSet::operator==(const CartesianSet &other) const {
+    int num_vars = n_vars();
+    if (num_vars != other.n_vars()) {
+        return false;
+    }
+    for (int var = 0; var < num_vars; var++) {
+        if (!is_equal_in_var(other, var)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void CartesianSet::feed(utils::HashState &hash_state) const {
+    int num_vars = n_vars();
+    for (int var = 0; var < num_vars; var++) {
+        utils::feed(hash_state, domain_subsets[var]);
+    }
 }
 }

@@ -39,6 +39,7 @@ class CostSaturation {
     const PickSplit tiebreak_split;
     const bool intersect_bw_flaw_search_states;
     const bool bw_progression_flaw_fallback;
+    const bool cache_splits;
     const int max_concrete_states_per_abstract_state;
     const int max_state_expansions;
     const int memory_padding_mb;
@@ -75,6 +76,7 @@ public:
         PickSplit tiebreak_split,
         bool intersect_bw_flaw_search_states,
         bool bw_progression_flaw_fallback,
+        bool cache_splits,
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
         int memory_padding_mb,

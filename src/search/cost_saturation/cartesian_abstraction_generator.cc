@@ -113,6 +113,7 @@ CartesianAbstractionGenerator::CartesianAbstractionGenerator(
       tiebreak_split(opts.get<cartesian_abstractions::PickSplit>("tiebreak_split")),
       intersect_bw_flaw_search_states(opts.get<bool>("intersect_bw_flaw_search_states")),
       bw_progression_flaw_fallback(opts.get<bool>("bw_progression_flaw_fallback")),
+      cache_splits(opts.get<bool>("cache_splits")),
       max_concrete_states_per_abstract_state(
           opts.get<int>("max_concrete_states_per_abstract_state")),
       max_state_expansions(opts.get<int>("max_state_expansions")),
@@ -146,6 +147,7 @@ unique_ptr<cartesian_abstractions::Abstraction> CartesianAbstractionGenerator::b
         tiebreak_split,
         intersect_bw_flaw_search_states,
         bw_progression_flaw_fallback,
+        cache_splits,
         max_concrete_states_per_abstract_state,
         max_state_expansions,
         *rng,
