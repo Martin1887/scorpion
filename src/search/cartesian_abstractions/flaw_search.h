@@ -1,6 +1,7 @@
 #ifndef CARTESIAN_ABSTRACTIONS_FLAW_SEARCH_H
 #define CARTESIAN_ABSTRACTIONS_FLAW_SEARCH_H
 
+#include "abstract_state.h"
 #include "flaw.h"
 #include "split_selector.h"
 #include "types.h"
