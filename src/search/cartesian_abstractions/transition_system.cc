@@ -336,9 +336,9 @@ void TransitionSystem::update_incoming_transitions_for_post(const AbstractState 
     } else if (v1.contains(var, post)) {
         // op can only end in v1.
         add_transition_to.first = true;
-    } else {
-        // op can only end in v2.
-        assert(v2.contains(var, post));
+    } else if (v2.contains(var, post)) {
+        // with conditional effects the transition could disappear in both children.
+        // op must end in v2.
         add_transition_to.second = true;
     }
 }
@@ -394,9 +394,9 @@ void TransitionSystem::update_loops_and_intertransitions_for_post(const Abstract
             // op must end in v2.
             add_transition_to.first = true;
             add_transition_to.second_loop = true;
-        } else {
+        } else if (v1.contains(var, post)) {
+            // with conditional effects the transition could disappear in both children.
             // op must end in v1.
-            assert(v1.contains(var, post));
             add_transition_to.second = true;
             add_transition_to.first_loop = true;
         }
@@ -406,9 +406,9 @@ void TransitionSystem::update_loops_and_intertransitions_for_post(const Abstract
         if (v1.contains(var, post)) {
             // op must end in v1.
             add_transition_to.first_loop = true;
-        } else {
+        } else if (v2.contains(var, post)) {
+            // with conditional effects the transition could disappear in both children.
             // op must end in v2.
-            assert(v2.contains(var, post));
             add_transition_to.first = true;
         }
     } else {
@@ -418,9 +418,9 @@ void TransitionSystem::update_loops_and_intertransitions_for_post(const Abstract
         if (v1.contains(var, post)) {
             // op must end in v1.
             add_transition_to.second = true;
-        } else {
+        } else if (v2.contains(var, post)) {
+            // with conditional effects the transition could disappear in both children.
             // op must end in v2.
-            assert(v2.contains(var, post));
             add_transition_to.second_loop = true;
         }
     }
