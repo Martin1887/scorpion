@@ -368,10 +368,12 @@ static void get_deviation_splits(
                         wanted.push_back(value);
                     }
                 }
-                assert(!wanted.empty());
-                add_split(splits, Split(
-                              abs_state.get_id(), var, value, move(wanted),
-                              fact_count[var][value].direct_count));
+                // wanted may be empty if the deviation is caused by conditional effects.
+                if (!wanted.empty()) {
+                    add_split(splits, Split(
+                                  abs_state.get_id(), var, value, move(wanted),
+                                  fact_count[var][value].direct_count));
+                }
             }
             // Deviations caused by non-satisfied effects conditions.
             if (fact_count[var][value].cond_effect_count) {
@@ -497,10 +499,12 @@ static void get_deviation_splits(
                         wanted.push_back(value);
                     }
                 }
-                assert(!wanted.empty());
-                add_split(splits, Split(
-                              abs_state.get_id(), var, value, move(wanted),
-                              fact_count[var][value].direct_count));
+                // wanted may be empty if the deviation is caused by conditional effects.
+                if (!wanted.empty()) {
+                    add_split(splits, Split(
+                                  abs_state.get_id(), var, value, move(wanted),
+                                  fact_count[var][value].direct_count));
+                }
             }
             // Deviations caused by non-satisfied effects conditions.
             if (fact_count[var][value].cond_effect_count) {
@@ -728,6 +732,10 @@ unique_ptr<Split> FlawSearch::create_split(
             // At most one of the f-optimal targets can include the successor state.
             if (!state.reach_with_op(abstraction.get_state(target), op, ts)) {
                 // Deviation flaw
+                if (log.is_at_least_debug()) {
+                    log << "Deviation to " << abstraction.get_state(target)
+                        << " with op " << op.get_id() << ":" << op.get_name() << endl;
+                }
                 int num_vars = domain_sizes.size();
                 update_affected_variables(op, num_vars, abstract_state, affected_vars, conditionally_affected_vars);
                 get_deviation_splits(
@@ -1399,6 +1407,12 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
             abstract_state = &abstraction.get_state(step.target_id);
             // Apply the operator as if it were applicable (and undeviate if needed).
             flaw_search_state.progress(op);
+            if (debug) {
+                log << "  Move to " << *next_abstract_state << " with "
+                    << op.get_name() << endl;
+                log << "  Move to " << flaw_search_state << " with "
+                    << op.get_name() << endl;
+            }
             if (!abstract_state->intersects(flaw_search_state)) {
                 if (debug) {
                     log << "  The state " << flaw_search_state << " does not intersects" << endl;
