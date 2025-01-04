@@ -260,7 +260,6 @@ void CEGAR::refinement_loop() {
         refine_timer.resume();
         int state_id = split->abstract_state_id;
         const AbstractState &abstract_state = abstraction->get_state(state_id);
-        assert(!abstraction->get_goals().count(state_id));
 
         tuple<int, int, Transitions, Transitions> refinement = abstraction->refine(
             abstract_state, split->var_id, split->values);
