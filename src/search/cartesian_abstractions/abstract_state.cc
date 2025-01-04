@@ -136,7 +136,7 @@ bool AbstractState::reach_with_op(const AbstractState &other,
     }
 
     for (int var = 0; var < n_vars; var++) {
-        if (!vars_with_post[var] && !intersects(other, var)) {
+        if (!vars_with_post[var] && !is_subset_of(other, var)) {
             return false;
         }
     }
@@ -252,7 +252,7 @@ void AbstractState::intersect(const AbstractState &other) {
 void AbstractState::undeviate(const AbstractState &mapped) {
     int n_vars = cartesian_set.n_vars();
     for (int var = 0; var < n_vars; var++) {
-        if (!domain_subsets_intersect(mapped, var)) {
+        if (!is_subset_of(mapped, var)) {
             cartesian_set.remove_all(var);
             int n_values = cartesian_set.n_values(var);
             for (int value = 0; value < n_values; value++) {
@@ -276,6 +276,12 @@ bool AbstractState::intersects(const AbstractState &other) const {
 }
 bool AbstractState::intersects(const AbstractState &other, int var) const {
     return cartesian_set.intersects(other.get_cartesian_set(), var);
+}
+bool AbstractState::is_superset_of(const AbstractState &other, int var) const {
+    return cartesian_set.is_superset_of(other.get_cartesian_set(), var);
+}
+bool AbstractState::is_subset_of(const AbstractState &other, int var) const {
+    return cartesian_set.is_subset_of(other.get_cartesian_set(), var);
 }
 
 bool AbstractState::domain_subsets_intersect(const CartesianSet &other, const vector<int> &vars) const {

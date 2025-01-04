@@ -82,6 +82,14 @@ bool CartesianSet::is_superset_of(const CartesianSet &other) const {
     return true;
 }
 
+bool CartesianSet::is_superset_of(const CartesianSet &other, int var) const {
+    return other.domain_subsets[var].is_subset_of(domain_subsets[var]);
+}
+
+bool CartesianSet::is_subset_of(const CartesianSet &other, int var) const {
+    return domain_subsets[var].is_subset_of(other.domain_subsets[var]);
+}
+
 bool CartesianSet::is_equal_in_var(const CartesianSet &other, int var) const {
     return domain_subsets[var] == other.domain_subsets[var];
 }
