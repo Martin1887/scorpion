@@ -457,7 +457,7 @@ static void get_deviation_splits(
                             bool must_be_triggered = target_contains_effect_value;
                             for (auto cond : eff.get_conditions()) {
                                 const FactPair &cond_pair = cond.get_pair();
-                                for (int cond_state_value = 0; cond_state_value < domain_sizes[var]; cond_state_value++) {
+                                for (int cond_state_value = 0; cond_state_value < domain_sizes[cond_pair.var]; cond_state_value++) {
                                     if (abs_state.contains(cond_pair.var, cond_state_value) &&
                                         flaw_search_state.contains(cond_pair.var, cond_state_value)) {
                                         if (must_be_triggered) {
