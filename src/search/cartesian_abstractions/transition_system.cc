@@ -251,6 +251,9 @@ void TransitionSystem::compute_partial_post_cartesian_set(const AbstractState &c
     // all conditions exist in the source abstract state, and then
     // post = pre.
     vector<bool> some_effect_always_triggered(n_vars, false);
+    // Checking counts in the child again and again is too
+    // expensive, cache values (UNDEFINED, 0=false, 1=true).
+    vector<int> contains_multiple_values_in_var(n_vars, UNDEFINED);
     affected_vars[var] = true;
     for (const CondEffect &cond_effect : cond_effects) {
         const FactPair &effect_fact = cond_effect.effect;
@@ -261,6 +264,9 @@ void TransitionSystem::compute_partial_post_cartesian_set(const AbstractState &c
         some_effect_always_triggered[effect_fact.var] = true;
         bool conds_satisfied = true;
         for (const FactPair &cond_fact : cond_effect.conds) {
+            if (contains_multiple_values_in_var[cond_fact.var] == UNDEFINED) {
+                contains_multiple_values_in_var[cond_fact.var] = child.count(cond_fact.var) > 1 ? 1 : 0;
+            }
             if (cond_fact.var == var) {
                 affected_vars[effect_fact.var] = true;
             }
@@ -269,7 +275,7 @@ void TransitionSystem::compute_partial_post_cartesian_set(const AbstractState &c
                 conds_satisfied = false;
                 break;
             } else if (some_effect_always_triggered[effect_fact.var] &&
-                       child.count(cond_fact.var) > 1) {
+                       contains_multiple_values_in_var[cond_fact.var] == 1) {
                 some_effect_always_triggered[effect_fact.var] = false;
             }
         }
