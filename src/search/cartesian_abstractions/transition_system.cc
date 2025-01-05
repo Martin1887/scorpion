@@ -321,7 +321,8 @@ void TransitionSystem::update_incoming_transitions_for_post(const AbstractState 
                                                             const AbstractState &v1,
                                                             const AbstractState &v2,
                                                             int var,
-                                                            int post) {
+                                                            int post,
+                                                            bool with_condition) {
     if (post == UNDEFINED) {
         // op has no precondition and no effect on var.
         bool u_and_v1_intersect = u.domain_subsets_intersect(v1, var);
@@ -330,13 +331,14 @@ void TransitionSystem::update_incoming_transitions_for_post(const AbstractState 
         }
         /* With conditional effects the check must be done always because
          * some transitions can disappear in both children. */
-        if (u.domain_subsets_intersect(v2, var)) {
+        if ((!with_condition && !u_and_v1_intersect) || u.domain_subsets_intersect(v2, var)) {
             add_transition_to.second = true;
         }
     } else if (v1.contains(var, post)) {
         // op can only end in v1.
         add_transition_to.first = true;
-    } else if (v2.contains(var, post)) {
+    } else if (!with_condition || v2.contains(var, post)) {
+        assert(v2.contains(var, post));
         // with conditional effects the transition could disappear in both children.
         // op must end in v2.
         add_transition_to.second = true;
@@ -383,7 +385,8 @@ void TransitionSystem::update_loops_and_intertransitions_for_post(const Abstract
                                                                   const AbstractState &v2,
                                                                   int var,
                                                                   int pre,
-                                                                  int post) {
+                                                                  int post,
+                                                                  bool with_condition) {
     if (pre == UNDEFINED) {
         // op has no precondition on var --> it must start in v1 and v2.
         if (post == UNDEFINED) {
@@ -394,7 +397,8 @@ void TransitionSystem::update_loops_and_intertransitions_for_post(const Abstract
             // op must end in v2.
             add_transition_to.first = true;
             add_transition_to.second_loop = true;
-        } else if (v1.contains(var, post)) {
+        } else if (!with_condition || v1.contains(var, post)) {
+            assert(v1.contains(var, post));
             // with conditional effects the transition could disappear in both children.
             // op must end in v1.
             add_transition_to.second = true;
@@ -406,7 +410,8 @@ void TransitionSystem::update_loops_and_intertransitions_for_post(const Abstract
         if (v1.contains(var, post)) {
             // op must end in v1.
             add_transition_to.first_loop = true;
-        } else if (v2.contains(var, post)) {
+        } else if (!with_condition || v2.contains(var, post)) {
+            assert(v2.contains(var, post));
             // with conditional effects the transition could disappear in both children.
             // op must end in v2.
             add_transition_to.first = true;
@@ -418,7 +423,8 @@ void TransitionSystem::update_loops_and_intertransitions_for_post(const Abstract
         if (v1.contains(var, post)) {
             // op must end in v1.
             add_transition_to.second = true;
-        } else if (v2.contains(var, post)) {
+        } else if (!with_condition || v2.contains(var, post)) {
+            assert(v2.contains(var, post));
             // with conditional effects the transition could disappear in both children.
             // op must end in v2.
             add_transition_to.second_loop = true;
@@ -485,7 +491,7 @@ void TransitionSystem::rewire_incoming_transitions(
                         }
                     }
                     if (conds_satisfied) {
-                        update_incoming_transitions_for_post(u, v1, v2, var, effect_fact.value);
+                        update_incoming_transitions_for_post(u, v1, v2, var, effect_fact.value, true);
                         if (some_effect_always_triggered ||
                             (add_transition_to.first && add_transition_to.second)) {
                             break;
@@ -496,7 +502,7 @@ void TransitionSystem::rewire_incoming_transitions(
             if ((!add_transition_to.first || !add_transition_to.second) &&
                 !some_effect_always_triggered) {
                 // post = pre (or undefined if no pre in var).
-                update_incoming_transitions_for_post(u, v1, v2, var, get_precondition_value(op_id, var));
+                update_incoming_transitions_for_post(u, v1, v2, var, get_precondition_value(op_id, var), true);
             }
         } else {
             update_incoming_transitions_for_post(u, v1, v2, var, post);
@@ -661,7 +667,7 @@ void TransitionSystem::rewire_loops(
                             }
                         }
                         if (conds_satisfied) {
-                            update_loops_and_intertransitions_for_post(v1, v2, var, pre, effect_fact.value);
+                            update_loops_and_intertransitions_for_post(v1, v2, var, pre, effect_fact.value, true);
                             if (some_effect_always_triggered ||
                                 (add_transition_to.first && add_transition_to.second &&
                                  add_transition_to.first_loop && add_transition_to.second_loop)) {
@@ -674,7 +680,7 @@ void TransitionSystem::rewire_loops(
                 if (!some_effect_always_triggered &&
                     (!add_transition_to.first || !add_transition_to.second ||
                      !add_transition_to.first_loop || !add_transition_to.second_loop)) {
-                    update_loops_and_intertransitions_for_post(v1, v2, var, pre, pre);
+                    update_loops_and_intertransitions_for_post(v1, v2, var, pre, pre, true);
                 }
             } else {
                 update_loops_and_intertransitions_for_post(v1, v2, var, pre, post);

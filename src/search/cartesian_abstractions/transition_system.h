@@ -82,7 +82,8 @@ class TransitionSystem {
                                               const AbstractState &v1,
                                               const AbstractState &v2,
                                               int var,
-                                              int post);
+                                              int post,
+                                              bool with_condition = false);
     void update_outgoing_transitions_for_post(const AbstractState &w,
                                               const AbstractState &v1,
                                               const AbstractState &v2,
@@ -94,7 +95,8 @@ class TransitionSystem {
                                                     const AbstractState &v2,
                                                     int var,
                                                     int pre,
-                                                    int post);
+                                                    int post,
+                                                    bool with_condition = false);
     void compute_partial_post_cartesian_set(const AbstractState &child,
                                             int op_id,
                                             int var);
