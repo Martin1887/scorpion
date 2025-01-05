@@ -328,9 +328,9 @@ void TransitionSystem::update_incoming_transitions_for_post(const AbstractState 
         if (u_and_v1_intersect) {
             add_transition_to.first = true;
         }
-        /* If u and v1 don't intersect, we must add the other transition
-           and can avoid an intersection test. */
-        if (!u_and_v1_intersect || u.domain_subsets_intersect(v2, var)) {
+        /* With conditional effects the check must be done always because
+         * some transitions can disappear in both children. */
+        if (u.domain_subsets_intersect(v2, var)) {
             add_transition_to.second = true;
         }
     } else if (v1.contains(var, post)) {
