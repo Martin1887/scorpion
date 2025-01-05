@@ -1413,9 +1413,9 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
                 log << "  Move to " << flaw_search_state << " with "
                     << op.get_name() << endl;
             }
-            if (!abstract_state->intersects(flaw_search_state)) {
+            if (!abstract_state->is_superset_of(flaw_search_state)) {
                 if (debug) {
-                    log << "  The state " << flaw_search_state << " does not intersects" << endl;
+                    log << "  The state " << flaw_search_state << " is not a subset or equal" << endl;
                     log << "  Abstract state: " << *abstract_state << endl;
                 }
                 flaw_search_state.undeviate(*abstract_state);

@@ -61,7 +61,9 @@ public:
     void undeviate(const AbstractState &mapped);
     bool intersects(const AbstractState &other) const;
     bool intersects(const AbstractState &other, int var) const;
+    bool is_subset_of(const AbstractState &other) const;
     bool is_subset_of(const AbstractState &other, int var) const;
+    bool is_superset_of(const AbstractState &other) const;
     bool is_superset_of(const AbstractState &other, int var) const;
 
     /*

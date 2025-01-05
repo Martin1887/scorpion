@@ -277,8 +277,14 @@ bool AbstractState::intersects(const AbstractState &other) const {
 bool AbstractState::intersects(const AbstractState &other, int var) const {
     return cartesian_set.intersects(other.get_cartesian_set(), var);
 }
+bool AbstractState::is_superset_of(const AbstractState &other) const {
+    return cartesian_set.is_superset_of(other.get_cartesian_set());
+}
 bool AbstractState::is_superset_of(const AbstractState &other, int var) const {
     return cartesian_set.is_superset_of(other.get_cartesian_set(), var);
+}
+bool AbstractState::is_subset_of(const AbstractState &other) const {
+    return cartesian_set.is_subset_of(other.get_cartesian_set());
 }
 bool AbstractState::is_subset_of(const AbstractState &other, int var) const {
     return cartesian_set.is_subset_of(other.get_cartesian_set(), var);

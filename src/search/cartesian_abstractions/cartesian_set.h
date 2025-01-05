@@ -39,6 +39,7 @@ public:
     bool intersects(const CartesianSet &other, int var) const;
     bool is_superset_of(const CartesianSet &other) const;
     bool is_superset_of(const CartesianSet &other, int var) const;
+    bool is_subset_of(const CartesianSet &other) const;
     bool is_subset_of(const CartesianSet &other, int var) const;
     bool is_equal_in_var(const CartesianSet &other, int var) const;
     void var_union(const CartesianSet &other, int var);
