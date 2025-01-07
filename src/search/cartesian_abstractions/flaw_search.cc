@@ -1347,6 +1347,9 @@ unique_ptr<Split> FlawSearch::get_backward_split(const Solution &solution) {
 }
 
 unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
+    if (!utils::extra_memory_padding_is_reserved()) {
+        return nullptr;
+    }
     bool debug = log.is_at_least_debug();
     if (debug)
         log << "Check solution:" << endl;
@@ -1368,6 +1371,9 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
 
     const TransitionSystem &ts = abstraction.get_transition_system();
     for (const Transition &step : solution) {
+        if (!utils::extra_memory_padding_is_reserved()) {
+            return nullptr;
+        }
         OperatorProxy op = task_proxy.get_operators()[step.op_id];
         const AbstractState *next_abstract_state = &abstraction.get_state(step.target_id);
         if (flaw_search_state.is_applicable(op)) {
@@ -1436,7 +1442,7 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
         flaws.push_back({move(flaw_search_state), abstract_state->get_id(), true});
     }
 
-    if (flaws.empty()) {
+    if (flaws.empty() || !utils::extra_memory_padding_is_reserved()) {
         return nullptr;
     } else {
         // Cache is useless when splits are computed only in one state
@@ -1451,6 +1457,9 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
         } else {
             vector<vector<Split>> splits(task_proxy.get_variables().size());
             for (auto &&[flaw_search_state, abstract_state_id, in_goals] : flaws) {
+                if (!utils::extra_memory_padding_is_reserved()) {
+                    return nullptr;
+                }
                 if (cache_splits) {
                     add_sequence_split(splits,
                                        splits_cache_get(move(flaw_search_state),
