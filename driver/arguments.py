@@ -92,7 +92,7 @@ Examples:
 %s
 """ % "\n\n".join("%s\n%s" % (desc, " ".join([os.path.basename(sys.argv[0])] + parameters)) for desc, parameters in EXAMPLES)
 
-COMPONENTS_PLUS_OVERALL = ["translate", "search", "validate", "overall"]
+COMPONENTS_PLUS_OVERALL = ["translate", "preprocess", "search", "validate", "overall"]
 DEFAULT_SAS_FILE = "output.sas"
 
 
@@ -223,6 +223,8 @@ def _set_components_and_inputs(parser, args):
     args.components = []
     if args.translate or args.run_all:
         args.components.append("translate")
+    if args.transform_task or args.run_all:
+        args.components.append("preprocess")
     if args.search or args.run_all:
         args.components.append("search")
 
@@ -256,7 +258,7 @@ def _set_components_and_inputs(parser, args):
         else:
             print_usage_and_exit_with_driver_input_error(
                 parser, "translator needs one or two input files")
-    elif first == "search":
+    elif first == "preprocess" or first == "search":
         if "--help" in args.search_options:
             args.search_input = None
         elif num_files == 1:
