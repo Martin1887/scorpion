@@ -1276,7 +1276,7 @@ unique_ptr<Split> FlawSearch::get_backward_split(const Solution &solution) {
     // The goal state if intersect with abstract states and goals otherwise.
     AbstractState flaw_search_state = intersect_bw_flaw_search_states ?
         AbstractState(-1, -1, abstract_state->clone_cartesian_set()) :
-        AbstractState(-1, -1, get_domain_sizes(task_proxy), move(goals_facts));
+        AbstractState(-1, -1, get_domain_sizes(task_proxy), move(goals_facts), true);
     if (debug) {
         log << "  Initial abstract state: " << *initial_abstract_state << endl;
         log << "  Start (goal) abstract state: " << *abstract_state << endl;

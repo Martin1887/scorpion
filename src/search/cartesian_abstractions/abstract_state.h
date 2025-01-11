@@ -30,7 +30,7 @@ public:
     AbstractState(int state_id, NodeID node_id, CartesianSet &&cartesian_set);
     AbstractState(AbstractState &&abstract_state) = default;
     AbstractState(const AbstractState &abstract_state) = default;
-    AbstractState(int state_id, NodeID node_id, const std::vector<int> &domain_sizes, const std::vector<FactPair> &facts);
+    AbstractState(int state_id, NodeID node_id, const std::vector<int> &domain_sizes, const std::vector<FactPair> &facts, bool partial_state = false);
 
     const CartesianSet &get_cartesian_set() const;
     CartesianSet clone_cartesian_set() const;

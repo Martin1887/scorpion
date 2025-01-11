@@ -22,10 +22,10 @@ AbstractState::AbstractState(
 }
 
 AbstractState::AbstractState(
-    int state_id, NodeID node_id, const vector<int> &domain_sizes, const vector<FactPair> &facts)
+    int state_id, NodeID node_id, const vector<int> &domain_sizes, const vector<FactPair> &facts, bool partial_state)
     : state_id(state_id),
       node_id(node_id),
-      cartesian_set(domain_sizes, facts) {
+      cartesian_set(domain_sizes, facts, partial_state) {
 }
 
 int AbstractState::n_vars() const {

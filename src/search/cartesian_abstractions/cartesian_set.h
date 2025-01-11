@@ -20,7 +20,7 @@ class CartesianSet {
 
 public:
     explicit CartesianSet(const std::vector<int> &domain_sizes);
-    explicit CartesianSet(const std::vector<int> &domain_sizes, const std::vector<FactPair> &facts);
+    explicit CartesianSet(const std::vector<int> &domain_sizes, const std::vector<FactPair> &facts, bool partial_state = false);
 
     int n_vars() const;
     int n_values(int var) const;
