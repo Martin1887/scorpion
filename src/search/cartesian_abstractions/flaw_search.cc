@@ -1369,10 +1369,8 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
     if (debug)
         log << "  Initial abstract state: " << *abstract_state << endl;
 
-    bool flaw_in_the_last_step = false;
     const TransitionSystem &ts = abstraction.get_transition_system();
     for (const Transition &step : solution) {
-        flaw_in_the_last_step = false;
         if (!utils::extra_memory_padding_is_reserved()) {
             return nullptr;
         }
@@ -1389,7 +1387,6 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
                     log << "  Previous abstract state: " << *abstract_state << endl;
                 }
                 flaws.push_back({flaw_search_state, abstract_state->get_id(), false});
-                flaw_in_the_last_step = true;
                 flaw_search_state.progress(op);
                 if (debug) {
                     log << "  Flaw-search state: " << flaw_search_state << endl;
@@ -1413,7 +1410,6 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
                 log << "  Flaw-search state: " << flaw_search_state << endl;
             }
             flaws.push_back({flaw_search_state, abstract_state->get_id(), false});
-            flaw_in_the_last_step = true;
             abstract_state = &abstraction.get_state(step.target_id);
             // Apply the operator as if it were applicable (and undeviate if needed).
             flaw_search_state.progress(op);
@@ -1435,16 +1431,6 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
         }
     }
     assert(abstraction.get_goals().count(abstract_state->get_id()));
-    if (!flaw_in_the_last_step && !flaw_search_state.includes(task_properties::get_fact_pairs(task_proxy.get_goals()))) {
-        // This may happen if goals are not separated from the initial state
-        // before getting splits (bidirectional strategies so far),
-        // and it needs a special function to do it because goal state
-        // has no optimal transitions.
-        if (debug)
-            log << "  Goal test failed." << endl;
-
-        flaws.push_back({move(flaw_search_state), abstract_state->get_id(), true});
-    }
 
     if (flaws.empty() || !utils::extra_memory_padding_is_reserved()) {
         return nullptr;
