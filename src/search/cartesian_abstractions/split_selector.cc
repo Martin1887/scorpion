@@ -54,11 +54,15 @@ bool Split::combine_with(Split &&other) {
 
 SplitSelector::SplitSelector(
     const shared_ptr<AbstractTask> &task,
+    const Abstraction &abstraction,
     PickSplit pick,
     PickSplit tiebreak_pick,
+    const ShortestPaths &shortest_paths,
     bool debug)
     : task(task),
       task_proxy(*task),
+      abstraction(abstraction),
+      shortest_paths(shortest_paths),
       debug(debug),
       first_pick(pick),
       tiebreak_pick(tiebreak_pick) {
@@ -120,10 +124,10 @@ int SplitSelector::get_max_hadd_value(int var_id, const vector<int> &values) con
     return max_hadd;
 }
 
-double SplitSelector::rate_split(
-    const AbstractState &state, const Split &split, PickSplit pick) const {
+double SplitSelector::rate_split(const Split &split, PickSplit pick) const {
     int var_id = split.var_id;
     double rating;
+    const AbstractState &state = abstraction.get_state(split.abstract_state_id);
     switch (pick) {
     case PickSplit::MIN_UNWANTED:
         rating = -get_num_unwanted_values(state, split);
@@ -149,6 +153,17 @@ double SplitSelector::rate_split(
     case PickSplit::MAX_CG:
         rating = var_id;
         break;
+    case PickSplit::BALANCE_REFINED_CLOSEST_GOAL:
+    {
+        int int_init_dist = shortest_paths.get_64bit_goal_distance(0);
+        double init_dist = int_init_dist == 0 ? 1.0 : (double)int_init_dist;
+        // Refinedness is negative between 0 and -1.
+        // The initial state is always 0 and to normalize between 0 and 1
+        // its distance is used as the maximum of the optimal abstract plan.
+        rating = get_refinedness(state, var_id) -
+            ((double)shortest_paths.get_64bit_goal_distance(state.get_id()) / init_dist);
+        break;
+    }
     default:
         cerr << "Invalid pick strategy for rate_split(): "
              << static_cast<int>(pick) << endl;
@@ -223,7 +238,6 @@ vector<Split> SplitSelector::compute_max_cover_splits(
 }
 
 vector<Split> SplitSelector::reduce_to_best_splits(
-    const AbstractState &abstract_state,
     vector<vector<Split>> &&splits) const {
     if (first_pick == PickSplit::MAX_COVER) {
         return compute_max_cover_splits(move(splits));
@@ -234,7 +248,7 @@ vector<Split> SplitSelector::reduce_to_best_splits(
     for (auto &var_splits : splits) {
         if (!var_splits.empty()) {
             for (Split &split : var_splits) {
-                double rating = rate_split(abstract_state, split, first_pick);
+                double rating = rate_split(split, first_pick);
                 if (rating > max_rating) {
                     best_splits.clear();
                     best_splits.push_back(move(split));
@@ -250,7 +264,6 @@ vector<Split> SplitSelector::reduce_to_best_splits(
 }
 
 Split SplitSelector::select_from_best_splits(
-    const AbstractState &abstract_state,
     vector<Split> &&splits,
     utils::RandomNumberGenerator &rng) const {
     assert(!splits.empty());
@@ -262,7 +275,7 @@ Split SplitSelector::select_from_best_splits(
     double max_rating = numeric_limits<double>::lowest();
     Split *selected_split = nullptr;
     for (Split &split : splits) {
-        double rating = rate_split(abstract_state, split, tiebreak_pick);
+        double rating = rate_split(split, tiebreak_pick);
         if (rating > max_rating) {
             selected_split = &split;
             max_rating = rating;
@@ -273,7 +286,6 @@ Split SplitSelector::select_from_best_splits(
 }
 
 Split SplitSelector::pick_split(
-    const AbstractState &abstract_state,
     vector<vector<Split>> &&splits,
     utils::RandomNumberGenerator &rng) const {
     if (first_pick == PickSplit::RANDOM) {
@@ -288,12 +300,12 @@ Split SplitSelector::pick_split(
         return move(*rng.choose(splits[random_var]));
     }
 
-    vector<Split> best_splits = reduce_to_best_splits(abstract_state, move(splits));
+    vector<Split> best_splits = reduce_to_best_splits(move(splits));
     assert(!best_splits.empty());
     if (debug) {
         utils::g_log << "Best splits: " << best_splits << endl;
     }
-    Split selected_split = select_from_best_splits(abstract_state, move(best_splits), rng);
+    Split selected_split = select_from_best_splits(move(best_splits), rng);
     if (debug) {
         utils::g_log << "Selected split: " << selected_split << endl;
     }
@@ -330,6 +342,8 @@ static plugins::TypedEnumPlugin<PickSplit> _enum_plugin({
         {"max_cg",
          "order by decreasing position in partial ordering of causal graph"},
         {"max_cover",
-         "compute split that covers the maximum number of flaws for several concrete states."}
+         "compute split that covers the maximum number of flaws for several concrete states."},
+        {"balance_refined_closest_goal",
+         "a 50%-50% balance between refinedness and lower distance to goal"}
     });
 }

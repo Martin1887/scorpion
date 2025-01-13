@@ -1,6 +1,7 @@
 #ifndef CARTESIAN_ABSTRACTIONS_FLAW_SEARCH_H
 #define CARTESIAN_ABSTRACTIONS_FLAW_SEARCH_H
 
+#include "abstract_state.h"
 #include "flaw.h"
 #include "split_selector.h"
 #include "types.h"
@@ -21,6 +22,8 @@ class LogProxy;
 class RandomNumberGenerator;
 }
 
+using utils::HashMap;
+
 namespace cartesian_abstractions {
 class Abstraction;
 class ShortestPaths;
@@ -30,10 +33,29 @@ class ShortestPaths;
 enum class PickFlawedAbstractState {
     FIRST,
     FIRST_ON_SHORTEST_PATH,
+    FIRST_ON_SHORTEST_PATH_BACKWARD,
     RANDOM,
     MIN_H,
     MAX_H,
-    BATCH_MIN_H
+    BATCH_MIN_H,
+    SEQUENCE,
+};
+
+enum class PickSequenceFlaw {
+    ALL_FLAWS,
+    LAST_FLAW,
+};
+
+struct Deviation {
+    int direct_count;
+    int cond_effect_count;
+    std::vector<bool> cond_effect_wanted;
+
+    void clear() {
+        direct_count = 0;
+        cond_effect_count = 0;
+        cond_effect_wanted.assign(cond_effect_wanted.size(), false);
+    }
 };
 
 using OptimalTransitions = phmap::flat_hash_map<int, std::vector<int>>;
@@ -46,6 +68,10 @@ class FlawSearch {
     const SplitSelector split_selector;
     utils::RandomNumberGenerator &rng;
     const PickFlawedAbstractState pick_flawed_abstract_state;
+    const PickSequenceFlaw pick_sequence_flaw;
+    const bool intersect_bw_flaw_search_states;
+    const bool bw_progression_flaw_fallback;
+    const bool cache_splits;
     const int max_concrete_states_per_abstract_state;
     const int max_state_expansions;
     mutable utils::LogProxy log;
@@ -63,6 +89,23 @@ class FlawSearch {
     FlawedState last_refined_flawed_state;
     Cost best_flaw_h;
     FlawedStates flawed_states;
+    // Aux vector to get deviation splits (creating it inside
+    // get_deviation_splits is very expensive.
+    std::vector<std::vector<Deviation>> deviation_fact_count;
+    // Backward deviations only need a bool.
+    std::vector<std::vector<bool>> backward_deviation_fact_count;
+    // Aux vector to store effects in unaffected variables.
+    std::vector<std::vector<EffectProxy>> effects_in_unaffected_vars;
+    // Aux vector to store affected vars.
+    std::vector<bool> affected_vars;
+    // Aux vector to store conditionally affected vars.
+    std::vector<bool> conditionally_affected_vars;
+    //
+    // {AbstractState ID -> {{flaw_search_state,abstract_state_id,split_goals} -> std::shared_ptr<Split>}}
+    HashMap<int, HashMap<std::tuple<AbstractState, int, bool>, std::shared_ptr<Split>>> splits_cache;
+    // If optimal transitions are different the cached split must be recomputed.
+    // {AbstractState ID -> OptimalTransitions}
+    HashMap<int, OptimalTransitions> opt_tr_cache;
 
     // Statistics
     int num_searches;
@@ -76,6 +119,7 @@ class FlawSearch {
     Cost get_h_value(int abstract_state_id) const;
     void add_flaw(int abs_id, const State &state);
     OptimalTransitions get_f_optimal_transitions(int abstract_state_id) const;
+    OptimalTransitions get_f_optimal_backward_transitions(int abstract_state_id) const;
 
     void initialize();
     SearchStatus step();
@@ -83,10 +127,21 @@ class FlawSearch {
 
     std::unique_ptr<Split> create_split(
         const std::vector<StateID> &state_ids, int abstract_state_id);
+    std::unique_ptr<Split> create_split(
+        const AbstractState &flaw_search_state, int abstract_state_id);
+    std::unique_ptr<Split> create_split_from_goals(
+        const AbstractState &flaw_search_state, int abstract_state_id);
+    std::unique_ptr<Split> create_backward_split(AbstractState &&flaw_search_state, int abstract_state_id);
+    std::unique_ptr<Split> create_backward_split_from_init_state(AbstractState &&flaw_search_state, int abstract_state_id);
 
     FlawedState get_flawed_state_with_min_h();
     std::unique_ptr<Split> get_single_split(const utils::CountdownTimer &cegar_timer);
     std::unique_ptr<Split> get_min_h_batch_split(const utils::CountdownTimer &cegar_timer);
+
+    Split splits_cache_get(AbstractState &&flaw_search_state,
+                           int abstract_state_id,
+                           bool split_goals);
+    void splits_cache_invalidate(int abstract_state_id);
 
 public:
     FlawSearch(
@@ -95,14 +150,20 @@ public:
         const ShortestPaths &shortest_paths,
         utils::RandomNumberGenerator &rng,
         PickFlawedAbstractState pick_flawed_abstract_state,
+        PickSequenceFlaw pick_sequence_flaw,
         PickSplit pick_split,
         PickSplit tiebreak_split,
+        bool intersect_bw_flaw_search_states,
+        bool bw_progression_flaw_fallback,
+        bool cache_splits,
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
         const utils::LogProxy &log);
 
     std::unique_ptr<Split> get_split(const utils::CountdownTimer &cegar_timer);
     std::unique_ptr<Split> get_split_legacy(const Solution &solution);
+    std::unique_ptr<Split> get_backward_split(const Solution &solution);
+    std::unique_ptr<Split> get_sequence_split(const Solution &solution);
 
     void print_statistics() const;
 };

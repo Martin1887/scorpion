@@ -4,6 +4,8 @@
 #include "../task_proxy.h"
 
 #include "../utils/logging.h"
+#include "abstraction.h"
+#include "shortest_paths.h"
 
 #include <memory>
 #include <vector>
@@ -36,9 +38,10 @@ enum class PickSplit {
     MIN_CG,
     MAX_CG,
     // Compute split that covers the maximum number of flaws for several concrete states.
-    MAX_COVER
+    MAX_COVER,
+    // A 50%-50% balance between refinedness and lower distance to goal.
+    BALANCE_REFINED_CLOSEST_GOAL,
 };
-
 
 struct Split {
     int count;
@@ -83,6 +86,8 @@ struct Split {
 class SplitSelector {
     const std::shared_ptr<AbstractTask> task;
     const TaskProxy task_proxy;
+    const Abstraction &abstraction;
+    const ShortestPaths &shortest_paths;
     const bool debug;
     std::unique_ptr<additive_heuristic::AdditiveHeuristic> additive_heuristic;
 
@@ -95,27 +100,26 @@ class SplitSelector {
     int get_min_hadd_value(int var_id, const std::vector<int> &values) const;
     int get_max_hadd_value(int var_id, const std::vector<int> &values) const;
 
-    double rate_split(const AbstractState &state, const Split &split, PickSplit pick) const;
+    double rate_split(const Split &split, PickSplit pick) const;
     std::vector<Split> compute_max_cover_splits(
         std::vector<std::vector<Split>> &&splits) const;
     Split select_from_best_splits(
-        const AbstractState &abstract_state,
         std::vector<Split> &&splits,
         utils::RandomNumberGenerator &rng) const;
     std::vector<Split> reduce_to_best_splits(
-        const AbstractState &abstract_state,
         std::vector<std::vector<Split>> &&splits) const;
 
 public:
     SplitSelector(
         const std::shared_ptr<AbstractTask> &task,
+        const Abstraction &abstraction,
         PickSplit pick,
         PickSplit tiebreak_pick,
+        const ShortestPaths &shortest_paths,
         bool debug);
     ~SplitSelector();
 
     Split pick_split(
-        const AbstractState &abstract_state,
         std::vector<std::vector<Split>> &&splits,
         utils::RandomNumberGenerator &rng) const;
 };

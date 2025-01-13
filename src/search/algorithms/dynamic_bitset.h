@@ -1,6 +1,8 @@
 #ifndef ALGORITHMS_DYNAMIC_BITSET_H
 #define ALGORITHMS_DYNAMIC_BITSET_H
 
+#include "../utils/hash.h"
+
 #include <cassert>
 #include <limits>
 #include <vector>
@@ -127,6 +129,10 @@ public:
         }
         return true;
     }
+
+    const std::vector<Block> &get_blocks() const {
+        return blocks;
+    }
 };
 
 template<typename Block>
@@ -135,6 +141,13 @@ const Block DynamicBitset<Block>::zeros = Block(0);
 template<typename Block>
 // MSVC's bitwise negation always returns a signed type.
 const Block DynamicBitset<Block>::ones = Block(~Block(0));
+}
+
+namespace utils {
+template<typename Block = unsigned int>
+inline void feed(HashState &hash_state, const dynamic_bitset::DynamicBitset<Block> &bitset) {
+    utils::feed(hash_state, bitset.get_blocks());
+}
 }
 
 /*

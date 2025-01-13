@@ -2,6 +2,7 @@
 #define CARTESIAN_ABSTRACTIONS_CARTESIAN_SET_H
 
 #include "../algorithms/dynamic_bitset.h"
+#include "../task_proxy.h"
 
 #include <ostream>
 #include <vector>
@@ -19,7 +20,10 @@ class CartesianSet {
 
 public:
     explicit CartesianSet(const std::vector<int> &domain_sizes);
+    explicit CartesianSet(const std::vector<int> &domain_sizes, const std::vector<FactPair> &facts, bool partial_state = false);
 
+    int n_vars() const;
+    int n_values(int var) const;
     void add(int var, int value);
     void set_single_value(int var, int value);
     void remove(int var, int value);
@@ -34,10 +38,23 @@ public:
     std::vector<int> get_values(int var) const;
     bool intersects(const CartesianSet &other, int var) const;
     bool is_superset_of(const CartesianSet &other) const;
+    bool is_superset_of(const CartesianSet &other, int var) const;
+    bool is_subset_of(const CartesianSet &other) const;
+    bool is_subset_of(const CartesianSet &other, int var) const;
+    bool is_equal_in_var(const CartesianSet &other, int var) const;
+    void var_union(const CartesianSet &other, int var);
+    void set_var_values(const CartesianSet &other, int var);
 
     friend std::ostream &operator<<(
         std::ostream &os, const CartesianSet &cartesian_set);
+    bool operator==(const CartesianSet &other) const;
+
+    void feed(utils::HashState &hash_state) const;
 };
 }
-
+namespace utils {
+inline void feed(HashState &hash_state, const cartesian_abstractions::CartesianSet &val) {
+    val.feed(hash_state);
+}
+}
 #endif

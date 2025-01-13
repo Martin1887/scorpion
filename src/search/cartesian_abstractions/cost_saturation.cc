@@ -78,8 +78,12 @@ CostSaturation::CostSaturation(
     double max_time,
     bool use_general_costs,
     PickFlawedAbstractState pick_flawed_abstract_state,
+    PickSequenceFlaw pick_sequence_flaw,
     PickSplit pick_split,
     PickSplit tiebreak_split,
+    bool intersect_bw_flaw_search_states,
+    bool bw_progression_flaw_fallback,
+    bool cache_splits,
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
     int memory_padding_mb,
@@ -92,8 +96,12 @@ CostSaturation::CostSaturation(
       max_time(max_time),
       use_general_costs(use_general_costs),
       pick_flawed_abstract_state(pick_flawed_abstract_state),
+      pick_sequence_flaw(pick_sequence_flaw),
       pick_split(pick_split),
       tiebreak_split(tiebreak_split),
+      intersect_bw_flaw_search_states(intersect_bw_flaw_search_states),
+      bw_progression_flaw_fallback(bw_progression_flaw_fallback),
+      cache_splits(cache_splits),
       max_concrete_states_per_abstract_state(max_concrete_states_per_abstract_state),
       max_state_expansions(max_state_expansions),
       memory_padding_mb(memory_padding_mb),
@@ -114,7 +122,6 @@ vector<CartesianHeuristicFunction> CostSaturation::generate_heuristic_functions(
     TaskProxy task_proxy(*task);
 
     task_properties::verify_no_axioms(task_proxy);
-    task_properties::verify_no_conditional_effects(task_proxy);
 
     reset(task_proxy);
 
@@ -206,8 +213,12 @@ void CostSaturation::build_abstractions(
                 rem_subtasks),
             timer.get_remaining_time() / rem_subtasks,
             pick_flawed_abstract_state,
+            pick_sequence_flaw,
             pick_split,
             tiebreak_split,
+            intersect_bw_flaw_search_states,
+            bw_progression_flaw_fallback,
+            cache_splits,
             max_concrete_states_per_abstract_state,
             max_state_expansions,
             rng,

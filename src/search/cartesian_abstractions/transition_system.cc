@@ -2,6 +2,7 @@
 
 #include "abstract_state.h"
 #include "transition.h"
+#include "types.h"
 #include "utils.h"
 
 #include "../task_proxy.h"
@@ -10,7 +11,9 @@
 #include "../utils/logging.h"
 
 #include <algorithm>
+#include <iterator>
 #include <map>
+#include <unordered_set>
 
 using namespace std;
 
@@ -27,16 +30,31 @@ static vector<vector<FactPair>> get_preconditions_by_operator(
     return preconditions_by_operator;
 }
 
-static vector<FactPair> get_postconditions(
-    const OperatorProxy &op) {
+static vector<FactPair> get_postconditions(const OperatorProxy &op) {
     // Use map to obtain sorted postconditions.
     map<int, int> var_to_post;
+#ifndef NDEBUG
+    map<int, int> var_to_pre;
+#endif
     for (FactProxy fact : op.get_preconditions()) {
         var_to_post[fact.get_variable().get_id()] = fact.get_value();
+#ifndef NDEBUG
+        var_to_pre[fact.get_variable().get_id()] = fact.get_value();
+#endif
     }
     for (EffectProxy effect : op.get_effects()) {
         FactPair fact = effect.get_fact().get_pair();
-        var_to_post[fact.var] = fact.value;
+        if (effect.get_conditions().empty()) {
+            // If some effect in the var has no condition, effects in the same
+            // var cannot exist.
+            assert(var_to_post.count(fact.var) == 0 || var_to_post[fact.var] == var_to_pre[fact.var]);
+            var_to_post[fact.var] = fact.value;
+        } else {
+            // If some effect in the var has conditions, effects in the same
+            // var without conditions cannot exist.
+            assert(var_to_post.count(fact.var) == 0 || var_to_post[fact.var] == var_to_pre[fact.var] || var_to_post[fact.var] == OP_WITH_CONDS);
+            var_to_post[fact.var] = OP_WITH_CONDS;
+        }
     }
     vector<FactPair> postconditions;
     postconditions.reserve(var_to_post.size());
@@ -46,14 +64,97 @@ static vector<FactPair> get_postconditions(
     return postconditions;
 }
 
-static vector<vector<FactPair>> get_postconditions_by_operator(
-    const OperatorsProxy &ops) {
+static vector<unordered_set<int>> get_postcondition_set(const OperatorProxy &op, const vector<int> &domain_sizes) {
+    // All effects are possible in some state, so they are valid without
+    // checking conditions.
+    vector<unordered_set<int>> post_values(domain_sizes.size(), unordered_set<int>{});
+    vector<bool> post_value_always_determined(domain_sizes.size(), false);
+    for (const EffectProxy &ef : op.get_effects()) {
+        int ef_var = ef.get_fact().get_variable().get_id();
+        post_values[ef_var].insert(ef.get_fact().get_value());
+        if (ef.get_conditions().empty() || static_cast<int>(post_values[ef_var].size()) == domain_sizes[ef_var]) {
+            post_value_always_determined[ef_var] = true;
+        }
+    }
+    // Prevail conditions (if the whole variable's domain is not catched by effects).
+    for (const FactProxy &cond : op.get_preconditions()) {
+        int cond_var = cond.get_variable().get_id();
+        if (!post_value_always_determined[cond_var]) {
+            post_values[cond_var].insert(cond.get_value());
+            post_value_always_determined[cond_var] = true;
+        }
+    }
+    int n_vars = domain_sizes.size();
+    for (int var = 0; var < n_vars; var++) {
+        if (!post_value_always_determined[var] && !post_values[var].empty()) {
+            post_values[var].insert(UNDEFINED);
+        }
+    }
+    return post_values;
+}
+
+static vector<bool> get_exists_effect_condition_in_var(int n_vars,
+                                                       const OperatorProxy &op) {
+    vector<bool> exists_cond_in_var(n_vars, false);
+    for (EffectProxy effect : op.get_effects()) {
+        for (auto cond : effect.get_conditions()) {
+            exists_cond_in_var[cond.get_pair().var] = true;
+        }
+    }
+    return exists_cond_in_var;
+}
+
+static vector<CondEffect> get_cond_effects(const OperatorProxy &op) {
+    vector<CondEffect> cond_effects{};
+    for (EffectProxy effect : op.get_effects()) {
+        vector<FactPair> conds;
+        if (!effect.get_conditions().empty()) {
+            for (auto cond : effect.get_conditions()) {
+                conds.push_back(cond.get_pair());
+            }
+            cond_effects.push_back(CondEffect{move(conds), effect.get_fact().get_pair()});
+        }
+    }
+    return cond_effects;
+}
+
+static vector<vector<FactPair>> get_postconditions_by_operator(const OperatorsProxy &ops) {
     vector<vector<FactPair>> postconditions_by_operator;
     postconditions_by_operator.reserve(ops.size());
     for (OperatorProxy op : ops) {
         postconditions_by_operator.push_back(get_postconditions(op));
     }
     return postconditions_by_operator;
+}
+
+static vector<vector<unordered_set<int>>> get_postcondition_set_by_operator(const OperatorsProxy &ops,
+                                                                            const vector<int> &domain_sizes) {
+    vector<vector<unordered_set<int>>> postcondition_set_by_operator;
+    postcondition_set_by_operator.reserve(ops.size());
+    for (OperatorProxy op : ops) {
+        postcondition_set_by_operator.push_back(get_postcondition_set(op, domain_sizes));
+    }
+    return postcondition_set_by_operator;
+}
+
+static vector<vector<bool>> get_exists_effect_condition_in_var_by_op(
+    int n_vars,
+    const OperatorsProxy &ops) {
+    vector<vector<bool>> exists_effect_condition_in_var_by_op;
+    exists_effect_condition_in_var_by_op.reserve(ops.size());
+    for (OperatorProxy op : ops) {
+        exists_effect_condition_in_var_by_op.push_back(get_exists_effect_condition_in_var(n_vars, op));
+    }
+    return exists_effect_condition_in_var_by_op;
+}
+
+static unordered_map<int, vector<CondEffect>> get_cond_effects_by_op(
+    const OperatorsProxy &ops) {
+    unordered_map<int, vector<CondEffect>> cond_effects_by_op;
+    for (OperatorProxy op : ops) {
+        cond_effects_by_op[op.get_id()] = get_cond_effects(op);
+    }
+    return cond_effects_by_op;
 }
 
 static int lookup_value(const vector<FactPair> &facts, int var) {
@@ -78,9 +179,17 @@ static void remove_transitions_with_given_target(
 }
 
 
-TransitionSystem::TransitionSystem(const OperatorsProxy &ops)
-    : preconditions_by_operator(get_preconditions_by_operator(ops)),
+TransitionSystem::TransitionSystem(const OperatorsProxy &ops,
+                                   const vector<int> &domain_sizes)
+    : n_vars(domain_sizes.size()),
+      cond_effects_by_op(get_cond_effects_by_op(ops)),
+      exists_effect_condition_in_var_by_op(get_exists_effect_condition_in_var_by_op(n_vars, ops)),
+      preconditions_by_operator(get_preconditions_by_operator(ops)),
       postconditions_by_operator(get_postconditions_by_operator(ops)),
+      postcondition_set_by_operator(get_postcondition_set_by_operator(ops, domain_sizes)),
+      partial_post_set(domain_sizes),
+      affected_vars(n_vars, false),
+      vars_changed(n_vars, false),
       num_non_loops(0),
       num_loops(0) {
     add_loops_in_trivial_abstraction();
@@ -122,15 +231,226 @@ void TransitionSystem::add_loop(int state_id, int op_id) {
     loops[state_id].push_back(op_id);
     ++num_loops;
 }
+void TransitionSystem::compute_partial_post_cartesian_set(const AbstractState &child,
+                                                          int op_id,
+                                                          int var) {
+    // The only affected vars respect to the parent are the split var and the
+    // conditional effects with conditions in the split var.
+    // The partial post Cartesian set is only checked for affected vars (but
+    // updated also for other vars that could be affected for later
+    // conditional effects).
+    affected_vars.assign(n_vars, false);
+    // This set maintains the variables that have been modified for some
+    // conditional effect to make decisions about the values assigned to the
+    // partial post Cartesian set for affected vars.
+    vars_changed.assign(n_vars, false);
+    const CartesianSet &child_set = child.get_cartesian_set();
+
+    const vector<CondEffect> &cond_effects = cond_effects_by_op.at(op_id);
+    // The most probable thing is that some state not satisfying
+    // all conditions exist in the source abstract state, and then
+    // post = pre.
+    vector<bool> some_effect_always_triggered(n_vars, false);
+    // Checking counts in the child again and again is too
+    // expensive, cache values (UNDEFINED, 0=false, 1=true).
+    vector<int> contains_multiple_values_in_var(n_vars, UNDEFINED);
+    affected_vars[var] = true;
+    for (const CondEffect &cond_effect : cond_effects) {
+        const FactPair &effect_fact = cond_effect.effect;
+        if (some_effect_always_triggered[effect_fact.var]) {
+            continue;
+        }
+        // But also some states satisfying conditions can exist.
+        some_effect_always_triggered[effect_fact.var] = true;
+        bool conds_satisfied = true;
+        for (const FactPair &cond_fact : cond_effect.conds) {
+            if (contains_multiple_values_in_var[cond_fact.var] == UNDEFINED) {
+                contains_multiple_values_in_var[cond_fact.var] = child.count(cond_fact.var) > 1 ? 1 : 0;
+            }
+            if (cond_fact.var == var) {
+                affected_vars[effect_fact.var] = true;
+            }
+            if (!child.contains(cond_fact.var, cond_fact.value)) {
+                some_effect_always_triggered[effect_fact.var] = false;
+                conds_satisfied = false;
+                break;
+            } else if (some_effect_always_triggered[effect_fact.var] &&
+                       contains_multiple_values_in_var[cond_fact.var] == 1) {
+                some_effect_always_triggered[effect_fact.var] = false;
+            }
+        }
+        // If this is the first effect setting a value, set it as the
+        // single value, otherwise it is an additional possible effect.
+        // This must be done although the var is not affected yet because it
+        // could be affected by another conditional effect later.
+        if (conds_satisfied) {
+            if (!vars_changed[effect_fact.var]) {
+                partial_post_set.set_single_value(effect_fact.var, effect_fact.value);
+            } else {
+                partial_post_set.add(effect_fact.var, effect_fact.value);
+            }
+            vars_changed[effect_fact.var] = true;
+        }
+    }
+
+    // If no conditional effects but an effect without conditions exists in the
+    // variable, such an effect is always triggered.
+    const vector<FactPair> &effects = postconditions_by_operator[op_id];
+    for (const FactPair &eff : effects) {
+        if (affected_vars[eff.var] && eff.value != OP_WITH_CONDS) {
+            partial_post_set.set_single_value(eff.var, eff.value);
+            some_effect_always_triggered[eff.var] = true;
+        }
+    }
+
+    // post = pre (or the child values) for variables without any always
+    // triggered effect.
+    for (int iter_var = 0; iter_var < n_vars; iter_var++) {
+        if (!some_effect_always_triggered[iter_var] && affected_vars[iter_var]) {
+            int pre = get_precondition_value(op_id, iter_var);
+            if (vars_changed[iter_var]) {
+                if (pre != UNDEFINED) {
+                    partial_post_set.add(iter_var, pre);
+                } else {
+                    partial_post_set.var_union(child_set, iter_var);
+                }
+            } else if (pre != UNDEFINED) {
+                partial_post_set.set_single_value(iter_var, pre);
+            } else {
+                partial_post_set.set_var_values(child_set, iter_var);
+            }
+        }
+    }
+}
+
+void TransitionSystem::update_incoming_transitions_for_post(const AbstractState &u,
+                                                            const AbstractState &v1,
+                                                            const AbstractState &v2,
+                                                            int var,
+                                                            int post,
+                                                            bool with_condition) {
+    if (post == UNDEFINED) {
+        // op has no precondition and no effect on var.
+        bool u_and_v1_intersect = u.domain_subsets_intersect(v1, var);
+        if (u_and_v1_intersect) {
+            add_transition_to.first = true;
+        }
+        /* With conditional effects the check must be done always because
+         * some transitions can disappear in both children. */
+        if ((!with_condition && !u_and_v1_intersect) || u.domain_subsets_intersect(v2, var)) {
+            add_transition_to.second = true;
+        }
+    } else if (v1.contains(var, post)) {
+        // op can only end in v1.
+        add_transition_to.first = true;
+    } else if (!with_condition || v2.contains(var, post)) {
+        assert(v2.contains(var, post));
+        // with conditional effects the transition could disappear in both children.
+        // op must end in v2.
+        add_transition_to.second = true;
+    }
+}
+
+void TransitionSystem::update_outgoing_transitions_for_post(const AbstractState &w,
+                                                            const AbstractState &v1,
+                                                            const AbstractState &v2,
+                                                            int var,
+                                                            int pre,
+                                                            int post,
+                                                            bool with_condition) {
+    if (post == UNDEFINED) {
+        assert(pre == UNDEFINED);
+        // op has no precondition and no effect on var.
+        bool v1_and_w_intersect = v1.domain_subsets_intersect(w, var);
+        if (v1_and_w_intersect) {
+            add_transition_to.first = true;
+        }
+        /* If v1 and w don't intersect, we must add the other transition
+           and can avoid an intersection test. */
+        if (!v1_and_w_intersect || v2.domain_subsets_intersect(w, var)) {
+            add_transition_to.second = true;
+        }
+    } else if (pre == UNDEFINED) {
+        // op has no precondition, but an effect on var.
+        if (!with_condition || w.contains(var, post)) {
+            add_transition_to.first = true;
+            add_transition_to.second = true;
+        }
+    } else if (v1.contains(var, pre) &&
+               (!with_condition || w.contains(var, post))) {
+        // op can only start in v1.
+        add_transition_to.first = true;
+    } else if (!with_condition || w.contains(var, post)) {
+        // op can only start in v2.
+        assert(v2.contains(var, pre));
+        add_transition_to.second = true;
+    }
+}
+
+void TransitionSystem::update_loops_and_intertransitions_for_post(const AbstractState &v1,
+                                                                  const AbstractState &v2,
+                                                                  int var,
+                                                                  int pre,
+                                                                  int post,
+                                                                  bool with_condition) {
+    if (pre == UNDEFINED) {
+        // op has no precondition on var --> it must start in v1 and v2.
+        if (post == UNDEFINED) {
+            // op has no effect on var --> it must end in v1 and v2.
+            add_transition_to.first_loop = true;
+            add_transition_to.second_loop = true;
+        } else if (v2.contains(var, post)) {
+            // op must end in v2.
+            add_transition_to.first = true;
+            add_transition_to.second_loop = true;
+        } else if (!with_condition || v1.contains(var, post)) {
+            assert(v1.contains(var, post));
+            // with conditional effects the transition could disappear in both children.
+            // op must end in v1.
+            add_transition_to.second = true;
+            add_transition_to.first_loop = true;
+        }
+    } else if (v1.contains(var, pre)) {
+        // op must start in v1.
+        assert(post != UNDEFINED);
+        if (v1.contains(var, post)) {
+            // op must end in v1.
+            add_transition_to.first_loop = true;
+        } else if (!with_condition || v2.contains(var, post)) {
+            assert(v2.contains(var, post));
+            // with conditional effects the transition could disappear in both children.
+            // op must end in v2.
+            add_transition_to.first = true;
+        }
+    } else {
+        // op must start in v2.
+        assert(v2.contains(var, pre));
+        assert(post != UNDEFINED);
+        if (v1.contains(var, post)) {
+            // op must end in v1.
+            add_transition_to.second = true;
+        } else if (!with_condition || v2.contains(var, post)) {
+            assert(v2.contains(var, post));
+            // with conditional effects the transition could disappear in both children.
+            // op must end in v2.
+            add_transition_to.second_loop = true;
+        }
+    }
+}
+
+bool TransitionSystem::exists_outgoing_transition(int var,
+                                                  int pre,
+                                                  const AbstractState &source,
+                                                  const AbstractState &target) {
+    return (pre == UNDEFINED || source.contains(var, pre)) &&
+           target.domain_subsets_intersect(partial_post_set, affected_vars);
+}
 
 void TransitionSystem::rewire_incoming_transitions(
     const Transitions &old_incoming, const AbstractStates &states, int v_id,
     const AbstractState &v1, const AbstractState &v2, int var) {
     /* State v has been split into v1 and v2. Now for all transitions
        u->v we need to add transitions u->v1, u->v2, or both. */
-    int v1_id = v1.get_id();
-    int v2_id = v2.get_id();
-
     unordered_set<int> updated_states;
     for (const Transition &transition : old_incoming) {
         int u_id = transition.target_id;
@@ -141,28 +461,62 @@ void TransitionSystem::rewire_incoming_transitions(
     }
     num_non_loops -= old_incoming.size();
 
+    int v1_id = v1.get_id();
+    int v2_id = v2.get_id();
     for (const Transition &transition : old_incoming) {
         int op_id = transition.op_id;
         int u_id = transition.target_id;
         const AbstractState &u = *states[u_id];
         int post = get_postcondition_value(op_id, var);
-        if (post == UNDEFINED) {
-            // op has no precondition and no effect on var.
-            bool u_and_v1_intersect = u.domain_subsets_intersect(v1, var);
-            if (u_and_v1_intersect) {
-                add_transition(u_id, op_id, v1_id);
+        add_transition_to.reset();
+        if (post == OP_WITH_CONDS) {
+            // If the effect has conditions, all effects in this var must be
+            // checked.
+            const vector<CondEffect> &cond_effects = cond_effects_by_op.at(op_id);
+            // The most probable thing is that some state not satisfying
+            // all conditions exist in the source abstract state, and then
+            // post = pre. If for some effect all states satisfy all
+            // conditions, then the post=pre case does not happen.
+            bool some_effect_always_triggered = true;
+            for (const CondEffect &cond_effect : cond_effects) {
+                // But also some states satisfying conditions can exist.
+                const FactPair &effect_fact = cond_effect.effect;
+                if (effect_fact.var == var) {
+                    // Assume that the effect is always triggered until some
+                    // condition negates it.
+                    some_effect_always_triggered = true;
+                    bool conds_satisfied = true;
+                    for (const FactPair &cond_fact : cond_effect.conds) {
+                        if (!u.contains(cond_fact.var, cond_fact.value)) {
+                            some_effect_always_triggered = false;
+                            conds_satisfied = false;
+                            break;
+                        } else if (some_effect_always_triggered &&
+                                   u.count(cond_fact.var) > 1) {
+                            some_effect_always_triggered = false;
+                        }
+                    }
+                    if (conds_satisfied) {
+                        update_incoming_transitions_for_post(u, v1, v2, var, effect_fact.value, true);
+                        if (some_effect_always_triggered ||
+                            (add_transition_to.first && add_transition_to.second)) {
+                            break;
+                        }
+                    }
+                }
             }
-            /* If u and v1 don't intersect, we must add the other transition
-               and can avoid an intersection test. */
-            if (!u_and_v1_intersect || u.domain_subsets_intersect(v2, var)) {
-                add_transition(u_id, op_id, v2_id);
+            if ((!add_transition_to.first || !add_transition_to.second) &&
+                !some_effect_always_triggered) {
+                // post = pre (or undefined if no pre in var).
+                update_incoming_transitions_for_post(u, v1, v2, var, get_precondition_value(op_id, var), true);
             }
-        } else if (v1.contains(var, post)) {
-            // op can only end in v1.
-            add_transition(u_id, op_id, v1_id);
         } else {
-            // op can only end in v2.
-            assert(v2.contains(var, post));
+            update_incoming_transitions_for_post(u, v1, v2, var, post);
+        }
+        if (add_transition_to.first) {
+            add_transition(u_id, op_id, v1_id);
+        }
+        if (add_transition_to.second) {
             add_transition(u_id, op_id, v2_id);
         }
     }
@@ -173,9 +527,6 @@ void TransitionSystem::rewire_outgoing_transitions(
     const AbstractState &v1, const AbstractState &v2, int var) {
     /* State v has been split into v1 and v2. Now for all transitions
        v->w we need to add transitions v1->w, v2->w, or both. */
-    int v1_id = v1.get_id();
-    int v2_id = v2.get_id();
-
     unordered_set<int> updated_states;
     for (const Transition &transition : old_outgoing) {
         int w_id = transition.target_id;
@@ -186,35 +537,79 @@ void TransitionSystem::rewire_outgoing_transitions(
     }
     num_non_loops -= old_outgoing.size();
 
+    int v1_id = v1.get_id();
+    int v2_id = v2.get_id();
     for (const Transition &transition : old_outgoing) {
+        add_transition_to.reset();
         int op_id = transition.op_id;
         int w_id = transition.target_id;
         const AbstractState &w = *states[w_id];
         int pre = get_precondition_value(op_id, var);
         int post = get_postcondition_value(op_id, var);
-        if (post == UNDEFINED) {
-            assert(pre == UNDEFINED);
-            // op has no precondition and no effect on var.
-            bool v1_and_w_intersect = v1.domain_subsets_intersect(w, var);
-            if (v1_and_w_intersect) {
+        if (exists_effect_condition_in_var_by_op[op_id][var]) {
+            compute_partial_post_cartesian_set(v1, op_id, var);
+            if (exists_outgoing_transition(var, pre, v1, w)) {
                 add_transition(v1_id, op_id, w_id);
             }
-            /* If v1 and w don't intersect, we must add the other transition
-               and can avoid an intersection test. */
-            if (!v1_and_w_intersect || v2.domain_subsets_intersect(w, var)) {
+            compute_partial_post_cartesian_set(v2, op_id, var);
+            if (exists_outgoing_transition(var, pre, v2, w)) {
                 add_transition(v2_id, op_id, w_id);
             }
-        } else if (pre == UNDEFINED) {
-            // op has no precondition, but an effect on var.
-            add_transition(v1_id, op_id, w_id);
-            add_transition(v2_id, op_id, w_id);
-        } else if (v1.contains(var, pre)) {
-            // op can only start in v1.
-            add_transition(v1_id, op_id, w_id);
         } else {
-            // op can only start in v2.
-            assert(v2.contains(var, pre));
-            add_transition(v2_id, op_id, w_id);
+            if (post == OP_WITH_CONDS) {
+                // If the effect has conditions, all effects in this var must be
+                // checked.
+                vector<CondEffect> cond_effects = cond_effects_by_op.at(op_id);
+                // The most probable thing is that some state not satisfying
+                // all conditions exist in the source abstract state, and then
+                // post = pre.
+                bool some_effect_always_triggered = true;
+                for (const CondEffect &cond_effect : cond_effects) {
+                    FactPair effect_fact = cond_effect.effect;
+                    // But also some states satisfying conditions can exist.
+                    if (effect_fact.var == var) {
+                        // Assume that the effect is always triggered until some
+                        // condition negates it.
+                        some_effect_always_triggered = true;
+                        bool conds_satisfied = true;
+                        for (const FactPair &cond_fact : cond_effect.conds) {
+                            assert(cond_fact.var != var);
+                            // As the condition is not in the split var (such case is
+                            // considered in another function using a post Cartesian set),
+                            // any child can be used for both children because they have
+                            // the same value in that var.
+                            if (!v1.contains(cond_fact.var, cond_fact.value)) {
+                                some_effect_always_triggered = false;
+                                conds_satisfied = false;
+                                break;
+                            } else if (some_effect_always_triggered &&
+                                       v1.count(cond_fact.var) > 1) {
+                                some_effect_always_triggered = false;
+                            }
+                        }
+                        if (conds_satisfied) {
+                            update_outgoing_transitions_for_post(w, v1, v2, var, pre, effect_fact.value, true);
+                            if (some_effect_always_triggered ||
+                                (add_transition_to.first && add_transition_to.second)) {
+                                break;
+                            }
+                        }
+                    }
+                }
+                // post = pre (or undefined if no pre in var).
+                if (!some_effect_always_triggered &&
+                    (!add_transition_to.first || !add_transition_to.second)) {
+                    update_outgoing_transitions_for_post(w, v1, v2, var, pre, pre);
+                }
+            } else {
+                update_outgoing_transitions_for_post(w, v1, v2, var, pre, post);
+            }
+            if (add_transition_to.first) {
+                add_transition(v1_id, op_id, w_id);
+            }
+            if (add_transition_to.second) {
+                add_transition(v2_id, op_id, w_id);
+            }
         }
     }
 }
@@ -227,45 +622,85 @@ void TransitionSystem::rewire_loops(
     int v1_id = v1.get_id();
     int v2_id = v2.get_id();
     for (int op_id : old_loops) {
+        add_transition_to.reset();
         int pre = get_precondition_value(op_id, var);
         int post = get_postcondition_value(op_id, var);
-        if (pre == UNDEFINED) {
-            // op has no precondition on var --> it must start in v1 and v2.
-            if (post == UNDEFINED) {
-                // op has no effect on var --> it must end in v1 and v2.
+        if (exists_effect_condition_in_var_by_op[op_id][var]) {
+            compute_partial_post_cartesian_set(v1, op_id, var);
+            if (exists_outgoing_transition(var, pre, v1, v1)) {
                 add_loop(v1_id, op_id);
-                add_loop(v2_id, op_id);
-            } else if (v2.contains(var, post)) {
-                // op must end in v2.
-                add_transition(v1_id, op_id, v2_id);
-                add_loop(v2_id, op_id);
-            } else {
-                // op must end in v1.
-                assert(v1.contains(var, post));
-                add_loop(v1_id, op_id);
-                add_transition(v2_id, op_id, v1_id);
             }
-        } else if (v1.contains(var, pre)) {
-            // op must start in v1.
-            assert(post != UNDEFINED);
-            if (v1.contains(var, post)) {
-                // op must end in v1.
-                add_loop(v1_id, op_id);
-            } else {
-                // op must end in v2.
-                assert(v2.contains(var, post));
+            if (exists_outgoing_transition(var, pre, v1, v2)) {
                 add_transition(v1_id, op_id, v2_id);
+            }
+            compute_partial_post_cartesian_set(v2, op_id, var);
+            if (exists_outgoing_transition(var, pre, v2, v2)) {
+                add_loop(v2_id, op_id);
+            }
+            if (exists_outgoing_transition(var, pre, v2, v1)) {
+                add_transition(v2_id, op_id, v1_id);
             }
         } else {
-            // op must start in v2.
-            assert(v2.contains(var, pre));
-            assert(post != UNDEFINED);
-            if (v1.contains(var, post)) {
-                // op must end in v1.
-                add_transition(v2_id, op_id, v1_id);
+            if (post == OP_WITH_CONDS) {
+                // If the effect has conditions, all effects in this var must be
+                // checked.
+                vector<CondEffect> cond_effects = cond_effects_by_op.at(op_id);
+                // The most probable thing is that some state not satisfying
+                // all conditions exist in the source abstract state, and then
+                // post = pre.
+                bool some_effect_always_triggered = true;
+                for (const CondEffect &cond_effect : cond_effects) {
+                    FactPair effect_fact = cond_effect.effect;
+                    // But also some states satisfying conditions can exist.
+                    if (effect_fact.var == var) {
+                        // Assume that the effect is always triggered until some
+                        // condition negates it.
+                        some_effect_always_triggered = true;
+                        bool conds_satisfied = true;
+                        for (const FactPair &cond_fact : cond_effect.conds) {
+                            assert(cond_fact.var != var);
+                            // As the condition is not in the split var (such case is
+                            // considered in another function using a post Cartesian set),
+                            // any child can be used for both children because they have
+                            // the same value in that var.
+                            if (!v1.contains(cond_fact.var, cond_fact.value)) {
+                                some_effect_always_triggered = false;
+                                conds_satisfied = false;
+                                break;
+                            } else if (some_effect_always_triggered &&
+                                       v1.count(cond_fact.var) > 1) {
+                                some_effect_always_triggered = false;
+                            }
+                        }
+                        if (conds_satisfied) {
+                            update_loops_and_intertransitions_for_post(v1, v2, var, pre, effect_fact.value, true);
+                            if (some_effect_always_triggered ||
+                                (add_transition_to.first && add_transition_to.second &&
+                                 add_transition_to.first_loop && add_transition_to.second_loop)) {
+                                break;
+                            }
+                        }
+                    }
+                }
+                // post = pre (or undefined if no pre in var).
+                if (!some_effect_always_triggered &&
+                    (!add_transition_to.first || !add_transition_to.second ||
+                     !add_transition_to.first_loop || !add_transition_to.second_loop)) {
+                    update_loops_and_intertransitions_for_post(v1, v2, var, pre, pre, true);
+                }
             } else {
-                // op must end in v2.
-                assert(v2.contains(var, post));
+                update_loops_and_intertransitions_for_post(v1, v2, var, pre, post);
+            }
+            if (add_transition_to.first) {
+                add_transition(v1_id, op_id, v2_id);
+            }
+            if (add_transition_to.second) {
+                add_transition(v2_id, op_id, v1_id);
+            }
+            if (add_transition_to.first_loop) {
+                add_loop(v1_id, op_id);
+            }
+            if (add_transition_to.second_loop) {
                 add_loop(v2_id, op_id);
             }
         }
@@ -273,7 +708,7 @@ void TransitionSystem::rewire_loops(
     num_loops -= old_loops.size();
 }
 
-void TransitionSystem::rewire(
+pair<Transitions, Transitions> TransitionSystem::rewire(
     const AbstractStates &states, int v_id,
     const AbstractState &v1, const AbstractState &v2, int var) {
     // Retrieve old transitions and make space for new transitions.
@@ -292,6 +727,8 @@ void TransitionSystem::rewire(
     rewire_incoming_transitions(old_incoming, states, v_id, v1, v2, var);
     rewire_outgoing_transitions(old_outgoing, states, v_id, v1, v2, var);
     rewire_loops(old_loops, v1, v2, var);
+
+    return {old_incoming, old_outgoing};
 }
 
 const vector<Transitions> &TransitionSystem::get_incoming_transitions() const {
@@ -309,6 +746,11 @@ const vector<Loops> &TransitionSystem::get_loops() const {
 const vector<FactPair> &TransitionSystem::get_preconditions(int op_id) const {
     assert(utils::in_bounds(op_id, preconditions_by_operator));
     return preconditions_by_operator[op_id];
+}
+
+const vector<unordered_set<int>> &TransitionSystem::get_postconditions(int op_id) const {
+    assert(utils::in_bounds(op_id, postcondition_set_by_operator));
+    return postcondition_set_by_operator[op_id];
 }
 
 int TransitionSystem::get_num_states() const {

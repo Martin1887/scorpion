@@ -3,6 +3,7 @@
 #include "abstraction.h"
 #include "abstract_state.h"
 #include "cartesian_set.h"
+#include "flaw_search.h"
 #include "shortest_paths.h"
 #include "transition_system.h"
 #include "utils.h"
@@ -27,8 +28,12 @@ CEGAR::CEGAR(
     int max_non_looping_transitions,
     double max_time,
     PickFlawedAbstractState pick_flawed_abstract_state,
+    PickSequenceFlaw pick_sequence_flaw,
     PickSplit pick_split,
     PickSplit tiebreak_split,
+    bool intersect_bw_flaw_search_states,
+    bool bw_progression_flaw_fallback,
+    bool cache_splits,
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
     utils::RandomNumberGenerator &rng,
@@ -48,7 +53,11 @@ CEGAR::CEGAR(
         task_properties::get_operator_costs(task_proxy), log);
     flaw_search = utils::make_unique_ptr<FlawSearch>(
         task, *abstraction, *shortest_paths, rng,
-        pick_flawed_abstract_state, pick_split, tiebreak_split,
+        pick_flawed_abstract_state, pick_sequence_flaw,
+        pick_split, tiebreak_split,
+        intersect_bw_flaw_search_states,
+        bw_progression_flaw_fallback,
+        cache_splits,
         max_concrete_states_per_abstract_state, max_state_expansions, log);
 
     if (log.is_at_least_normal()) {
@@ -162,8 +171,8 @@ void CEGAR::refinement_loop() {
                 break;
             }
             FactPair fact = goal.get_pair();
-            auto pair = abstraction->refine(*current, fact.var, {fact.value});
-            current = &abstraction->get_state(pair.second);
+            auto refinement = abstraction->refine(*current, fact.var, {fact.value});
+            current = &abstraction->get_state(get<1>(refinement));
         }
         assert(!abstraction->get_goals().count(abstraction->get_initial_state().get_id()));
         assert(abstraction->get_goals().size() == 1);
@@ -172,7 +181,9 @@ void CEGAR::refinement_loop() {
     // Initialize abstract goal distances and shortest path tree.
     shortest_paths->recompute(
         abstraction->get_transition_system().get_incoming_transitions(),
-        abstraction->get_goals());
+        abstraction->get_transition_system().get_outgoing_transitions(),
+        abstraction->get_goals(),
+        abstraction->get_initial_state().get_id());
     assert(shortest_paths->test_distances(
                abstraction->get_transition_system().get_incoming_transitions(),
                abstraction->get_transition_system().get_outgoing_transitions(),
@@ -221,6 +232,10 @@ void CEGAR::refinement_loop() {
         if (pick_flawed_abstract_state ==
             PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH) {
             split = flaw_search->get_split_legacy(*solution);
+        } else if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST_ON_SHORTEST_PATH_BACKWARD) {
+            split = flaw_search->get_backward_split(*solution);
+        } else if (pick_flawed_abstract_state == PickFlawedAbstractState::SEQUENCE) {
+            split = flaw_search->get_sequence_split(*solution);
         } else {
             split = flaw_search->get_split(timer);
         }
@@ -245,9 +260,8 @@ void CEGAR::refinement_loop() {
         refine_timer.resume();
         int state_id = split->abstract_state_id;
         const AbstractState &abstract_state = abstraction->get_state(state_id);
-        assert(!abstraction->get_goals().count(state_id));
 
-        pair<int, int> new_state_ids = abstraction->refine(
+        tuple<int, int, Transitions, Transitions> refinement = abstraction->refine(
             abstract_state, split->var_id, split->values);
         refine_timer.stop();
 
@@ -255,7 +269,10 @@ void CEGAR::refinement_loop() {
         shortest_paths->update_incrementally(
             abstraction->get_transition_system().get_incoming_transitions(),
             abstraction->get_transition_system().get_outgoing_transitions(),
-            state_id, new_state_ids.first, new_state_ids.second);
+            state_id, get<0>(refinement), get<1>(refinement),
+            get<2>(refinement), get<3>(refinement),
+            abstraction->get_goals(),
+            abstraction->get_initial_state().get_id());
         assert(shortest_paths->test_distances(
                    abstraction->get_transition_system().get_incoming_transitions(),
                    abstraction->get_transition_system().get_outgoing_transitions(),

@@ -28,6 +28,7 @@ using Transitions = std::vector<Transition>;
 // Positive infinity. The name "INFINITY" is taken by an ISO C99 macro.
 const int INF = std::numeric_limits<int>::max();
 const int UNDEFINED = -1;
+const int OP_WITH_CONDS = -2;
 const Cost INF_COSTS = std::numeric_limits<Cost>::max();
 const Cost UNDEFINED_COST = std::numeric_limits<Cost>::max() - 1;
 }
