@@ -202,8 +202,8 @@ void add_common_cegar_options(plugins::Feature &feature) {
         "false");
 
     feature.add_option<bool>(
-        "print_h_distribution",
-        "print h distribution in the concrete space",
+        "print_f_distribution",
+        "print f distribution in the concrete space",
         "false");
 
     feature.add_option<bool>(

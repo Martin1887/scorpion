@@ -35,7 +35,7 @@ class CostSaturation {
     const int max_state_expansions;
     const int memory_padding_mb;
     const bool random_vars_order_tiebreak;
-    const bool print_h_distribution;
+    const bool print_f_distribution;
     const bool print_useless_refinements;
     lp::LPSolverType lp_solver;
     utils::RandomNumberGenerator &rng;
@@ -65,7 +65,7 @@ public:
         int max_state_expansions,
         int memory_padding_mb,
         bool random_vars_order_tiebreak,
-        bool print_h_distribution,
+        bool print_f_distribution,
         bool print_useless_refinements,
         lp::LPSolverType lp_solver,
         utils::RandomNumberGenerator &rng,

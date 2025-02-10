@@ -78,7 +78,7 @@ CostSaturation::CostSaturation(
     int max_state_expansions,
     int memory_padding_mb,
     bool random_vars_order_tiebreak,
-    bool print_h_distribution,
+    bool print_f_distribution,
     bool print_useless_refinements,
     lp::LPSolverType lp_solver,
     utils::RandomNumberGenerator &rng,
@@ -90,7 +90,7 @@ CostSaturation::CostSaturation(
       max_state_expansions(max_state_expansions),
       memory_padding_mb(memory_padding_mb),
       random_vars_order_tiebreak(random_vars_order_tiebreak),
-      print_h_distribution(print_h_distribution),
+      print_f_distribution(print_f_distribution),
       print_useless_refinements(print_useless_refinements),
       lp_solver(lp_solver),
       rng(rng),
@@ -227,8 +227,8 @@ void CostSaturation::build_abstractions(
             goal_distances,
             use_general_costs);
 
-        if (print_h_distribution) {
-            abstraction->h_distribution(goal_distances, init_distances);
+        if (print_f_distribution) {
+            abstraction->f_distribution(goal_distances, init_distances);
         }
 
         reduce_remaining_costs(saturated_costs);

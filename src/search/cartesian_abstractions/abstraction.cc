@@ -232,20 +232,31 @@ void Abstraction::dump() const {
     }
 }
 
-void Abstraction::h_distribution(const vector<int> &goal_distances,
+void Abstraction::f_distribution(const vector<int> &goal_distances,
                                  const vector<int> &init_distances) const {
-    // For each h value, the number of states with it as h value.
+    // For each g, h and f value, the number of states with it as g, h and f
+    // value.
+    utils::HashMap<int, vector<vector<int>>> g_distribution{};
     utils::HashMap<int, vector<vector<int>>> h_distribution{};
+    utils::HashMap<int, vector<vector<int>>> f_distribution{};
     int n_abstract_states = get_num_states();
     vector<vector<int>> unreachable_states{};
 
     for (int i = 0; i < n_abstract_states; i++) {
         vector<int> n_states = get_state(i).count();
+        int g = init_distances[i];
         int h = goal_distances[i];
-        vector<vector<int>> current = h_distribution[h];
-        current.push_back(n_states);
-        h_distribution[h] = current;
-        if (init_distances[i] == INF) {
+        int f = g + h;
+        vector<vector<int>> current_g = g_distribution[g];
+        vector<vector<int>> current_h = h_distribution[h];
+        vector<vector<int>> current_f = f_distribution[f];
+        current_g.push_back(n_states);
+        current_h.push_back(n_states);
+        current_f.push_back(n_states);
+        g_distribution[g] = current_g;
+        h_distribution[h] = current_h;
+        f_distribution[f] = current_f;
+        if (g == INF) {
             unreachable_states.push_back(n_states);
         }
     }
@@ -254,9 +265,17 @@ void Abstraction::h_distribution(const vector<int> &goal_distances,
         << endl;
 
     log << "Number of unreachable concrete states: " << unreachable_states << endl;
+    for (auto g_nstates : g_distribution) {
+        log << "Distribution of g, g=" << g_nstates.first << " for "
+            << g_nstates.second << " concrete states" << endl;
+    }
     for (auto h_nstates : h_distribution) {
         log << "Distribution of h, h=" << h_nstates.first << " for "
             << h_nstates.second << " concrete states" << endl;
+    }
+    for (auto f_nstates : f_distribution) {
+        log << "Distribution of f, f=" << f_nstates.first << " for "
+            << f_nstates.second << " concrete states" << endl;
     }
 }
 }

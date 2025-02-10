@@ -106,9 +106,9 @@ public:
 
     void dump() const;
 
-    // Print the distribution of h values as a vector with the numbers to
-    // multiply to get the final number of states
-    void h_distribution(const std::vector<int> &goal_distances,
+    // Print the distribution of f, g and h values as a vector with the numbers
+    // to multiply to get the final number of states.
+    void f_distribution(const std::vector<int> &goal_distances,
                         const std::vector<int> &init_distances) const;
 };
 }
