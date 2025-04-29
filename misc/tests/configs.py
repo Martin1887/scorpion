@@ -118,10 +118,13 @@ def _get_landmark_config(**kwargs):
 
 
 def configs_optimal_extended():
-    return {
+    configs = {
         "astar_cegar": [
             "--search",
-            "astar(cegar())"],
+            "astar(cegar([landmarks(), goals()]))"],
+        "astar_cegar_single": [
+            "--search",
+            "astar(cegar([original()]))"],
         "pdb": [
             "--search",
             "astar(pdb())"],
@@ -182,6 +185,11 @@ def configs_optimal_extended():
         # This is not really an optimal configuration, but we add it here to test it.
         "exhaustive": ["--search", "dump_reachable_search_space()"],
     }
+    configs.update({f"astar_cegar_{tsr}": ["--search", f"astar(cegar(transition_representation={tsr}))"]
+                    for tsr in ["store", "compute"]})
+    configs.update({f"astar_cartesian_{tsr}": ["--search", f"astar(scp_online([cartesian(transition_representation={tsr})]))"]
+                    for tsr in ["store", "compute"]})
+    return configs
 
 
 def configs_satisficing_extended():
@@ -227,13 +235,17 @@ def configs_satisficing_extended():
             "f_eval=sum([g(), h])))"],
         "brfs": ["--search", "brfs()"],
         "dfs": ["--search", "dfs()"],
+        "ids": ["--search", "ids()"],
         "iw": ["--search", "iw(2)"],
     }
 
 
 def configs_optimal_lp(lp_solver="cplex"):
     return {
+        "allpot": ["--search", f"astar(all_states_potential(lpsolver={lp_solver}))"],
         "divpot": ["--search", f"astar(diverse_potentials(lpsolver={lp_solver}))"],
+        "initpot": ["--search", f"astar(initial_state_potential(lpsolver={lp_solver}))"],
+        "samplepot": ["--search", f"astar(sample_based_potentials(lpsolver={lp_solver}))"],
         "seq+lmcut": ["--search", f"astar(operatorcounting([state_equation_constraints(), lmcut_constraints()], lpsolver={lp_solver}))"],
         "ocp": [
             "--search",
@@ -249,6 +261,7 @@ def configs_optimal_lp(lp_solver="cplex"):
             """astar(pho([projections(systematic(2))], saturated=true, max_orders=1))"""],
         "lm_ocp": _get_landmark_config(cost_partitioning="optimal", lpsolver=lp_solver),
         "lm_pho": _get_landmark_config(cost_partitioning="pho", lpsolver=lp_solver),
+        "lm_spho": _get_landmark_config(cost_partitioning="saturated_pho", lpsolver=lp_solver),
     }
 
 

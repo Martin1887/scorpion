@@ -121,28 +121,28 @@ public:
             "pattern database heuristics. While cegar() interleaves abstraction "
             "computation with cost partitioning, saturated_cost_partitioning() "
             "computes all abstractions using the original costs.");
-        add_options_for_cost_partitioning_heuristic(*this);
+        add_options_for_cost_partitioning_heuristic(*this, "scp");
         add_saturator_option(*this);
         add_order_options(*this);
     }
 
     virtual shared_ptr<MaxCostPartitioningHeuristic> create_component(
-        const plugins::Options &options, const utils::Context &) const override {
+        const plugins::Options &options) const override {
         shared_ptr<AbstractTask> task = options.get<shared_ptr<AbstractTask>>("transform");
         TaskProxy task_proxy(*task);
         vector<int> costs = task_properties::get_operator_costs(task_proxy);
-        unique_ptr<DeadEnds> dead_ends = utils::make_unique_ptr<DeadEnds>();
+        unique_ptr<DeadEnds> dead_ends = make_unique<DeadEnds>();
         Abstractions abstractions = generate_abstractions(
             task, options.get_list<shared_ptr<AbstractionGenerator>>("abstractions"), dead_ends.get());
         CPFunction cp_function = get_cp_function_from_options(options);
         vector<CostPartitioningHeuristic> cp_heuristics =
-            get_cp_heuristic_collection_generator_from_options(options).generate_cost_partitionings(
+            get_cp_heuristic_collection_generator_from_options(options)->generate_cost_partitionings(
                 task_proxy, abstractions, costs, cp_function);
-        return make_shared<MaxCostPartitioningHeuristic>(
-            options,
+        return plugins::make_shared_from_arg_tuples<MaxCostPartitioningHeuristic>(
             move(abstractions),
             move(cp_heuristics),
-            move(dead_ends));
+            move(dead_ends),
+            get_heuristic_arguments_from_options(options));
     }
 };
 

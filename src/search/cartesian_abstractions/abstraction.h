@@ -5,8 +5,6 @@
 
 #include "../task_proxy.h"
 
-#include "../utils/collections.h"
-
 #include <memory>
 #include <vector>
 
@@ -16,7 +14,9 @@ class LogProxy;
 
 namespace cartesian_abstractions {
 class AbstractState;
+class MatchTree;
 class RefinementHierarchy;
+class TransitionRewirer;
 class TransitionSystem;
 
 /*
@@ -26,12 +26,14 @@ class TransitionSystem;
   RefinementHierarchy.
 */
 class Abstraction {
-    const std::unique_ptr<TransitionSystem> transition_system;
+    const std::shared_ptr<TransitionRewirer> transition_rewirer;
+    std::unique_ptr<TransitionSystem> transition_system;
     const State concrete_initial_state;
     const std::vector<FactPair> goal_facts;
 
     // All (as of yet unsplit) abstract states.
     AbstractStates states;
+    CartesianSets cartesian_sets;
     // State ID of abstract initial state.
     int init_id;
     // Abstract goal states. Only landmark tasks can have multiple goal states.
@@ -41,29 +43,57 @@ class Abstraction {
        current states. */
     std::unique_ptr<RefinementHierarchy> refinement_hierarchy;
 
+    std::unique_ptr<MatchTree> match_tree;
+
+    // Old transitions for incremental update of shortest paths when some
+    // transitions is removed for both children (which may happen with
+    // conditional effects).
+    std::optional<Transitions> old_incoming;
+    std::optional<Transitions> old_outgoing;
+
     utils::LogProxy &log;
+    const bool debug;
 
     void initialize_trivial_abstraction(const std::vector<int> &domain_sizes);
 
 public:
-    Abstraction(const std::shared_ptr<AbstractTask> &task, utils::LogProxy &log);
+    Abstraction(
+        const std::shared_ptr<AbstractTask> &task,
+        const std::shared_ptr<TransitionRewirer> &transition_rewirer,
+        TransitionRepresentation transition_representation,
+        utils::LogProxy &log);
     ~Abstraction();
 
     Abstraction(const Abstraction &) = delete;
 
     int get_num_states() const;
     const AbstractState &get_initial_state() const;
+    int get_initial_state_id() const;
     const Goals &get_goals() const;
     const AbstractState &get_state(int state_id) const;
+    const AbstractStates &get_states() const;
     int get_abstract_state_id(const State &state) const;
-    const TransitionSystem &get_transition_system() const;
     std::unique_ptr<RefinementHierarchy> extract_refinement_hierarchy();
+
+    const std::vector<std::unordered_set<int>> &get_postcondition_set(int op_id) const;
+    const std::vector<FactPair> &get_preconditions(int op_id) const;
+    const std::vector<Facts> &get_postconditions() const;
+    int get_precondition_value(int op_id, int var) const;
+    int get_postcondition_value(int op_id, int var) const;
+    int get_num_operators() const;
+    int get_num_stored_transitions() const;
+    Transitions get_incoming_transitions(int state_id) const;
+    Transitions get_outgoing_transitions(int state_id) const;
+    const std::optional<Transitions> &get_old_incoming_transitions() const;
+    const std::optional<Transitions> &get_old_outgoing_transitions() const;
+    bool has_transition(int src, int op_id, int dest) const;
+    std::vector<bool> get_looping_operators() const;
 
     /* Needed for CEGAR::separate_facts_unreachable_before_goal(). */
     void mark_all_states_as_goals();
 
     // Split state into two child states.
-    std::tuple<int, int, Transitions, Transitions> refine(
+    std::tuple<int, int> refine(
         const AbstractState &state, int var, const std::vector<int> &wanted);
 
     void print_statistics() const;

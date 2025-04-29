@@ -12,9 +12,8 @@
 #include "../task_utils/successor_generator.h"
 #include "../task_utils/task_properties.h"
 #include "../utils/countdown_timer.h"
+#include "../utils/memory.h"
 #include "../utils/rng.h"
-
-#include <iterator>
 
 using namespace std;
 
@@ -28,29 +27,19 @@ Cost FlawSearch::get_h_value(int abstract_state_id) const {
 }
 
 OptimalTransitions FlawSearch::get_f_optimal_transitions(int abstract_state_id) const {
-    OptimalTransitions transitions;
-    for (const Transition &t :
-         abstraction.get_transition_system().get_outgoing_transitions()[abstract_state_id]) {
-        if (shortest_paths.is_optimal_transition(abstract_state_id, t.op_id, t.target_id)) {
-            transitions[t.op_id].push_back(t.target_id);
-        }
-    }
-    return transitions;
+    return shortest_paths.get_optimal_transitions(abstraction, abstract_state_id);
 }
 
 OptimalTransitions FlawSearch::get_f_optimal_backward_transitions(int abstract_state_id) const {
-    OptimalTransitions transitions;
-    for (const Transition &t :
-         abstraction.get_transition_system().get_incoming_transitions()[abstract_state_id]) {
-        if (shortest_paths.is_backward_optimal_transition(abstract_state_id, t.op_id, t.target_id)) {
-            transitions[t.op_id].push_back(t.target_id);
-        }
-    }
-    return transitions;
+    return shortest_paths.get_optimal_backward_transitions(abstraction, abstract_state_id);
 }
 
 void FlawSearch::add_flaw(int abs_id, const State &state) {
     assert(abstraction.get_state(abs_id).includes(state));
+
+    if (log.is_at_least_debug()) {
+        log << "Add flaw abs:" << abs_id << " conc:" << state.get_id() << endl;
+    }
 
     // We limit the number of concrete states we consider per abstract state.
     // For a new abstract state (with a potentially unseen h-value),
@@ -90,16 +79,14 @@ void FlawSearch::initialize() {
     last_refined_flawed_state = FlawedState::no_state;
     best_flaw_h = (pick_flawed_abstract_state == PickFlawedAbstractState::MAX_H) ? 0 : INF_COSTS;
     assert(open_list.empty());
-    state_registry = utils::make_unique_ptr<StateRegistry>(task_proxy);
-    search_space = utils::make_unique_ptr<SearchSpace>(*state_registry, silent_log);
-    cached_abstract_state_ids = utils::make_unique_ptr<PerStateInformation<int>>(MISSING);
-
     assert(flawed_states.empty());
-
+    state_registry = make_unique<StateRegistry>(task_proxy);
+    search_space = make_unique<SearchSpace>(*state_registry, silent_log);
     const State &initial_state = state_registry->get_initial_state();
-    (*cached_abstract_state_ids)[initial_state] = abstraction.get_initial_state().get_id();
     SearchNode node = search_space->get_node(initial_state);
     node.open_initial();
+    cached_abstract_state_ids = make_unique<PerStateInformation<int>>(MISSING);
+    (*cached_abstract_state_ids)[initial_state] = abstraction.get_initial_state().get_id();
     open_list.push(initial_state.get_id());
 }
 
@@ -188,7 +175,7 @@ SearchStatus FlawSearch::step() {
             } else if (succ_node.is_new()) {
                 // No flaw
                 (*cached_abstract_state_ids)[succ_state] = target;
-                succ_node.open(node, op, op.get_cost());
+                succ_node.open_new_node(node, op, op.get_cost());
                 open_list.push(succ_state.get_id());
 
                 if (pick_flawed_abstract_state == PickFlawedAbstractState::FIRST) {
@@ -268,6 +255,15 @@ static void update_affected_variables(
         }
     }
 }
+
+struct FactPairHash {
+    size_t operator()(FactPair fact) const {
+        utils::HashState hash_state;
+        hash_state.feed(fact.var);
+        hash_state.feed(fact.value);
+        return hash_state.get_hash64();
+    }
+};
 
 static void get_deviation_splits(
     const AbstractState &abs_state,
@@ -515,6 +511,7 @@ static void get_deviation_splits(
                         wanted.push_back(cond_value);
                     }
                 }
+                assert(!wanted.empty());
                 add_split(splits, Split(
                               abs_state.get_id(), var, value,
                               move(wanted),
@@ -586,7 +583,6 @@ unique_ptr<Split> FlawSearch::create_split(
             << state_ids.size() << " concrete states." << endl;
     }
 
-    const TransitionSystem &ts = abstraction.get_transition_system();
     vector<vector<Split>> splits(task_proxy.get_variables().size());
     for (auto &pair : get_f_optimal_transitions(abstract_state_id)) {
         int op_id = pair.first;
@@ -601,7 +597,7 @@ unique_ptr<Split> FlawSearch::create_split(
         }
 
         vector<bool> applicable(states.size(), true);
-        for (FactPair fact : ts.get_preconditions(op_id)) {
+        for (FactPair fact : abstraction.get_preconditions(op_id)) {
             vector<int> state_value_count(domain_sizes[fact.var], 0);
             for (size_t i = 0; i < states.size(); ++i) {
                 const State &state = states[i];
@@ -680,7 +676,7 @@ unique_ptr<Split> FlawSearch::create_split(
     pick_split_timer.resume();
     Split split = split_selector.pick_split(move(splits), rng);
     pick_split_timer.stop();
-    return utils::make_unique_ptr<Split>(move(split));
+    return make_unique<Split>(move(split));
 }
 
 unique_ptr<Split> FlawSearch::create_split(
@@ -694,7 +690,6 @@ unique_ptr<Split> FlawSearch::create_split(
             << "flaw-search state" << endl << state << endl;
     }
 
-    const TransitionSystem &ts = abstraction.get_transition_system();
     vector<vector<Split>> splits(state.n_vars());
     bool applicable = true;
     for (auto &pair : get_f_optimal_transitions(abstract_state_id)) {
@@ -703,7 +698,7 @@ unique_ptr<Split> FlawSearch::create_split(
         const vector<int> &targets = pair.second;
         OperatorProxy op = task_proxy.get_operators()[op_id];
 
-        for (const FactPair &fact : ts.get_preconditions(op_id)) {
+        for (const FactPair &fact : abstraction.get_preconditions(op_id)) {
             if (!state.contains(fact.var, fact.value)) {
                 // Applicability flaw
                 applicable = false;
@@ -730,7 +725,7 @@ unique_ptr<Split> FlawSearch::create_split(
             }
 
             // At most one of the f-optimal targets can include the successor state.
-            if (!state.reach_with_op(abstraction.get_state(target), op, ts)) {
+            if (!state.reach_with_op(abstraction.get_state(target), op, abstraction)) {
                 // Deviation flaw
                 if (log.is_at_least_debug()) {
                     log << "Deviation to " << abstraction.get_state(target)
@@ -764,7 +759,7 @@ unique_ptr<Split> FlawSearch::create_split(
     pick_split_timer.resume();
     Split split = split_selector.pick_split(move(splits), rng);
     pick_split_timer.stop();
-    return utils::make_unique_ptr<Split>(move(split));
+    return make_unique<Split>(move(split));
 }
 
 unique_ptr<Split> FlawSearch::create_split_from_goals(const AbstractState &state, int abstract_state_id) {
@@ -807,7 +802,7 @@ unique_ptr<Split> FlawSearch::create_split_from_goals(const AbstractState &state
     pick_split_timer.resume();
     Split split = split_selector.pick_split(move(splits), rng);
     pick_split_timer.stop();
-    return utils::make_unique_ptr<Split>(move(split));
+    return make_unique<Split>(move(split));
 }
 
 unique_ptr<Split> FlawSearch::create_backward_split(AbstractState &&state, int abstract_state_id) {
@@ -820,7 +815,6 @@ unique_ptr<Split> FlawSearch::create_backward_split(AbstractState &&state, int a
             << "flaw-search state" << endl << state << endl;
     }
 
-    const TransitionSystem &ts = abstraction.get_transition_system();
     vector<vector<Split>> splits;
     // Splits are grouped by variable only if split by wanted values (progression flaws).
     splits = vector<vector<Split>>();
@@ -836,7 +830,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(AbstractState &&state, int a
         int op_id = pair.first;
         const vector<int> &sources = pair.second;
         OperatorProxy op = task_proxy.get_operators()[op_id];
-        const vector<unordered_set<int>> &post_values = ts.get_postconditions(op_id);
+        const vector<unordered_set<int>> &post_values = abstraction.get_postcondition_set(op_id);
         if (log.is_at_least_debug()) {
             log << "Operator: " << op.get_name() << endl;
         }
@@ -909,7 +903,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(AbstractState &&state, int a
     pick_split_timer.resume();
     Split split = split_selector.pick_split(move(splits), rng);
     pick_split_timer.stop();
-    return utils::make_unique_ptr<Split>(move(split));
+    return make_unique<Split>(move(split));
 }
 
 unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(AbstractState &&state, int abstract_state_id) {
@@ -962,7 +956,7 @@ unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(AbstractStat
     pick_split_timer.resume();
     Split split = split_selector.pick_split(move(splits), rng);
     pick_split_timer.stop();
-    return utils::make_unique_ptr<Split>(move(split));
+    return make_unique<Split>(move(split));
 }
 
 SearchStatus FlawSearch::search_for_flaws(const utils::CountdownTimer &cegar_timer) {
@@ -1197,15 +1191,15 @@ unique_ptr<Split> FlawSearch::get_split(const utils::CountdownTimer &cegar_timer
     }
 
     if (split) {
-        assert(!(pick_flawed_abstract_state == PickFlawedAbstractState::MAX_H
-                 || pick_flawed_abstract_state == PickFlawedAbstractState::MIN_H)
+        assert((pick_flawed_abstract_state != PickFlawedAbstractState::MAX_H
+                && pick_flawed_abstract_state != PickFlawedAbstractState::MIN_H)
                || best_flaw_h == get_h_value(split->abstract_state_id));
     }
     return split;
 }
 
 unique_ptr<Split> FlawSearch::get_split_legacy(const Solution &solution) {
-    state_registry = utils::make_unique_ptr<StateRegistry>(task_proxy);
+    state_registry = make_unique<StateRegistry>(task_proxy);
     bool debug = log.is_at_least_debug();
     if (debug)
         log << "Check solution:" << endl;
@@ -1283,12 +1277,11 @@ unique_ptr<Split> FlawSearch::get_backward_split(const Solution &solution) {
         log << "  Start (goal) flaw search state: " << flaw_search_state << endl;
     }
 
-    const TransitionSystem &ts = abstraction.get_transition_system();
     // Iterate over solution in reverse direction.
     for (int i = solution.size() - 1; i >= 0; i--) {
         const Transition &step = solution.at(i);
         const OperatorProxy &op = task_proxy.get_operators()[step.op_id];
-        const vector<unordered_set<int>> &post_values = ts.get_postconditions(step.op_id);
+        const vector<unordered_set<int>> &post_values = abstraction.get_postcondition_set(step.op_id);
         if (flaw_search_state.is_backward_applicable(post_values)) {
             const AbstractState *next_abstract_state;
             if (i > 0) {
@@ -1356,7 +1349,7 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
 
     const AbstractState *abstract_state = &abstraction.get_initial_state();
 
-    state_registry = utils::make_unique_ptr<StateRegistry>(task_proxy);
+    state_registry = make_unique<StateRegistry>(task_proxy);
     AbstractState flaw_search_state =
         AbstractState(-1, -1, get_domain_sizes(task_proxy),
                       task_properties::get_fact_pairs(state_registry->get_initial_state()));
@@ -1369,7 +1362,6 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
     if (debug)
         log << "  Initial abstract state: " << *abstract_state << endl;
 
-    const TransitionSystem &ts = abstraction.get_transition_system();
     for (const Transition &step : solution) {
         if (!utils::extra_memory_padding_is_reserved()) {
             return nullptr;
@@ -1380,7 +1372,7 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
             if (debug)
                 log << "  Move to " << *next_abstract_state << " with "
                     << op.get_name() << endl;
-            if (!flaw_search_state.reach_with_op(*next_abstract_state, op, ts)) {
+            if (!flaw_search_state.reach_with_op(*next_abstract_state, op, abstraction)) {
                 if (debug) {
                     log << "  Paths deviate." << endl;
                     log << "  Previous flaw-search state: " << flaw_search_state << endl;
@@ -1470,7 +1462,7 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
             if (cache_splits) {
                 splits_cache_invalidate(split.abstract_state_id);
             }
-            return utils::make_unique_ptr<Split>(move(split));
+            return make_unique<Split>(move(split));
         }
     }
 }
@@ -1529,7 +1521,7 @@ void FlawSearch::splits_cache_invalidate(int abstract_state_id) {
         // to be invalidated, but detecting them is more expensive and they are
         // a low percentage of flaws.
         for (auto &&tr :
-             abstraction.get_transition_system().get_incoming_transitions()[abstract_state_id]) {
+             abstraction.get_incoming_transitions(abstract_state_id)) {
             if (splits_cache.count(tr.target_id) > 0) {
                 splits_cache.erase(tr.target_id);
                 opt_tr_cache.erase(tr.target_id);

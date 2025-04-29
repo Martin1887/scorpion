@@ -1,5 +1,6 @@
 #include "cartesian_abstraction_generator.h"
 
+#include "cartesian_abstraction.h"
 #include "explicit_abstraction.h"
 #include "types.h"
 
@@ -13,55 +14,15 @@
 #include "../cartesian_abstractions/transition_system.h"
 #include "../cartesian_abstractions/utils.h"
 #include "../plugins/plugin.h"
-#include "../task_utils/task_properties.h"
+#include "../utils/memory.h"
 #include "../utils/rng_options.h"
 
 using namespace std;
 
 namespace cost_saturation {
-class CartesianAbstractionFunction : public AbstractionFunction {
-    unique_ptr<cartesian_abstractions::RefinementHierarchy> refinement_hierarchy;
-
-public:
-    explicit CartesianAbstractionFunction(
-        unique_ptr<cartesian_abstractions::RefinementHierarchy> refinement_hierarchy)
-        : refinement_hierarchy(move(refinement_hierarchy)) {
-    }
-
-    virtual int get_abstract_state_id(const State &concrete_state) const override {
-        return refinement_hierarchy->get_abstract_state_id(concrete_state);
-    }
-};
-
-
-static vector<bool> get_looping_operators(
-    const cartesian_abstractions::TransitionSystem &ts, const vector<int> &h_values) {
-    assert(ts.get_loops().size() == h_values.size());
-    int num_states = h_values.size();
-    int num_operators = ts.get_num_operators();
-    vector<bool> operator_induces_self_loop(num_operators, false);
-    for (int state = 0; state < num_states; ++state) {
-        // Ignore self-loops at unsolvable states.
-        if (h_values[state] != INF) {
-            for (int op_id : ts.get_loops()[state]) {
-                operator_induces_self_loop[op_id] = true;
-            }
-        }
-    }
-    return operator_induces_self_loop;
-}
-
-
-static pair<bool, unique_ptr<Abstraction>> convert_abstraction(
-    cartesian_abstractions::Abstraction &cartesian_abstraction,
-    const vector<int> &operator_costs) {
-    // Compute h values.
-    const cartesian_abstractions::TransitionSystem &ts =
-        cartesian_abstraction.get_transition_system();
-    int initial_state_id = cartesian_abstraction.get_initial_state().get_id();
-    vector<int> h_values = cartesian_abstractions::compute_distances(
-        ts.get_incoming_transitions(), operator_costs, cartesian_abstraction.get_goals());
-
+static vector<vector<Successor>> get_backward_graph(
+    const cartesian_abstractions::Abstraction &cartesian_abstraction,
+    const vector<int> &h_values) {
     // Retrieve non-looping transitions.
     vector<vector<Successor>> backward_graph(cartesian_abstraction.get_num_states());
     for (int target = 0; target < cartesian_abstraction.get_num_states(); ++target) {
@@ -69,7 +30,8 @@ static pair<bool, unique_ptr<Abstraction>> convert_abstraction(
         if (h_values[target] == INF) {
             continue;
         }
-        for (const cartesian_abstractions::Transition &transition : ts.get_incoming_transitions()[target]) {
+        for (const cartesian_abstractions::Transition &transition :
+             cartesian_abstraction.get_incoming_transitions(target)) {
             int src = transition.target_id;
             // Prune transitions *from* unsolvable states.
             if (h_values[src] == INF) {
@@ -79,47 +41,43 @@ static pair<bool, unique_ptr<Abstraction>> convert_abstraction(
         }
         backward_graph[target].shrink_to_fit();
     }
-
-    vector<bool> looping_operators = get_looping_operators(ts, h_values);
-    vector<int> goal_states(
-        cartesian_abstraction.get_goals().begin(),
-        cartesian_abstraction.get_goals().end());
-
-    bool unsolvable = h_values[initial_state_id] == INF;
-    return {
-        unsolvable,
-        utils::make_unique_ptr<ExplicitAbstraction>(
-            utils::make_unique_ptr<CartesianAbstractionFunction>(
-                cartesian_abstraction.extract_refinement_hierarchy()),
-            move(backward_graph),
-            move(looping_operators),
-            move(goal_states))
-    };
+    return backward_graph;
 }
 
 
 CartesianAbstractionGenerator::CartesianAbstractionGenerator(
-    const plugins::Options &opts)
-    : AbstractionGenerator(opts),
-      subtask_generators(
-          opts.get_list<shared_ptr<cartesian_abstractions::SubtaskGenerator>>("subtasks")),
-      max_states(opts.get<int>("max_states")),
-      max_transitions(opts.get<int>("max_transitions")),
-      max_time(opts.get<double>("max_time")),
-      pick_flawed_abstract_state(
-          opts.get<cartesian_abstractions::PickFlawedAbstractState>("pick_flawed_abstract_state")),
-      pick_sequence_flaw(opts.get<cartesian_abstractions::PickSequenceFlaw>("pick_sequence_flaw")),
-      pick_split(opts.get<cartesian_abstractions::PickSplit>("pick_split")),
-      tiebreak_split(opts.get<cartesian_abstractions::PickSplit>("tiebreak_split")),
-      intersect_bw_flaw_search_states(opts.get<bool>("intersect_bw_flaw_search_states")),
-      bw_progression_flaw_fallback(opts.get<bool>("bw_progression_flaw_fallback")),
-      cache_splits(opts.get<bool>("cache_splits")),
-      max_concrete_states_per_abstract_state(
-          opts.get<int>("max_concrete_states_per_abstract_state")),
-      max_state_expansions(opts.get<int>("max_state_expansions")),
-      extra_memory_padding_mb(opts.get<int>("memory_padding")),
-      rng(utils::parse_rng_from_options(opts)),
-      dot_graph_verbosity(opts.get<cartesian_abstractions::DotGraphVerbosity>("dot_graph_verbosity")),
+    const vector<shared_ptr<cartesian_abstractions::SubtaskGenerator>> &subtasks,
+    int max_states, int max_transitions, double max_time,
+    cartesian_abstractions::PickFlawedAbstractState pick_flawed_abstract_state,
+    cartesian_abstractions::PickSequenceFlaw pick_sequence_flaw,
+    cartesian_abstractions::PickSplit pick_split,
+    cartesian_abstractions::PickSplit tiebreak_split,
+    bool intersect_bw_flaw_search_states,
+    bool bw_progression_flaw_fallback,
+    bool cache_splits,
+    int max_concrete_states_per_abstract_state, int max_state_expansions,
+    cartesian_abstractions::TransitionRepresentation transition_representation,
+    int memory_padding, int random_seed,
+    cartesian_abstractions::DotGraphVerbosity dot_graph_verbosity,
+    utils::Verbosity verbosity)
+    : AbstractionGenerator(verbosity),
+      subtask_generators(subtasks),
+      max_states(max_states),
+      max_transitions(max_transitions),
+      max_time(max_time),
+      transition_representation(transition_representation),
+      pick_flawed_abstract_state(pick_flawed_abstract_state),
+      pick_sequence_flaw(pick_sequence_flaw),
+      pick_split(pick_split),
+      tiebreak_split(tiebreak_split),
+      intersect_bw_flaw_search_states(intersect_bw_flaw_search_states),
+      bw_progression_flaw_fallback(bw_progression_flaw_fallback),
+      cache_splits(cache_splits),
+      max_concrete_states_per_abstract_state(max_concrete_states_per_abstract_state),
+      max_state_expansions(max_state_expansions),
+      extra_memory_padding_mb(memory_padding),
+      rng(utils::get_rng(random_seed)),
+      dot_graph_verbosity(dot_graph_verbosity),
       num_states(0),
       num_transitions(0) {
 }
@@ -132,31 +90,6 @@ bool CartesianAbstractionGenerator::has_reached_resource_limit(
            !utils::extra_memory_padding_is_reserved();
 }
 
-unique_ptr<cartesian_abstractions::Abstraction> CartesianAbstractionGenerator::build_abstraction_for_subtask(
-    const shared_ptr<AbstractTask> &subtask,
-    int remaining_subtasks,
-    const utils::CountdownTimer &timer) {
-    cartesian_abstractions::CEGAR cegar(
-        subtask,
-        max(1, (max_states - num_states) / remaining_subtasks),
-        max(1, (max_transitions - num_transitions) / remaining_subtasks),
-        timer.get_remaining_time() / remaining_subtasks,
-        pick_flawed_abstract_state,
-        pick_sequence_flaw,
-        pick_split,
-        tiebreak_split,
-        intersect_bw_flaw_search_states,
-        bw_progression_flaw_fallback,
-        cache_splits,
-        max_concrete_states_per_abstract_state,
-        max_state_expansions,
-        *rng,
-        log,
-        dot_graph_verbosity);
-    cout << endl;
-    return cegar.extract_abstraction();
-}
-
 void CartesianAbstractionGenerator::build_abstractions_for_subtasks(
     const vector<shared_ptr<AbstractTask>> &subtasks,
     const utils::CountdownTimer &timer,
@@ -165,8 +98,31 @@ void CartesianAbstractionGenerator::build_abstractions_for_subtasks(
         << timer.get_remaining_time() << endl;
     int remaining_subtasks = subtasks.size();
     for (const shared_ptr<AbstractTask> &subtask : subtasks) {
-        unique_ptr<cartesian_abstractions::Abstraction> cartesian_abstraction =
-            build_abstraction_for_subtask(subtask, remaining_subtasks, timer);
+        auto cegar = make_unique<cartesian_abstractions::CEGAR>(
+            subtask,
+            cartesian_abstractions::get_subtask_limit(
+                max_states, num_states, remaining_subtasks),
+            cartesian_abstractions::get_subtask_limit(
+                max_transitions, num_transitions, remaining_subtasks),
+            timer.get_remaining_time() / remaining_subtasks,
+            pick_flawed_abstract_state,
+            pick_sequence_flaw,
+            pick_split,
+            tiebreak_split,
+            intersect_bw_flaw_search_states,
+            bw_progression_flaw_fallback,
+            cache_splits,
+            max_concrete_states_per_abstract_state,
+            max_state_expansions,
+            transition_representation,
+            *rng,
+            log,
+            dot_graph_verbosity);
+        cout << endl;
+        auto cartesian_abstraction = cegar->extract_abstraction();
+        // If the timer expired, the goal distances might only be lower bounds.
+        vector<int> goal_distances = cegar->get_goal_distances();
+        cegar.release();  // Release memory for shortest paths, flaw search, etc.
 
         /* If we run out of memory while building an abstraction, we discard it
            to avoid running out of memory during the abstraction conversion. */
@@ -175,12 +131,27 @@ void CartesianAbstractionGenerator::build_abstractions_for_subtasks(
         }
 
         num_states += cartesian_abstraction->get_num_states();
-        num_transitions += cartesian_abstraction->get_transition_system().get_num_non_loops();
+        int initial_state_id = cartesian_abstraction->get_initial_state().get_id();
+        bool unsolvable = goal_distances[initial_state_id] == INF;
 
-        vector<int> operator_costs = task_properties::get_operator_costs(TaskProxy(*subtask));
-        auto result = convert_abstraction(*cartesian_abstraction, operator_costs);
-        bool unsolvable = result.first;
-        abstractions.push_back(move(result.second));
+        unique_ptr<Abstraction> abstraction;
+        if (transition_representation == cartesian_abstractions::TransitionRepresentation::STORE) {
+            auto backward_graph = get_backward_graph(*cartesian_abstraction, goal_distances);
+            for (const auto &transitions : backward_graph) {
+                num_transitions += transitions.size();
+            }
+            abstraction = make_unique<ExplicitAbstraction>(
+                make_unique<CartesianAbstractionFunction>(
+                    cartesian_abstraction->extract_refinement_hierarchy()),
+                move(backward_graph),
+                cartesian_abstraction->get_looping_operators(),
+                vector<int>(
+                    cartesian_abstraction->get_goals().begin(),
+                    cartesian_abstraction->get_goals().end()));
+        } else {
+            abstraction = make_unique<CartesianAbstraction>(move(cartesian_abstraction));
+        }
+        abstractions.push_back(move(abstraction));
 
         if (has_reached_resource_limit(timer) || unsolvable) {
             break;
@@ -230,6 +201,31 @@ public:
         document_title("Cartesian abstraction generator");
         cartesian_abstractions::add_common_cegar_options(*this);
         utils::add_log_options_to_feature(*this);
+    }
+
+    virtual shared_ptr<CartesianAbstractionGenerator> create_component(
+        const plugins::Options &opts) const override {
+        cartesian_abstractions::g_hacked_sort_transitions = opts.get<bool>("sort_transitions");
+
+        return plugins::make_shared_from_arg_tuples<CartesianAbstractionGenerator>(
+            opts.get_list<shared_ptr<cartesian_abstractions::SubtaskGenerator>>("subtasks"),
+            opts.get<int>("max_states"),
+            opts.get<int>("max_transitions"),
+            opts.get<double>("max_time"),
+            opts.get<cartesian_abstractions::PickFlawedAbstractState>("pick_flawed_abstract_state"),
+            opts.get<cartesian_abstractions::PickSequenceFlaw>("pick_sequence_flaw"),
+            opts.get<cartesian_abstractions::PickSplit>("pick_split"),
+            opts.get<cartesian_abstractions::PickSplit>("tiebreak_split"),
+            opts.get<bool>("intersect_bw_flaw_search_states"),
+            opts.get<bool>("bw_progression_flaw_fallback"),
+            opts.get<bool>("cache_splits"),
+            opts.get<int>("max_concrete_states_per_abstract_state"),
+            opts.get<int>("max_state_expansions"),
+            opts.get<cartesian_abstractions::TransitionRepresentation>("transition_representation"),
+            opts.get<int>("memory_padding"),
+            utils::get_rng_arguments_from_options(opts),
+            opts.get<cartesian_abstractions::DotGraphVerbosity>("dot_graph_verbosity"),
+            opts.get<utils::Verbosity>("verbosity"));
     }
 };
 

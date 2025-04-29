@@ -1,27 +1,38 @@
 #include "cartesian_set.h"
 
+#include "utils.h"
+
 #include <sstream>
 
 using namespace std;
 
 namespace cartesian_abstractions {
+vector<VariableInfo> CartesianSet::var_infos;
+int CartesianSet::total_num_blocks;
+
 CartesianSet::CartesianSet(const vector<int> &domain_sizes) {
-    domain_subsets.reserve(domain_sizes.size());
-    for (int domain_size : domain_sizes) {
-        Bitset domain(domain_size);
-        domain.set();
-        domain_subsets.push_back(move(domain));
+    domains.resize(total_num_blocks, 0);
+    for (size_t var = 0; var < domain_sizes.size(); ++var) {
+        add_all(var);
+    }
+}
+
+CartesianSet::CartesianSet(const vector<int> &domain_sizes, bool init_static_members) {
+    if (init_static_members) {
+        set_static_members(domain_sizes);
+    }
+    domains.resize(total_num_blocks, 0);
+    for (size_t var = 0; var < domain_sizes.size(); ++var) {
+        add_all(var);
     }
 }
 
 CartesianSet::CartesianSet(const vector<int> &domain_sizes, const vector<FactPair> &facts, bool partial_state) {
-    domain_subsets.reserve(domain_sizes.size());
+    domains.resize(total_num_blocks, 0);
     if (partial_state) {
         // Create full Cartesian set, then set facts.
-        for (int domain_size : domain_sizes) {
-            Bitset domain(domain_size);
-            domain.set();
-            domain_subsets.push_back(move(domain));
+        for (size_t var = 0; var < domain_sizes.size(); ++var) {
+            add_all(var);
         }
         vector<bool> reset_vars(domain_sizes.size(), false);
         for (FactPair fact : facts) {
@@ -35,29 +46,33 @@ CartesianSet::CartesianSet(const vector<int> &domain_sizes, const vector<FactPai
         }
     } else {
         // Create empty Cartesian set, then add facts.
-        for (int domain_size : domain_sizes) {
-            domain_subsets.push_back(Bitset(domain_size));
-        }
         for (FactPair fact : facts) {
             add(fact.var, fact.value);
         }
     }
 }
 
-int CartesianSet::n_vars() const {
-    return domain_subsets.size();
+void CartesianSet::set_static_members(const vector<int> &domain_sizes) {
+    var_infos.clear();
+    var_infos.reserve(domain_sizes.size());
+    total_num_blocks = 0;
+    for (int domain_size : domain_sizes) {
+        int num_blocks = BitsetMath::compute_num_blocks(domain_size);
+        var_infos.emplace_back(domain_size, total_num_blocks);
+        total_num_blocks += num_blocks;
+    }
 }
 
 int CartesianSet::n_values(int var) const {
-    return domain_subsets[var].size();
+    return var_infos[var].domain_size;
 }
 
 void CartesianSet::add(int var, int value) {
-    domain_subsets[var].set(value);
+    get_view(var).set(value);
 }
 
 void CartesianSet::remove(int var, int value) {
-    domain_subsets[var].reset(value);
+    get_view(var).reset(value);
 }
 
 void CartesianSet::set_single_value(int var, int value) {
@@ -66,20 +81,21 @@ void CartesianSet::set_single_value(int var, int value) {
 }
 
 void CartesianSet::add_all(int var) {
-    domain_subsets[var].set();
+    get_view(var).set();
+    assert(has_full_domain(var));
 }
 
 void CartesianSet::remove_all(int var) {
-    domain_subsets[var].reset();
+    get_view(var).reset();
 }
 
 int CartesianSet::count(int var) const {
-    return domain_subsets[var].count();
+    return get_view(var).count();
 }
 
 vector<int> CartesianSet::get_values(int var) const {
     vector<int> values;
-    int domain_size = domain_subsets[var].size();
+    int domain_size = var_infos[var].domain_size;
     for (int value = 0; value < domain_size; ++value) {
         if (test(var, value)) {
             values.push_back(value);
@@ -88,42 +104,72 @@ vector<int> CartesianSet::get_values(int var) const {
     return values;
 }
 
-bool CartesianSet::intersects(const CartesianSet &other, int var) const {
-    return domain_subsets[var].intersects(other.domain_subsets[var]);
+bool CartesianSet::has_full_domain(int var) const {
+    bool fast_result = get_view(var).test();
+#ifndef NDEBUG
+    bool result = (count(var) == var_infos[var].domain_size);
+    assert(fast_result == result);
+    bool slow_result = true;
+    for (int value = 0; value < var_infos[var].domain_size; ++value) {
+        if (!test(var, value)) {
+            slow_result = false;
+            break;
+        }
+    }
+    assert(result == slow_result);
+#endif
+    return fast_result;
 }
 
-bool CartesianSet::is_superset_of(const CartesianSet &other) const {
-    int num_vars = domain_subsets.size();
-    for (int var = 0; var < num_vars; ++var) {
-        if (!other.domain_subsets[var].is_subset_of(domain_subsets[var]))
+bool CartesianSet::intersects(const CartesianSet &other) const {
+    for (int var = 0; var < get_num_variables(); ++var) {
+        if (!intersects(other, var)) {
             return false;
+        }
     }
     return true;
 }
 
+
+bool CartesianSet::is_superset_of(const CartesianSet &other) const {
+    for (int var = 0; var < get_num_variables(); ++var) {
+        if (!is_superset_of(other, var)) {
+            return false;
+        }
+    }
+    return true;
+}
 bool CartesianSet::is_superset_of(const CartesianSet &other, int var) const {
-    return other.domain_subsets[var].is_subset_of(domain_subsets[var]);
+    return other.is_subset_of(*this, var);
 }
 
+double CartesianSet::compute_size() const {
+    double size = 1.0;
+    for (int var = 0; var < get_num_variables(); ++var) {
+        size *= count(var);
+    }
+    return size;
+}
 bool CartesianSet::is_subset_of(const CartesianSet &other) const {
-    int num_vars = domain_subsets.size();
+    int num_vars = get_num_variables();
     for (int var = 0; var < num_vars; ++var) {
-        if (!domain_subsets[var].is_subset_of(other.domain_subsets[var]))
+        if (!is_subset_of(other, var)) {
             return false;
+        }
     }
     return true;
 }
 bool CartesianSet::is_subset_of(const CartesianSet &other, int var) const {
-    return domain_subsets[var].is_subset_of(other.domain_subsets[var]);
+    return get_view(var).is_subset_of(other.get_view(var));
 }
 
 bool CartesianSet::is_equal_in_var(const CartesianSet &other, int var) const {
-    return domain_subsets[var] == other.domain_subsets[var];
+    return domains[var] == other.domains[var];
 }
 
 void CartesianSet::var_union(const CartesianSet &other, int var) {
-    assert(other.n_vars() == n_vars());
-    int n_values = domain_subsets[var].size();
+    assert(other.get_num_variables() == get_num_variables());
+    int n_values = var_infos[var].domain_size;
     for (int value = 0; value < n_values; value++) {
         if (other.test(var, value)) {
             add(var, value);
@@ -132,24 +178,23 @@ void CartesianSet::var_union(const CartesianSet &other, int var) {
 }
 
 void CartesianSet::set_var_values(const CartesianSet &other, int var) {
-    assert(other.n_vars() == n_vars());
+    assert(other.get_num_variables() == get_num_variables());
     remove_all(var);
     var_union(other, var);
 }
 
 ostream &operator<<(ostream &os, const CartesianSet &cartesian_set) {
-    int num_vars = cartesian_set.domain_subsets.size();
     string var_sep;
     os << "<";
-    for (int var = 0; var < num_vars; ++var) {
-        const Bitset &domain = cartesian_set.domain_subsets[var];
+    for (int var = 0; var < cartesian_set.get_num_variables(); ++var) {
+        const ConstBitsetView &view = cartesian_set.get_view(var);
         vector<int> values;
-        for (size_t value = 0; value < domain.size(); ++value) {
-            if (domain[value])
+        for (int value = 0; value < view.size(); ++value) {
+            if (view.test(value))
                 values.push_back(value);
         }
         assert(!values.empty());
-        if (values.size() < domain.size()) {
+        if (static_cast<int>(values.size()) < view.size()) {
             os << var_sep << var << "={";
             string value_sep;
             for (int value : values) {
@@ -164,8 +209,8 @@ ostream &operator<<(ostream &os, const CartesianSet &cartesian_set) {
 }
 
 bool CartesianSet::operator==(const CartesianSet &other) const {
-    int num_vars = n_vars();
-    if (num_vars != other.n_vars()) {
+    int num_vars = get_num_variables();
+    if (num_vars != other.get_num_variables()) {
         return false;
     }
     for (int var = 0; var < num_vars; var++) {
@@ -178,9 +223,9 @@ bool CartesianSet::operator==(const CartesianSet &other) const {
 }
 
 void CartesianSet::feed(utils::HashState &hash_state) const {
-    int num_vars = n_vars();
+    int num_vars = get_num_variables();
     for (int var = 0; var < num_vars; var++) {
-        utils::feed(hash_state, domain_subsets[var]);
+        utils::feed(hash_state, domains[var]);
     }
 }
 }

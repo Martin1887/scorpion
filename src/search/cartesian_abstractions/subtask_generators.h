@@ -1,6 +1,8 @@
 #ifndef CARTESIAN_ABSTRACTIONS_SUBTASK_GENERATORS_H
 #define CARTESIAN_ABSTRACTIONS_SUBTASK_GENERATORS_H
 
+#include "types.h"
+
 #include <memory>
 #include <vector>
 
@@ -8,11 +10,7 @@ class AbstractTask;
 struct FactPair;
 
 namespace landmarks {
-class LandmarkGraph;
-}
-
-namespace plugins {
-class Options;
+class LandmarkNode;
 }
 
 namespace utils {
@@ -21,7 +19,6 @@ class LogProxy;
 }
 
 namespace cartesian_abstractions {
-using Facts = std::vector<FactPair>;
 using SharedTasks = std::vector<std::shared_ptr<AbstractTask>>;
 
 enum class FactOrder {
@@ -51,7 +48,7 @@ class TaskDuplicator : public SubtaskGenerator {
     int num_copies;
 
 public:
-    explicit TaskDuplicator(const plugins::Options &opts);
+    explicit TaskDuplicator(int copies);
 
     virtual SharedTasks get_subtasks(
         const std::shared_ptr<AbstractTask> &task,
@@ -67,7 +64,7 @@ class GoalDecomposition : public SubtaskGenerator {
     std::shared_ptr<utils::RandomNumberGenerator> rng;
 
 public:
-    explicit GoalDecomposition(const plugins::Options &opts);
+    explicit GoalDecomposition(FactOrder order, int random_seed);
 
     virtual SharedTasks get_subtasks(
         const std::shared_ptr<AbstractTask> &task,
@@ -88,11 +85,12 @@ class LandmarkDecomposition : public SubtaskGenerator {
        achieved before a given landmark can be made true. */
     std::shared_ptr<AbstractTask> build_domain_abstracted_task(
         const std::shared_ptr<AbstractTask> &parent,
-        const landmarks::LandmarkGraph &landmark_graph,
-        const FactPair &fact) const;
+        const landmarks::LandmarkNode *node) const;
 
 public:
-    explicit LandmarkDecomposition(const plugins::Options &opts);
+    explicit LandmarkDecomposition(FactOrder order,
+                                   int random_seed,
+                                   bool combine_facts);
 
     virtual SharedTasks get_subtasks(
         const std::shared_ptr<AbstractTask> &task,

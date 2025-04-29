@@ -16,7 +16,6 @@
 #include "../utils/logging.h"
 #include "../utils/markup.h"
 #include "../utils/math.h"
-#include "../utils/memory.h"
 #include "../utils/rng.h"
 #include "../utils/rng_options.h"
 #include "../utils/timer.h"
@@ -34,8 +33,6 @@ namespace pdbs {
    for an error message, we use a standalone class instead of inheriting from
    utils::Exception. */
 class HillClimbingTimeout {
-};
-class HillClimbingMaxPDBsGenerated {
 };
 
 static vector<int> get_goal_variables(const TaskProxy &task_proxy) {
@@ -114,17 +111,21 @@ static vector<vector<int>> compute_relevant_neighbours(const TaskProxy &task_pro
 }
 
 
-PatternCollectionGeneratorHillclimbing::PatternCollectionGeneratorHillclimbing(const plugins::Options &opts)
-    : PatternCollectionGenerator(opts),
-      pdb_max_size(opts.get<int>("pdb_max_size")),
-      collection_max_size(opts.get<int>("collection_max_size")),
-      num_samples(opts.get<int>("num_samples")),
-      min_improvement(opts.get<int>("min_improvement")),
-      max_time(opts.get<double>("max_time")),
-      max_generated_patterns(opts.get<int>("max_generated_patterns")),
-      rng(utils::parse_rng_from_options(opts)),
+PatternCollectionGeneratorHillclimbing::PatternCollectionGeneratorHillclimbing(
+    int pdb_max_size, int collection_max_size, int num_samples,
+    int min_improvement, double max_time, int random_seed,
+    utils::Verbosity verbosity)
+    : PatternCollectionGenerator(verbosity),
+      pdb_max_size(pdb_max_size),
+      collection_max_size(collection_max_size),
+      num_samples(num_samples),
+      min_improvement(min_improvement),
+      max_time(max_time),
+      rng(utils::get_rng(random_seed)),
       num_rejected(0),
       hill_climbing_timer(nullptr) {
+    utils::verify_argument(min_improvement <= num_samples,
+                           "Minimum improvement must not be higher than number of samples.");
 }
 
 int PatternCollectionGeneratorHillclimbing::generate_candidate_pdbs(
@@ -148,9 +149,6 @@ int PatternCollectionGeneratorHillclimbing::generate_candidate_pdbs(
             back_inserter(relevant_vars));
 
         for (int rel_var_id : relevant_vars) {
-            if (hill_climbing_timer->is_expired())
-                throw HillClimbingTimeout();
-
             VariableProxy rel_var = task_proxy.get_variables()[rel_var_id];
             int rel_var_size = rel_var.get_domain_size();
             if (utils::is_product_within_limit(pdb_size, rel_var_size,
@@ -169,8 +167,6 @@ int PatternCollectionGeneratorHillclimbing::generate_candidate_pdbs(
                         compute_pdb(task_proxy, new_pattern));
                     max_pdb_size = max(max_pdb_size,
                                        candidate_pdbs.back()->get_size());
-                    if (static_cast<int>(generated_patterns.size()) >= max_generated_patterns)
-                        throw HillClimbingMaxPDBsGenerated();
                 }
             } else {
                 ++num_rejected;
@@ -328,31 +324,30 @@ void PatternCollectionGeneratorHillclimbing::hill_climbing(
     PDBCollection candidate_pdbs;
     // The maximum size over all PDBs in candidate_pdbs.
     int max_pdb_size = 0;
+    for (const shared_ptr<PatternDatabase> &current_pdb :
+         *(current_pdbs->get_pattern_databases())) {
+        int new_max_pdb_size = generate_candidate_pdbs(
+            task_proxy, relevant_neighbours, *current_pdb, generated_patterns,
+            candidate_pdbs);
+        max_pdb_size = max(max_pdb_size, new_max_pdb_size);
+    }
+    /*
+      NOTE: The initial set of candidate patterns (in generated_patterns) is
+      guaranteed to be "normalized" in the sense that there are no duplicates
+      and patterns are sorted.
+    */
+    if (log.is_at_least_normal()) {
+        log << "Done calculating initial candidate PDBs" << endl;
+    }
+
     int num_iterations = 0;
+    State initial_state = task_proxy.get_initial_state();
+
+    sampling::RandomWalkSampler sampler(task_proxy, *rng);
+    vector<State> samples;
+    vector<int> samples_h_values;
 
     try {
-        for (const shared_ptr<PatternDatabase> &current_pdb :
-             *(current_pdbs->get_pattern_databases())) {
-            int new_max_pdb_size = generate_candidate_pdbs(
-                task_proxy, relevant_neighbours, *current_pdb, generated_patterns,
-                candidate_pdbs);
-            max_pdb_size = max(max_pdb_size, new_max_pdb_size);
-        }
-        /*
-          NOTE: The initial set of candidate patterns (in generated_patterns) is
-          guaranteed to be "normalized" in the sense that there are no duplicates
-          and patterns are sorted.
-        */
-        if (log.is_at_least_normal()) {
-            log << "Done calculating initial candidate PDBs" << endl;
-        }
-
-        State initial_state = task_proxy.get_initial_state();
-
-        sampling::RandomWalkSampler sampler(task_proxy, *rng);
-        vector<State> samples;
-        vector<int> samples_h_values;
-
         while (true) {
             ++num_iterations;
             int init_h = current_pdbs->get_value(initial_state);
@@ -424,10 +419,6 @@ void PatternCollectionGeneratorHillclimbing::hill_climbing(
         if (log.is_at_least_normal()) {
             log << "Time limit reached. Abort hill climbing." << endl;
         }
-    } catch (HillClimbingMaxPDBsGenerated &) {
-        if (log.is_at_least_normal()) {
-            log << "Maximum number of PDBs generated. Abort hill climbing." << endl;
-        }
     }
 
     if (log.is_at_least_normal()) {
@@ -458,7 +449,7 @@ PatternCollectionInformation PatternCollectionGeneratorHillclimbing::compute_pat
         int goal_var_id = goal.get_variable().get_id();
         initial_pattern_collection.emplace_back(1, goal_var_id);
     }
-    current_pdbs = utils::make_unique_ptr<IncrementalCanonicalPDBs>(
+    current_pdbs = make_unique<IncrementalCanonicalPDBs>(
         task_proxy, initial_pattern_collection);
     if (log.is_at_least_normal()) {
         log << "Done calculating initial pattern collection: " << timer << endl;
@@ -472,7 +463,7 @@ PatternCollectionInformation PatternCollectionGeneratorHillclimbing::compute_pat
     return current_pdbs->get_pattern_collection_information(log);
 }
 
-static void add_hillclimbing_options(plugins::Feature &feature) {
+void add_hillclimbing_options_to_feature(plugins::Feature &feature) {
     feature.document_note(
         "Note",
         "The pattern collection created by the algorithm will always contain "
@@ -564,20 +555,19 @@ static void add_hillclimbing_options(plugins::Feature &feature) {
         "spent for pruning dominated patterns.",
         "infinity",
         plugins::Bounds("0.0", "infinity"));
-    feature.add_option<int>(
-        "max_generated_patterns",
-        "maximum number of generated patterns",
-        "infinity",
-        plugins::Bounds("0", "infinity"));
-    utils::add_rng_options(feature);
+    utils::add_rng_options_to_feature(feature);
 }
 
-static void check_hillclimbing_options(
-    const plugins::Options &opts, const utils::Context &context) {
-    if (opts.get<int>("min_improvement") > opts.get<int>("num_samples")) {
-        context.error(
-            "Minimum improvement must not be higher than number of samples");
-    }
+tuple<int, int, int, int, double, int>
+get_hillclimbing_arguments_from_options(const plugins::Options &opts) {
+    return tuple_cat(
+        make_tuple(
+            opts.get<int>("pdb_max_size"),
+            opts.get<int>("collection_max_size"),
+            opts.get<int>("num_samples"),
+            opts.get<int>("min_improvement"),
+            opts.get<double>("max_time")),
+        utils::get_rng_arguments_from_options(opts));
 }
 
 static basic_string<char> paper_references() {
@@ -604,7 +594,8 @@ static basic_string<char> paper_references() {
         "2012");
 }
 
-class PatternCollectionGeneratorHillclimbingFeature : public plugins::TypedFeature<PatternCollectionGenerator, PatternCollectionGeneratorHillclimbing> {
+class PatternCollectionGeneratorHillclimbingFeature
+    : public plugins::TypedFeature<PatternCollectionGenerator, PatternCollectionGeneratorHillclimbing> {
 public:
     PatternCollectionGeneratorHillclimbingFeature() : TypedFeature("hillclimbing") {
         document_title("Hill climbing");
@@ -612,19 +603,23 @@ public:
             "This algorithm uses hill climbing to generate patterns "
             "optimized for the Evaluator#Canonical_PDB heuristic. It it described "
             "in the following paper:" + paper_references());
-        add_hillclimbing_options(*this);
+        add_hillclimbing_options_to_feature(*this);
         add_generator_options_to_feature(*this);
     }
 
-    virtual shared_ptr<PatternCollectionGeneratorHillclimbing> create_component(const plugins::Options &options, const utils::Context &context) const override {
-        check_hillclimbing_options(options, context);
-        return make_shared<PatternCollectionGeneratorHillclimbing>(options);
+    virtual shared_ptr<PatternCollectionGeneratorHillclimbing>
+    create_component(const plugins::Options &opts) const override {
+        return plugins::make_shared_from_arg_tuples<PatternCollectionGeneratorHillclimbing>(
+            get_hillclimbing_arguments_from_options(opts),
+            get_generator_arguments_from_options(opts)
+            );
     }
 };
 
 static plugins::FeaturePlugin<PatternCollectionGeneratorHillclimbingFeature> _plugin;
 
-class IPDBFeature : public plugins::TypedFeature<Evaluator, CanonicalPDBsHeuristic> {
+class IPDBFeature
+    : public plugins::TypedFeature<Evaluator, CanonicalPDBsHeuristic> {
 public:
     IPDBFeature() : TypedFeature("ipdb") {
         document_subcategory("heuristics_pdb");
@@ -632,7 +627,7 @@ public:
         document_synopsis(
             "This approach is a combination of using the Evaluator#Canonical_PDB "
             "heuristic over patterns computed with the "
-            "PatternCollectionGenerator#hillclimbing algorithm for pattern "
+            "PatternCollectionGenerator#Hill_Climbing algorithm for pattern "
             "generation. It is a short-hand for the command-line option "
             "{{{cpdbs(hillclimbing())}}}. "
             "Both the heuristic and the pattern generation algorithm are described "
@@ -640,7 +635,7 @@ public:
             "See also Evaluator#Canonical_PDB and "
             "PatternCollectionGenerator#Hill_climbing for more details.");
 
-        add_hillclimbing_options(*this);
+        add_hillclimbing_options_to_feature(*this);
         /*
           Add, possibly among others, the options for dominance pruning.
           Note that using dominance pruning during hill climbing could lead to fewer
@@ -649,7 +644,7 @@ public:
           are added. We thus only use dominance pruning on the resulting collection.
         */
         add_canonical_pdbs_options_to_feature(*this);
-        Heuristic::add_options_to_feature(*this);
+        add_heuristic_options_to_feature(*this, "cpdbs");
 
         document_language_support("action costs", "supported");
         document_language_support("conditional effects", "not supported");
@@ -661,25 +656,19 @@ public:
         document_property("preferred operators", "no");
     }
 
-    virtual shared_ptr<CanonicalPDBsHeuristic> create_component(const plugins::Options &options, const utils::Context &context) const override {
-        check_hillclimbing_options(options, context);
-
+    virtual shared_ptr<CanonicalPDBsHeuristic>
+    create_component(const plugins::Options &opts) const override {
         shared_ptr<PatternCollectionGeneratorHillclimbing> pgh =
-            make_shared<PatternCollectionGeneratorHillclimbing>(options);
+            plugins::make_shared_from_arg_tuples<PatternCollectionGeneratorHillclimbing>(
+                get_hillclimbing_arguments_from_options(opts),
+                get_generator_arguments_from_options(opts)
+                );
 
-        plugins::Options heuristic_opts;
-        heuristic_opts.set<utils::Verbosity>(
-            "verbosity", options.get<utils::Verbosity>("verbosity"));
-        heuristic_opts.set<shared_ptr<AbstractTask>>(
-            "transform", options.get<shared_ptr<AbstractTask>>("transform"));
-        heuristic_opts.set<bool>(
-            "cache_estimates", options.get<bool>("cache_estimates"));
-        heuristic_opts.set<shared_ptr<PatternCollectionGenerator>>(
-            "patterns", pgh);
-        heuristic_opts.set<double>(
-            "max_time_dominance_pruning", options.get<double>("max_time_dominance_pruning"));
-
-        return make_shared<CanonicalPDBsHeuristic>(heuristic_opts);
+        return plugins::make_shared_from_arg_tuples<CanonicalPDBsHeuristic>(
+            pgh,
+            opts.get<double>("max_time_dominance_pruning"),
+            get_heuristic_arguments_from_options(opts)
+            );
     }
 };
 
