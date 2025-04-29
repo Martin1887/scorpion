@@ -4,6 +4,7 @@
 #include "state.h"
 #include "variable.h"
 
+#include <ctime>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -14,6 +15,8 @@ class State;
 class MutexGroup;
 class Operator;
 class Axiom;
+
+extern double get_passed_time(clock_t start);
 
 //void read_everything
 void read_preprocessed_problem_description(istream & in,
@@ -33,14 +36,15 @@ void dump_preprocessed_problem_description(const vector<Variable *> &variables,
                                            const vector<Operator> &operators,
                                            const vector<Axiom> &axioms);
 
-void generate_unsolvable_cpp_input();
+void generate_unsolvable_cpp_input(const string &outfile);
 void generate_cpp_input(const vector<Variable *> &ordered_var,
                         const bool &metric,
                         const vector<MutexGroup> &mutexes,
                         const State &initial_state,
                         const vector<pair<Variable *, int>> &goals,
                         const vector<Operator> &operators,
-                        const vector<Axiom> &axioms);
+                        const vector<Axiom> &axioms,
+                        const string &outfile);
 void check_magic(istream & in, string magic);
 
 #endif

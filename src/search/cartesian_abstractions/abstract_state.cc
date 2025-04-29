@@ -1,11 +1,10 @@
 #include "abstract_state.h"
 
+#include "abstraction.h"
 #include "refinement_hierarchy.h"
 #include "transition_system.h"
 #include "types.h"
 #include "utils.h"
-
-#include "../utils/memory.h"
 
 #include <algorithm>
 #include <cassert>
@@ -14,11 +13,10 @@
 using namespace std;
 
 namespace cartesian_abstractions {
-AbstractState::AbstractState(
-    int state_id, NodeID node_id, CartesianSet &&cartesian_set)
+AbstractState::AbstractState(int state_id, NodeID node_id, CartesianSet &&cartesian_set)
     : state_id(state_id),
       node_id(node_id),
-      cartesian_set(move(cartesian_set)) {
+      cartesian_set(cartesian_set) {
 }
 
 AbstractState::AbstractState(
@@ -29,7 +27,7 @@ AbstractState::AbstractState(
 }
 
 int AbstractState::n_vars() const {
-    return cartesian_set.n_vars();
+    return cartesian_set.get_num_variables();
 }
 
 const CartesianSet &AbstractState::get_cartesian_set() const {
@@ -84,7 +82,7 @@ bool AbstractState::is_applicable(const OperatorProxy &op) const {
 }
 
 bool AbstractState::is_backward_applicable(const vector<unordered_set<int>> &post) const {
-    int n_vars = cartesian_set.n_vars();
+    int n_vars = cartesian_set.get_num_variables();
     for (int var = 0; var < n_vars; var++) {
         if (!is_backward_applicable(var, post[var])) {
             return false;
@@ -99,15 +97,15 @@ bool AbstractState::is_backward_applicable(int var, const unordered_set<int> &va
 
 bool AbstractState::reach_with_op(const AbstractState &other,
                                   const OperatorProxy &op,
-                                  const TransitionSystem &ts) const {
-    int n_vars = cartesian_set.n_vars();
+                                  const Abstraction &abs) const {
+    int n_vars = cartesian_set.get_num_variables();
     int op_id = op.get_id();
     vector<bool> vars_with_post(n_vars, false);
     for (const EffectProxy &eff : op.get_effects()) {
         bool satisfied = true;
         for (const FactProxy &cond : eff.get_conditions()) {
             int cond_var = cond.get_variable().get_id();
-            int pre_in_cond_var = ts.get_precondition_value(op_id, cond_var);
+            int pre_in_cond_var = abs.get_precondition_value(op_id, cond_var);
             if (pre_in_cond_var != UNDEFINED) {
                 if (pre_in_cond_var != cond.get_value()) {
                     satisfied = false;
@@ -145,7 +143,7 @@ bool AbstractState::reach_with_op(const AbstractState &other,
 }
 
 bool AbstractState::reach_backwards_with_op(const AbstractState &other, const OperatorProxy &op) const {
-    int n_vars = cartesian_set.n_vars();
+    int n_vars = cartesian_set.get_num_variables();
     vector<bool> fixed_value_vars(n_vars, false);
     const CartesianSet &other_set = other.get_cartesian_set();
     // Variables with precondition must have precondition value,
@@ -162,14 +160,14 @@ bool AbstractState::reach_backwards_with_op(const AbstractState &other, const Op
     for (const EffectProxy &eff : op.get_effects()) {
         int var = eff.get_fact().get_variable().get_id();
         if (!fixed_value_vars[var] && cartesian_set.test(var, eff.get_fact().get_value())) {
-            bool conds_satisifed = true;
+            bool conds_satisfied = true;
             for (const FactProxy &cond : eff.get_conditions()) {
                 if (!other_set.test(cond.get_variable().get_id(), cond.get_value())) {
-                    conds_satisifed = false;
+                    conds_satisfied = false;
                     break;
                 }
             }
-            if (conds_satisifed) {
+            if (conds_satisfied) {
                 // Any value is good.
                 fixed_value_vars[var] = true;
             }
@@ -190,7 +188,7 @@ void AbstractState::progress(const OperatorProxy &op) {
     }
 
     // Effects cannot be applied until conditions of all effects have been checked.
-    int n_vars = cartesian_set.n_vars();
+    int n_vars = cartesian_set.get_num_variables();
     vector<int> effect_in_var(n_vars, UNDEFINED);
     for (const EffectProxy &eff : op.get_effects()) {
         bool satisfied = true;
@@ -239,7 +237,7 @@ void AbstractState::regress(const OperatorProxy &op) {
 }
 
 void AbstractState::intersect(const AbstractState &other) {
-    int n_vars = cartesian_set.n_vars();
+    int n_vars = cartesian_set.get_num_variables();
     for (int var = 0; var < n_vars; var++) {
         for (int value = 0; value < cartesian_set.n_values(var); value++) {
             if (!other.contains(var, value)) {
@@ -250,7 +248,7 @@ void AbstractState::intersect(const AbstractState &other) {
 }
 
 void AbstractState::undeviate(const AbstractState &mapped) {
-    int n_vars = cartesian_set.n_vars();
+    int n_vars = cartesian_set.get_num_variables();
     for (int var = 0; var < n_vars; var++) {
         if (!is_subset_of(mapped, var)) {
             cartesian_set.remove_all(var);
@@ -265,7 +263,7 @@ void AbstractState::undeviate(const AbstractState &mapped) {
 }
 
 bool AbstractState::intersects(const AbstractState &other) const {
-    int n_vars = cartesian_set.n_vars();
+    int n_vars = cartesian_set.get_num_variables();
     for (int var = 0; var < n_vars; var++) {
         if (!intersects(other, var)) {
             return false;
@@ -359,7 +357,7 @@ NodeID AbstractState::get_node_id() const {
 }
 
 unique_ptr<AbstractState> AbstractState::get_trivial_abstract_state(
-    const vector<int> &domain_sizes) {
-    return utils::make_unique_ptr<AbstractState>(0, 0, CartesianSet(domain_sizes));
+    CartesianSet &&trivial_cartesian_set) {
+    return make_unique<AbstractState>(0, 0, move(trivial_cartesian_set));
 }
 }

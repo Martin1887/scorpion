@@ -12,8 +12,6 @@
 #include "../utils/logging.h"
 #include "../utils/timer.h"
 
-#include <parallel_hashmap/phmap.h>
-
 #include <stack>
 
 namespace utils {
@@ -57,8 +55,6 @@ struct Deviation {
         cond_effect_wanted.assign(cond_effect_wanted.size(), false);
     }
 };
-
-using OptimalTransitions = phmap::flat_hash_map<int, std::vector<int>>;
 
 class FlawSearch {
     TaskProxy task_proxy;

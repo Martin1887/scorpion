@@ -1,5 +1,4 @@
 import logging
-import os
 import sys
 
 from . import aliases
@@ -16,7 +15,7 @@ def main():
     logging.basicConfig(level=getattr(logging, args.log_level.upper()),
                         format="%(levelname)-8s %(message)s",
                         stream=sys.stdout)
-    logging.debug("processed args: %s" % args)
+    logging.debug(f"processed args: {args}")
 
     if args.version:
         print(__version__)
@@ -38,20 +37,23 @@ def main():
         if component == "translate":
             (exitcode, continue_execution) = run_components.run_translate(args)
         elif component == "preprocess":
-            (exitcode, continue_execution) = run_components.transform_task(args)
+            (exitcode, continue_execution) = run_components.run_preprocess(args)
         elif component == "search":
             (exitcode, continue_execution) = run_components.run_search(args)
             if not args.keep_sas_file:
-                print("Remove intermediate file {}".format(args.sas_file))
-                os.remove(args.sas_file)
+                print(f"Remove intermediate file {args.sas_file}")
+                args.sas_file.unlink()
+                if args.preprocessed_sas_file.exists():
+                    print(f"Remove intermediate file {args.preprocessed_sas_file}")
+                    args.preprocessed_sas_file.unlink()
         elif component == "validate":
             (exitcode, continue_execution) = run_components.run_validate(args)
         else:
-            assert False, "Error: unhandled component: {}".format(component)
-        print("{component} exit code: {exitcode}".format(**locals()))
-        print()
+            assert False, f"Error: unhandled component: {component}"
+        print(f"{component} exit code: {exitcode}")
+        print(flush=True)
         if not continue_execution:
-            print("Driver aborting after {}".format(component))
+            print(f"Driver aborting after {component}")
             break
 
     try:

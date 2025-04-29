@@ -1,6 +1,6 @@
-import errno
 import logging
-import os.path
+import os
+from pathlib import Path
 import shutil
 import signal
 import subprocess
@@ -21,35 +21,36 @@ else:
     returncodes.exit_with_driver_unsupported_error("Unsupported OS: " + os.name)
 
 # TODO: We might want to turn translate into a module and call it with "python3 -m translate".
-REL_TRANSLATE_PATH = os.path.join("translate", "translate.py")
-REL_SEARCH_PATH = f"downward{BINARY_EXT}"
+REL_TRANSLATE_PATH = Path("translate") / "translate.py"
+REL_SEARCH_PATH = Path(f"downward{BINARY_EXT}")
 # Older versions of VAL use lower case, newer versions upper case. We prefer the
 # older version because this is what our build instructions recommend.
-VALIDATE = (shutil.which(f"validate{BINARY_EXT}") or
-            shutil.which(f"Validate{BINARY_EXT}"))
+_VALIDATE_NAME = (shutil.which(f"validate{BINARY_EXT}") or
+                  shutil.which(f"Validate{BINARY_EXT}"))
+VALIDATE = Path(_VALIDATE_NAME) if _VALIDATE_NAME else None
 
 
-def get_executable(build, rel_path):
+def get_executable(build: str, rel_path: Path):
     # First, consider 'build' to be a path directly to the binaries.
     # The path can be absolute or relative to the current working
     # directory.
-    build_dir = build
-    if not os.path.exists(build_dir):
+    build_dir = Path(build)
+    if not build_dir.exists():
         # If build is not a full path to the binaries, it might be the
         # name of a build in our standard directory structure.
         # in this case, the binaries are in
         #   '<repo-root>/builds/<buildname>/bin'.
-        build_dir = os.path.join(util.BUILDS_DIR, build, "bin")
-        if not os.path.exists(build_dir):
+        build_dir = util.BUILDS_DIR / build / "bin"
+        if not build_dir.exists():
             returncodes.exit_with_driver_input_error(
-                "Could not find build '{build}' at {build_dir}. "
-                "Please run './build.py {build}'.".format(**locals()))
+                f"Could not find build '{build}' at {build_dir}. "
+                f"Please run './build.py {build}'.")
 
-    abs_path = os.path.join(build_dir, rel_path)
-    if not os.path.exists(abs_path):
+    abs_path = build_dir / rel_path
+    if not abs_path.exists():
         returncodes.exit_with_driver_input_error(
-            "Could not find '{rel_path}' in build '{build}'. "
-            "Please run './build.py {build}'.".format(**locals()))
+            f"Could not find '{rel_path}' in build '{build}'. "
+            f"Please run './build.py {build}'.")
 
     return abs_path
 
@@ -100,28 +101,27 @@ def run_translate(args):
         return (returncode, False)
 
 
-def transform_task(args):
-    logging.info("Run task transformation (%s)." % args.transform_task)
-    time_limit = limits.get_time_limit(None, args.overall_time_limit)
-    memory_limit = limits.get_memory_limit(None, args.overall_memory_limit)
-    options = []
-    if args.transform_task_options:
-        options = args.transform_task_options.split(",")
-        for i, option in enumerate(options):
-            if i % 2 == 0:
-                options[i] = "--" + option
+def run_preprocess(args):
+    logging.info("Run preprocess (%s)." % args.preprocess)
+    time_limit = limits.get_time_limit(args.preprocess_time_limit, args.overall_time_limit)
+    memory_limit = limits.get_memory_limit(args.preprocess_memory_limit, args.overall_memory_limit)
 
-    if not shutil.which(args.transform_task):
+    if not shutil.which(args.preprocess):
         preprocessor_name = "preprocess-h2"
-        if args.transform_task != preprocessor_name:
-            sys.exit(f"Error: {args.transform_task} not found. Is it on the PATH?")
+        if args.preprocess != preprocessor_name:
+            sys.exit(f"Error: {args.preprocess} not found. Is it on the PATH?")
         # Check if executable exists in the "bin" directory.
-        args.transform_task = get_executable(args.build, preprocessor_name)
+        args.preprocess = get_executable(args.build, preprocessor_name)
+
+    if "--outfile" in args.preprocess_options:
+        returncodes.exit_with_driver_input_error(
+            "Error: --outfile option is reserved for the driver.")
+    args.preprocess_options = ["--outfile", args.preprocessed_sas_file] + args.preprocess_options
 
     try:
         call.check_call(
-            "transform-task",
-            [args.transform_task] + options,
+            "preprocess",
+            [args.preprocess] + args.preprocess_options,
             stdin=args.search_input,
             time_limit=time_limit,
             memory_limit=memory_limit)
@@ -130,10 +130,12 @@ def transform_task(args):
     except subprocess.CalledProcessError as err:
         if err.returncode != -signal.SIGXCPU:
             returncodes.print_stderr(
-                f"Task transformation returned exit status {err.returncode}")
-        # If the task transformation failed, we proceed with the original task.
+                f"Preprocessor returned exit status {err.returncode}")
+        # If the preprocessing failed, we proceed with the original task.
         return (err.returncode, True)
     else:
+        # If the preprocessing succeeded, we use the preprocessed task.
+        args.search_input = args.preprocessed_sas_file
         return (0, True)
 
 
@@ -153,7 +155,7 @@ def run_search(args):
 
     if args.portfolio:
         assert not args.search_options
-        logging.info("search portfolio: %s" % args.portfolio)
+        logging.info(f"search portfolio: {args.portfolio}")
         return portfolio_runner.run(
             args.portfolio, executable, args.search_input, plan_manager,
             time_limit, memory_limit)
@@ -188,25 +190,15 @@ def run_validate(args):
             "Error: Trying to run validate but it was not found on the PATH.")
 
     logging.info("Running validate.")
-    num_files = len(args.filenames)
-    if num_files == 1:
-        task, = args.filenames
-        domain = util.find_domain_filename(task)
-    elif num_files == 2:
-        domain, task = args.filenames
-    else:
-        returncodes.exit_with_driver_input_error("validate needs one or two PDDL input files.")
-
     plan_files = list(PlanManager(args.plan_file).get_existing_plans())
     if not plan_files:
         print("Not running validate since no plans found.")
         return (0, True)
-    validate_inputs = [domain, task] + plan_files
 
     try:
         call.check_call(
             "validate",
-            [VALIDATE] + validate_inputs,
+            [VALIDATE] + args.validate_inputs + plan_files,
             time_limit=args.validate_time_limit,
             memory_limit=args.validate_memory_limit)
     except OSError as err:

@@ -15,6 +15,7 @@ REPO_ROOT_DIR = SCRIPT_DIR.parents[1]
 TXT2TAGS_OPTIONS = {
     "preproc": [
         [r"<<BR>>", "ESCAPED_LINEBREAK"],
+        [r"``` (.+?)$", r"```\n\1\n```"],
     ],
     "postproc": [
         [r"ESCAPED_LINEBREAK", "<br />"],
@@ -25,10 +26,26 @@ TXT2TAGS_OPTIONS = {
 }
 
 
+INDEX_TEXT = """
+# Search Plugins
+
+The search component consists of many different plugins of different
+plugin types such as [search algorithms](SearchAlgorithm.md) or [evaluators](Evaluator.md).
+
+The following pages document the plugins of each type:
+
+{plugin_list}
+
+The [syntax documentation](../search-plugin-syntax.md) contains more
+information on how to read their documentation.
+
+"""
+
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--outdir", default="docs")
+    parser.add_argument("--outdir", default=f"{REPO_ROOT_DIR}/docs/search")
     parser.add_argument("--build", default="release")
+    parser.add_argument('--skipbuild', action='store_true')
     return parser.parse_args()
 
 
@@ -65,25 +82,29 @@ def build_docs(build, outdir):
     pagesplitter = re.compile(r">>>>CATEGORY: ([\w\s]+?)<<<<(.+?)>>>>CATEGORYEND<<<<", re.DOTALL)
     pages = pagesplitter.findall(out)
     titles = [title for title, _ in pages]
-    pages.extend([
-        ("index", "Choose a plugin type on the left to see its documentation.")])
+    title_list = "\n".join(f"-  [{title}]({title}.md)" for title in titles)
+    pages.extend([("index", INDEX_TEXT.format(plugin_list=title_list))])
     for title, text in pages:
-        text = insert_wiki_links(text, titles)
-        document = markup.Document(title="", date="")
-        document.add_text(text)
-        output = document.render("md", options=TXT2TAGS_OPTIONS)
+        if title == "index":
+            output = text
+        else:
+            text = insert_wiki_links(text, titles)
+            document = markup.Document(title="", date="")
+            document.add_text(text)
+            output = document.render("md", options=TXT2TAGS_OPTIONS)
         with open(f"{outdir}/{title}.md", "w") as f:
             f.write(output)
 
 
 if __name__ == '__main__':
     args = parse_args()
-    logging.info("building planner...")
-    build_planner(args.build)
+    if not args.skipbuild:
+        logging.info("building planner...")
+        build_planner(args.build)
     logging.info("building documentation...")
     outdir = SCRIPT_DIR / args.outdir
     try:
-        outdir.mkdir()
+        outdir.mkdir(parents=True)
     except FileExistsError as e:
         sys.exit(e)
     html = build_docs(args.build, outdir)

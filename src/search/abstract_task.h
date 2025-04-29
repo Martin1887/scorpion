@@ -19,17 +19,7 @@ struct FactPair {
         : var(var), value(value) {
     }
 
-    bool operator<(const FactPair &other) const {
-        return var < other.var || (var == other.var && value < other.value);
-    }
-
-    bool operator==(const FactPair &other) const {
-        return var == other.var && value == other.value;
-    }
-
-    bool operator!=(const FactPair &other) const {
-        return var != other.var || value != other.value;
-    }
+    auto operator<=>(const FactPair &) const = default;
 
     /*
       This special object represents "no such fact". E.g., functions

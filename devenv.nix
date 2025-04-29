@@ -4,7 +4,7 @@ let
 in
 {
   enterShell = ''
-    export PATH="$PATH:$HOME/workspace/uncrustify/uncrustify-uncrustify-0.72.0/build/bin"
+    export PATH="$PATH:$HOME/workspace/uncrustify/uncrustify-uncrustify-0.72.0/build/bin:${pkgs-unstable.vscode-extensions.vadimcn.vscode-lldb}/share/vscode/extensions/vadimcn.vscode-lldb/adapter"
     export soplex_DIR="/nix/store/3lj32g14bydv3hg567kz26dp32xbwjs6-soplex-712"
   '';
 
@@ -23,5 +23,7 @@ in
     pkgs-unstable.gmp
     pkgs-unstable.soplex
     qcachegrind
+    pkgs-unstable.vscode-extensions.vadimcn.vscode-lldb
+    pkgs-unstable.lldb
   ];
 }
