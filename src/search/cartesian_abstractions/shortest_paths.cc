@@ -266,9 +266,53 @@ void ShortestPaths::update_incrementally_in_direction(
         }
     }
 
+    /*
+      Instead of just recursively inserting all orphans, we first push them
+      into a candidate queue that is sorted by (old, possibly too low)
+      h-values. Then, we try to reconnect them to a non-orphaned state at
+      no additional cost. Only if that fails, we flag the candidate as
+      orphaned and push its SPT-children (who have strictly larger h-values
+      due to no 0-cost operators) into the candidate queue.
+    */
+    assert(candidate_queue.empty());
+    assert(!count(dirty_candidate.begin(), dirty_candidate.end(), true));
+
+    /*
+      If we split a state that's an ancestor of the initial state in the SPT,
+      we know that exactly one of v1 or v2 is still settled. This allows us to
+      push only one of them into the candidate queue. With splits that don't
+      consider the SPT, we cannot make this optimization anymore and need to
+      add both states to the candidate queue.
+    */
+    dirty_candidate[v1] = true;
+    candidate_queue.push((*distances)[v1], v1);
+    dirty_candidate[v2] = true;
+    candidate_queue.push((*distances)[v2], v2);
+
     // Copy distance from split state. Distances will be updated if necessary.
     if (v != STATE_NOT_SPLIT) {
         (*distances)[v1] = (*distances)[v2] = (*distances)[v];
+
+        // If any of the states has been disambiguated, all target states with a
+        // shortest path on the parent must be marked as
+        // dirty candidates because such a transition may have been removed.
+        if (disambiguated) {
+            if (backward) {
+                for (const Transition &t : old_outgoing) {
+                    if (reverse_shortest_path[t.target_id].target_id == v) {
+                        dirty_candidate[t.target_id] = true;
+                        candidate_queue.push((*distances)[t.target_id], t.target_id);
+                    }
+                }
+            } else {
+                for (const Transition &t : old_incoming) {
+                    if (shortest_path[t.target_id].target_id == v) {
+                        dirty_candidate[t.target_id] = true;
+                        candidate_queue.push((*distances)[t.target_id], t.target_id);
+                    }
+                }
+            }
+        }
 
         /* Update shortest path tree (SPT) transitions to v. The SPT transitions
            will be updated again if v1 or v2 are dirty. */
@@ -296,42 +340,6 @@ void ShortestPaths::update_incrementally_in_direction(
             log << "Init distances: " << init_distances << endl;
             log << "Shortest paths: " << shortest_path << endl;
             log << "Reverse shortest paths: " << reverse_shortest_path << endl;
-        }
-    }
-
-    /*
-      Instead of just recursively inserting all orphans, we first push them
-      into a candidate queue that is sorted by (old, possibly too low)
-      h-values. Then, we try to reconnect them to a non-orphaned state at
-      no additional cost. Only if that fails, we flag the candidate as
-      orphaned and push its SPT-children (who have strictly larger h-values
-      due to no 0-cost operators) into the candidate queue.
-    */
-    assert(candidate_queue.empty());
-    assert(!count(dirty_candidate.begin(), dirty_candidate.end(), true));
-
-    /*
-      If we split a state that's an ancestor of the initial state in the SPT,
-      we know that exactly one of v1 or v2 is still settled. This allows us to
-      push only one of them into the candidate queue. With splits that don't
-      consider the SPT, we cannot make this optimization anymore and need to
-      add both states to the candidate queue.
-    */
-    dirty_candidate[v1] = true;
-    candidate_queue.push((*distances)[v1], v1);
-    dirty_candidate[v2] = true;
-    candidate_queue.push((*distances)[v2], v2);
-    // If any of the states has been disambiguated, all outgoing and incoming
-    // states must be marked as dirty candidates because the optimal transition
-    // may have been removed.
-    if (disambiguated) {
-        for (Transition t : old_incoming) {
-            dirty_candidate[t.target_id] = true;
-            candidate_queue.push((*distances)[t.target_id], t.target_id);
-        }
-        for (Transition t : old_outgoing) {
-            dirty_candidate[t.target_id] = true;
-            candidate_queue.push((*distances)[t.target_id], t.target_id);
         }
     }
 
