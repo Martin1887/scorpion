@@ -381,15 +381,8 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
     for (int var = 0; var < num_vars; var++) {
         if (abstract_state.count(var) > 1) {
             for (FactProxy goal : goals) {
-                vector<int> other_values{};
                 int goal_value = goal.get_value();
                 if (goal.get_variable().get_id() == var && abstract_state.includes(var, goal_value)) {
-                    for (int value = 0; value < domain_sizes[var]; value++) {
-                        if (value != goal_value && abstract_state.includes(var, value)) {
-                            other_values.push_back(value);
-                        }
-                    }
-
                     if (split_unwanted_values) {
                         for (StateID state_id : state_ids) {
                             State state = state_registry->lookup_state(state_id);
@@ -405,13 +398,9 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
                             }
                         }
                     } else {
-                        if (log.is_at_least_debug()) {
-                            log << "add_split(var " << var << ", val " << goal_value
-                                << "!=" << other_values << ")" << endl;
-                        }
                         add_split(splits, Split(
-                                      abstract_state_id, var, goal_value,
-                                      move(other_values), 1));
+                                      abstract_state_id, var, -1,
+                                      {goal_value}, 1));
                     }
                 }
             }

@@ -240,19 +240,9 @@ unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
                     }
                 }
             } else {
-                vector<int> other_values{};
-                for (int value = 0; value < domain_sizes[var]; value++) {
-                    if (value != init_value && abstract_state.includes(var, value)) {
-                        other_values.push_back(value);
-                    }
-                }
-                if (log.is_at_least_debug()) {
-                    log << "add_split(var " << var << ", val " << init_value
-                        << "!=" << other_values << ")" << endl;
-                }
                 add_split(splits, Split(
-                              abstract_state_id, var, init_value,
-                              move(other_values), 1));
+                              abstract_state_id, var, -1,
+                              {init_value}, 1));
             }
         }
     }
