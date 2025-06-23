@@ -383,7 +383,7 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
             for (FactProxy goal : goals) {
                 vector<int> other_values{};
                 int goal_value = goal.get_value();
-                if (goal.get_variable().get_id() == var) {
+                if (goal.get_variable().get_id() == var && abstract_state.includes(var, goal_value)) {
                     for (int value = 0; value < domain_sizes[var]; value++) {
                         if (value != goal_value && abstract_state.includes(var, value)) {
                             other_values.push_back(value);

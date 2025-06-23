@@ -353,7 +353,7 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
             for (FactProxy goal : goals) {
                 vector<int> other_values{};
                 int goal_value = goal.get_value();
-                if (goal.get_variable().get_id() == var) {
+                if (goal.get_variable().get_id() == var && abstract_state.includes(var, goal_value)) {
                     for (int value = 0; value < domain_sizes[var]; value++) {
                         if (value != goal_value && abstract_state.includes(var, value)) {
                             other_values.push_back(value);
@@ -528,7 +528,8 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
         }
         assert(abstraction.get_goals().count(abstract_state->get_id()));
         if (only_in_abstraction != InAbstractionFlawSearchKind::TRUE) {
-            if (!flaw_search_state.includes(task_properties::get_fact_pairs(task_proxy.get_goals()))) {
+            if (!flaw_search_state.includes(task_properties::get_fact_pairs(task_proxy.get_goals())) &&
+                abstract_state->includes(task_properties::get_fact_pairs(task_proxy.get_goals()))) {
                 // This may happen if goals are not separated from the initial state
                 // before getting splits (bidirectional strategies so far),
                 // and it needs a special function to do it because goal state
