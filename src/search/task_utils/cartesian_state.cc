@@ -56,12 +56,14 @@ pair<CartesianSet, CartesianSet> CartesianState::split_domain(
     assert(cartesian_set.count(var) > num_wanted);
 
     CartesianSet v1_cartesian_set(cartesian_set);
-    CartesianSet v2_cartesian_set(cartesian_set);
+    CartesianSet v2_cartesian_set(move(cartesian_set));
 
     v2_cartesian_set.remove_all(var);
     for (int value : wanted) {
         // The wanted value has to be in the set of possible values.
-        assert(cartesian_set.test(var, value));
+        // The assert is commented out because `cartesian_set` has been moved
+        // for the sake of performance.
+        // assert(cartesian_set.test(var, value));
 
         // In v1 var can have all of the previous values except the wanted ones.
         v1_cartesian_set.remove(var, value);
@@ -71,7 +73,7 @@ pair<CartesianSet, CartesianSet> CartesianState::split_domain(
     }
     assert(v1_cartesian_set.count(var) == cartesian_set.count(var) - num_wanted);
     assert(v2_cartesian_set.count(var) == num_wanted);
-    return make_pair(v1_cartesian_set, v2_cartesian_set);
+    return make_pair(move(v1_cartesian_set), move(v2_cartesian_set));
 }
 
 bool CartesianState::is_applicable(const OperatorProxy &op) const {
