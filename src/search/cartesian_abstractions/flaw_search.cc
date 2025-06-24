@@ -726,6 +726,7 @@ FlawSearch::FlawSearch(
     case PickFlawedAbstractState::SEQUENCE_BATCH_BACKWARD:
     case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BATCH_BACKWARD:
         backward_direction = true;
+        split_unwanted_values = true;
         break;
     case PickFlawedAbstractState::SEQUENCE_BIDIRECTIONAL:
     case PickFlawedAbstractState::SEQUENCE_IN_ABSTRACTION_BIDIRECTIONAL:

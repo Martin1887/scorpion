@@ -99,7 +99,7 @@ tuple<CartesianState, int> FlawSearch::first_flaw_search_state(const Solution &s
 
 void FlawSearch::get_deviation_splits(
     const AbstractState &abs_state,
-    const vector<reference_wrapper<const CartesianState>> &flaw_search_states,
+    const CartesianState &flaw_search_state,
     const AbstractState &target_abs_state,
     const vector<int> &domain_sizes,
     const disambiguation::DisambiguatedOperator &op,
@@ -135,66 +135,40 @@ void FlawSearch::get_deviation_splits(
     if (!split_unwanted_values) {
         wanted.reserve(biggest_var_size);
     }
-    vector<bool> var_intersects;
-    bool multiple_states = flaw_search_states.size() > 1;
-    if (multiple_states) {
-        var_intersects = vector<bool>(flaw_search_states.size(), false);
-    }
     for (int var = 0; var < n_vars; var++) {
         if (!op.has_effect(var)) {
-            bool var_intersects_in_state;
-            if (multiple_states) {
-                int i = 0;
-                for (auto &fs_state : flaw_search_states) {
-                    var_intersects[i] = target_set.intersects_intersection(fs_state.get().get_cartesian_set(), pre, var);
-                    i++;
-                }
-            } else {
-                var_intersects_in_state = target_set.intersects_intersection(flaw_search_states[0].get().get_cartesian_set(), pre, var);
-            }
-            bool wanted_computed = false;
-            for (int value = 0; value < domain_sizes[var]; ++value) {
-                int count = 0;
-                int i = 0;
-                for (auto &fs_state : flaw_search_states) {
-                    // In regression the value may be not in the target state or in
-                    // the precondition to get a deviation,
-                    // e.g.: (1,2,3), pre: (1,2,5), post: (1,2,5), fs_state: (3,5),
-                    // 3 is not in the precondition and it is a deviation despite
-                    // being in the target state.
-                    bool var_intersects_in_this;
-                    if (multiple_states) {
-                        var_intersects_in_this = var_intersects[i];
-                    } else {
-                        var_intersects_in_this = var_intersects_in_state;
-                    }
+            // In regression the value may be not in the target state or in
+            // the precondition to get a deviation,
+            // e.g.: (1,2,3), pre: (1,2,5), post: (1,2,5), fs_state: (3,5),
+            // 3 is not in the precondition and it is a deviation despite
+            // being in the target state.
+            bool var_intersects_in_state = target_set.intersects_intersection(flaw_search_state.get_cartesian_set(), pre, var);
+            if (!var_intersects_in_state) {
+                bool wanted_computed = false;
+                for (int value = 0; value < domain_sizes[var]; ++value) {
                     bool target_contains = target_set.test(var, value) && pre.test(var, value);
-                    if (!var_intersects_in_this && !target_contains && fs_state.get().includes(var, value) && abs_state.includes(var, value)) {
-                        ++count;
-                    }
-                    i++;
-                }
-                if (count) {
-                    if (!split_unwanted_values && !wanted_computed) {
-                        wanted_computed = true;
-                        wanted.clear();
-                        for (int value = 0; value < domain_sizes[var]; ++value) {
-                            if (abs_state.includes(var, value) &&
-                                pre.test(var, value) &&
-                                target_abs_state.includes(var, value)) {
-                                wanted.push_back(value);
+                    if (!target_contains && flaw_search_state.includes(var, value) && abs_state.includes(var, value)) {
+                        if (!split_unwanted_values && !wanted_computed) {
+                            wanted_computed = true;
+                            wanted.clear();
+                            for (int value = 0; value < domain_sizes[var]; ++value) {
+                                if (abs_state.includes(var, value) &&
+                                    pre.test(var, value) &&
+                                    target_abs_state.includes(var, value)) {
+                                    wanted.push_back(value);
+                                }
                             }
                         }
-                    }
-                    assert(split_unwanted_values || !wanted.empty());
-                    if (split_unwanted_values) {
-                        FlawSearch::add_split(splits, Split(
-                                                  abs_state.get_id(), var, -1, {value},
-                                                  count, op_cost), true);
-                    } else {
-                        FlawSearch::add_split(splits, Split(
-                                                  abs_state.get_id(), var, value, wanted,
-                                                  count, op_cost));
+                        assert(split_unwanted_values || !wanted.empty());
+                        if (split_unwanted_values) {
+                            FlawSearch::add_split(splits, Split(
+                                                      abs_state.get_id(), var, -1, {value},
+                                                      1, op_cost), true);
+                        } else {
+                            FlawSearch::add_split(splits, Split(
+                                                      abs_state.get_id(), var, value, wanted,
+                                                      1, op_cost));
+                        }
                     }
                 }
             }
@@ -203,109 +177,77 @@ void FlawSearch::get_deviation_splits(
 }
 
 unique_ptr<Split> FlawSearch::create_split(
-    const vector<reference_wrapper<const CartesianState>> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
+    const CartesianState &state, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
     if (log.is_at_least_debug()) {
         log << endl;
         log << "Create split for abstract state " << abstract_state_id << " and "
-            << states.size() << " flaw-search states:" << endl;
-        for (CartesianState fss : states) {
-            log << fss << endl;
-        }
+            " flaw-search state " << state << endl;
     }
 
+    const CartesianSet &abstract_state_set = abstract_state.get_cartesian_set();
+    int n_vars = abstract_state_set.get_n_vars();
     const TransitionSystem &ts = abstraction.get_transition_system();
     vector<vector<Split>> splits;
     // Splits are grouped by variable only if split by wanted values.
     if (split_unwanted_values) {
         splits = vector<vector<Split>>();
     } else {
-        splits = vector<vector<Split>>(task_proxy.get_variables().size());
+        splits = vector<vector<Split>>(n_vars);
     }
-    // Create the vectors only once to save memory allocations and set values in each iter.
-    vector<bool> applicable(states.size(), true);
-    vector<bool> var_intersects(states.size(), true);
+
     for (auto &pair : get_f_optimal_transitions(abstract_state_id)) {
-        fill(applicable.begin(), applicable.end(), true);
+        bool applicable = true;
         int op_id = pair.first;
         const vector<int> &targets = pair.second;
         const disambiguation::DisambiguatedOperator &op = (*ts.get_operators())[op_id];
 
         const CartesianSet &pre = op.get_precondition().get_cartesian_set();
-        const CartesianSet &abstract_state_set = abstract_state.get_cartesian_set();
-        int n_vars = pre.get_n_vars();
         for (int var = 0; var < n_vars; var++) {
-            int i = 0;
-            for (const CartesianState &state : states) {
-                var_intersects[i] = pre.intersects(state.get_cartesian_set(), var);
-                if (!var_intersects[i]) {
-                    applicable[i] = false;
-                }
-                i++;
-            }
-            for (int value = 0; value < domain_sizes[var]; ++value) {
-                int count = 0;
-                int i = 0;
-                for (const CartesianState &state : states) {
-                    if (!var_intersects[i] &&
-                        state.includes(var, value) &&
+            bool var_intersects = pre.intersects(state.get_cartesian_set(), var);
+            if (!var_intersects) {
+                applicable = false;
+                for (int value = 0; value < domain_sizes[var]; ++value) {
+                    if (state.includes(var, value) &&
                         abstract_state.includes(var, value)) {
-                        count++;
-                    }
-                    i++;
-                }
-                if (count) {
-                    assert(!pre.test(var, value));
-                    if (split_unwanted_values) {
-                        add_split(splits, Split(
-                                      abstract_state_id, var, -1,
-                                      {value}, count,
-                                      op.get_cost()), true);
-                    } else {
-                        add_split(splits, Split(
-                                      abstract_state_id, var, value,
-                                      pre.get_intersection_values(var, abstract_state_set), count,
-                                      op.get_cost()));
+                        if (split_unwanted_values) {
+                            assert(!pre.test(var, value));
+                            add_split(splits, Split(
+                                          abstract_state_id, var, -1,
+                                          {value}, 1,
+                                          op.get_cost()), true);
+                        } else {
+                            add_split(splits, Split(
+                                          abstract_state_id, var, value,
+                                          pre.get_intersection_values(var, abstract_state_set), 1,
+                                          op.get_cost()));
+                        }
                     }
                 }
             }
         }
 
-        phmap::flat_hash_map<int, vector<reference_wrapper<const CartesianState>>> deviation_states_by_target;
-        for (size_t i = 0; i < states.size(); ++i) {
-            // Retrieving deviation flaws on states with inapplicable flaws work worse.
-            if (!applicable[i] /*&& !in_sequence*/) {
-                continue;
+        if (!applicable) {
+            if (log.is_at_least_debug()) {
+                log << "Not applicable" << endl;
             }
-            const CartesianState &state = states[i];
-            if (!in_sequence) {
-                assert(state.is_applicable(op));
-            }
-            bool target_hit = false;
-            for (int target : targets) {
-                if (!utils::extra_memory_padding_is_reserved()) {
-                    return nullptr;
-                }
-
-                // At most one of the f-optimal targets can include the successor state.
-                if (!target_hit &&
-                    ((applicable[i] && state.reach_with_op(abstraction.get_state(target), op)) ||
-                     (!applicable[i] && state.reach_with_inapplicable_op(abstraction.get_state(target), op)))) {
-                    // No flaw
-                    target_hit = true;
-                } else {
-                    // Deviation flaw
-                    deviation_states_by_target[target].push_back(ref(state));
-                }
-            }
+            continue;
         }
+        for (int target : targets) {
+            if (!utils::extra_memory_padding_is_reserved()) {
+                return nullptr;
+            }
 
-        for (auto &&[target, deviation_states] : deviation_states_by_target) {
-            if (!deviation_states.empty()) {
+            if (!state.reach_with_op(abstraction.get_state(target), op)) {
+                // Deviation flaw
+                if (log.is_at_least_debug()) {
+                    log << "Deviation to " << abstraction.get_state(target)
+                        << " with op " << op.get_id() << ":" << op.get_name() << endl;
+                }
                 get_deviation_splits(
-                    abstract_state, deviation_states,
+                    abstract_state, state,
                     abstraction.get_state(target), domain_sizes, op,
                     splits, split_unwanted_values);
             }
@@ -332,17 +274,14 @@ unique_ptr<Split> FlawSearch::create_split(
 }
 
 unique_ptr<Split> FlawSearch::create_split_from_goal_state(
-    const vector<reference_wrapper<const CartesianState>> &states, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
+    const CartesianState &state, int abstract_state_id, Cost solution_cost, bool split_unwanted_values) {
     compute_splits_timer.resume();
     const AbstractState &abstract_state = abstraction.get_state(abstract_state_id);
 
     if (log.is_at_least_debug()) {
         log << endl;
         log << "Create split for abstract state " << abstract_state_id << " and "
-            << states.size() << " flaw-search states:" << endl;
-        for (CartesianState fss : states) {
-            log << fss << endl;
-        }
+            << " flaw-search state " << state << endl;
     }
 
     const GoalsProxy goals = task_proxy.get_goals();
@@ -354,17 +293,15 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
                 int goal_value = goal.get_value();
                 if (goal.get_variable().get_id() == var && abstract_state.includes(var, goal_value)) {
                     if (split_unwanted_values) {
-                        for (const CartesianState &state : states) {
-                            for (auto &&[fact_var, fact_value] : state.get_cartesian_set().iter(var)) {
-                                if (fact_value != goal_value && abstract_state.includes(var, fact_value)) {
-                                    if (log.is_at_least_debug()) {
-                                        log << "add_split(var " << var << ", val " << fact_value
-                                            << "!=" << goal_value << ")" << endl;
-                                    }
-                                    add_split(splits, Split(
-                                                  abstract_state_id, var, goal_value,
-                                                  {fact_value}, 1), true);
+                        for (auto &&[fact_var, fact_value] : state.get_cartesian_set().iter(var)) {
+                            if (fact_value != goal_value && abstract_state.includes(var, fact_value)) {
+                                if (log.is_at_least_debug()) {
+                                    log << "add_split(var " << var << ", val " << fact_value
+                                        << "!=" << goal_value << ")" << endl;
                                 }
+                                add_split(splits, Split(
+                                              abstract_state_id, var, goal_value,
+                                              {fact_value}, 1), true);
                             }
                         }
                     } else {
