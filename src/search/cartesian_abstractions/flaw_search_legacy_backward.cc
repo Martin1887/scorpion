@@ -223,26 +223,24 @@ unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
         if (abstract_state.count(var) > 1) {
             int init_value = init_state[var].get_value();
 
-            if (split_unwanted_values) {
-                for (const CartesianState &state : states) {
-                    if (!state.includes(var, init_value)) {
-                        for (const auto &&[fact_var, fact_value] : state.get_cartesian_set().iter(var)) {
-                            if (abstract_state.includes(var, fact_value)) {
-                                if (log.is_at_least_debug()) {
-                                    log << "add_split(var " << var << ", val " << fact_value
-                                        << "!=" << init_value << ")" << endl;
-                                }
-                                add_split(splits, Split(
-                                              abstract_state_id, var, init_value,
-                                              {fact_value}, 1), true);
+            if (!state.includes(var, init_value)) {
+                for (const auto &&[fact_var, fact_value] : state.get_cartesian_set().iter(var)) {
+                    if (abstract_state.includes(var, fact_value)) {
+                        if (split_unwanted_values) {
+                            if (log.is_at_least_debug()) {
+                                log << "add_split(var " << var << ", val " << fact_value
+                                    << "!=" << init_value << ")" << endl;
                             }
+                            add_split(splits, Split(
+                                          abstract_state_id, var, init_value,
+                                          {fact_value}, 1), true);
+                        } else {
+                            add_split(splits, Split(
+                                          abstract_state_id, var, fact_value,
+                                          {init_value}, 1));
                         }
                     }
                 }
-            } else {
-                add_split(splits, Split(
-                              abstract_state_id, var, -1,
-                              {init_value}, 1));
             }
         }
     }
