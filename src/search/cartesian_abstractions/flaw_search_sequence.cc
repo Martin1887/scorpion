@@ -335,6 +335,9 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
 
 vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                                                  const InAbstractionFlawSearchKind only_in_abstraction) {
+    if (!utils::extra_memory_padding_is_reserved()) {
+        return {};
+    }
     vector<LegacyFlaw> flaws{};
     state_registry = utils::make_unique_ptr<StateRegistry>(task_proxy);
     bool debug = log.is_at_least_debug();
@@ -371,6 +374,9 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
     int solution_size = (int)solution.size();
     do {
         for (int i = max(start_abstract_state_index, 0); i < solution_size; i++) {
+            if (!utils::extra_memory_padding_is_reserved()) {
+                return {};
+            }
             const Transition &step = solution.at(i);
             const disambiguation::DisambiguatedOperator &op = (*abstraction.get_transition_system().get_operators())[step.op_id];
             const AbstractState *next_abstract_state = &abstraction.get_state(step.target_id);
@@ -456,6 +462,9 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
         if (only_in_abstraction != InAbstractionFlawSearchKind::TRUE) {
             if (!flaw_search_state.includes(task_properties::get_fact_pairs(task_proxy.get_goals())) &&
                 abstract_state->includes(task_properties::get_fact_pairs(task_proxy.get_goals()))) {
+                if (!utils::extra_memory_padding_is_reserved()) {
+                    return {};
+                }
                 // This may happen if goals are not separated from the initial state
                 // before getting splits (bidirectional strategies so far),
                 // and it needs a special function to do it because goal state
@@ -471,6 +480,9 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                                           first_filtered_flaw,
                                           force_push_filtered_flaws);
             }
+        }
+        if (!utils::extra_memory_padding_is_reserved()) {
+            return {};
         }
         if (only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION && flaws.empty()) {
             if (start_abstract_state_index < 0) {
@@ -499,6 +511,9 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
 
 vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                                                   const InAbstractionFlawSearchKind only_in_abstraction) {
+    if (!utils::extra_memory_padding_is_reserved()) {
+        return {};
+    }
     vector<LegacyFlaw> flaws{};
     bool force_push_filtered_flaws = true;
     // This pointer is used to return the first found flaw if all have been
@@ -556,6 +571,9 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
 
     // iterate over solution in reverse direction
     for (int i = solution.size() - 1; i >= 0; i--) {
+        if (!utils::extra_memory_padding_is_reserved()) {
+            return {};
+        }
         const Transition &step = solution.at(i);
         const disambiguation::DisambiguatedOperator &op = (*abstraction.get_transition_system().get_operators())[step.op_id];
         if (flaw_search_state.is_backward_applicable(op)) {
@@ -658,6 +676,9 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
     assert(initial_abstract_state->get_id() == abstract_state->get_id());
     if (only_in_abstraction != InAbstractionFlawSearchKind::TRUE) {
         if (!flaw_search_state.includes(task_proxy.get_initial_state())) {
+            if (!utils::extra_memory_padding_is_reserved()) {
+                return {};
+            }
             // This only happens if the initial abstract state is not refined
             // before starting the refinement steps.
             if (debug)
@@ -673,6 +694,9 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
         }
     }
 
+    if (!utils::extra_memory_padding_is_reserved()) {
+        return {};
+    }
     // It could happen that flaws are not found because starting in the goals
     // abstract state, so start from the goals.
     if (only_in_abstraction == InAbstractionFlawSearchKind::ITERATIVE_IN_REGRESSION && flaws.empty()) {
