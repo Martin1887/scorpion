@@ -87,8 +87,7 @@ public:
         DotGraphVerbosity dot_graph_verbosity);
 
     std::vector<CartesianHeuristicFunction> generate_heuristic_functions(
-        const std::shared_ptr<AbstractTask> &task,
-        const std::shared_ptr<MutexInformation> &mutex_information);
+        const std::shared_ptr<AbstractTask> &task);
 };
 }
 

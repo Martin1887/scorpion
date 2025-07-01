@@ -18,18 +18,6 @@ bool MutexInformation::are_facts_mutex(const FactPair &fact1, const FactPair &fa
     return bool(mutexes[fact1.var][fact1.value].count(fact2));
 }
 
-bool MutexInformation::is_state_spurious(const State &state) const {
-    for (int var : *vars_with_mutexes) {
-        for (int mutex_var : mutex_vars_for_var[var]) {
-            if (mutex_var > var && var_mutex_set[var][state[var].get_value()].contains({mutex_var, state[mutex_var].get_value()})) {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
 const std::vector<int> &MutexInformation::get_mutex_vars_for_var(const int var) const {
     return mutex_vars_for_var[var];
 }

@@ -36,8 +36,7 @@ SaturatedCostPartitioningOnlineHeuristic::SaturatedCostPartitioningOnlineHeurist
       improve_heuristic(true),
       size_kb(0),
       num_evaluated_states(0),
-      num_scps_computed(0),
-      mutex_information(make_shared<MutexInformation>(opts.get<shared_ptr<AbstractTask>>("transform")->mutex_information())) {
+      num_scps_computed(0) {
     order_generator->initialize(abstractions, costs);
     for (const auto &cp : cp_heuristics) {
         size_kb += cp.estimate_size_in_kb();
@@ -64,10 +63,6 @@ int SaturatedCostPartitioningOnlineHeuristic::compute_heuristic(const State &anc
 
     if (dead_ends && dead_ends->subsumes(state)) {
         improve_heuristic_timer->stop();
-        return DEAD_END;
-    }
-
-    if (mutex_information->is_state_spurious(state)) {
         return DEAD_END;
     }
 

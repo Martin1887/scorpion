@@ -37,8 +37,6 @@ class SaturatedCostPartitioningOnlineHeuristic : public Heuristic {
     int num_evaluated_states;
     int num_scps_computed;
 
-    const std::shared_ptr<MutexInformation> mutex_information;
-
     void print_intermediate_statistics() const;
     void print_final_statistics() const;
 
