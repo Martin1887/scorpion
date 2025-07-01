@@ -107,7 +107,7 @@ void Abstraction::initialize_trivial_abstraction(const vector<int> &domain_sizes
 }
 
 AbstractStateSplit Abstraction::split(
-    const AbstractState &state, int var, const std::vector<int> &wanted) const {
+    const AbstractState &state, int var, const vector<int> &wanted) const {
     int v_id = state.get_id();
     // Reuse state ID from obsolete parent to obtain consecutive IDs.
     int v1_id = v_id;
@@ -143,15 +143,20 @@ AbstractStateSplit Abstraction::split(
     return AbstractStateSplit {v1_id, v2_id, v2_values, v1_cartesian_set, v2_cartesian_set};
 }
 
+AbstractStateSplit Abstraction::split_copy(
+    AbstractState state, int var, const vector<int> &wanted) const {
+    return split(state, var, wanted);
+}
+
 tuple<unique_ptr<AbstractState>, unique_ptr<AbstractState>, bool, bool>
-    Abstraction::disambiguate_split_result(AbstractStateSplit &&split_result, int var) const {
+Abstraction::disambiguate_split_result(AbstractStateSplit &&split_result, int var) const {
     // Node ids are not used in simulated refinements.
     unique_ptr<AbstractState> v1 = make_unique<AbstractState>(
         split_result.v1_id, split_result.v1_id, move(split_result.v1_cartesian_set));
     unique_ptr<AbstractState> v2 = make_unique<AbstractState>(
         split_result.v2_id, split_result.v2_id, move(split_result.v2_cartesian_set));
 
-    // disambiguate_state function is not called because statistics must not be
+    // Disambiguate_state function is not called because statistics must not be
     // increased for simulated refinements.
     bool disambiguated_v1 = abstract_space_disambiguation->disambiguate(*v1, *mutex_information, var);
     bool disambiguated_v2 = abstract_space_disambiguation->disambiguate(*v2, *mutex_information, var);
@@ -301,7 +306,7 @@ SimulatedRefinement Abstraction::simulate_refinement(
 
     int v_id = state.get_id();
 
-    auto split_result = split(state, var, wanted);
+    auto split_result = split_copy(state, var, wanted);
 
     auto disambiguated = disambiguate_split_result(move(split_result), var);
     unique_ptr<AbstractState> &v1 = get<0>(disambiguated);

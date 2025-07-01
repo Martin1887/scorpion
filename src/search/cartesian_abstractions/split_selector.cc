@@ -504,13 +504,15 @@ double SplitSelector::rate_split(
     }
     case PickSplit::DISAMBIGUATION_POTENTIAL_ESTIMATION:
     {
-        auto split_result = abstraction.split(state, var_id, split.values);
+        auto split_result = abstraction.split_copy(state, var_id, split.values);
         const shared_ptr<MutexInformation> &mutex_information = abstraction.get_mutex_information();
         
+
         rating = 0;
         rating += disambiguation_potential_estimation(split_result.v1_cartesian_set, mutex_information);
         rating += disambiguation_potential_estimation(split_result.v2_cartesian_set, mutex_information);
         
+
         break;
     }
     default:
@@ -711,8 +713,9 @@ bool SplitSelector::split_is_filtered(const Split &split,
             OptimalTransitions outgoing =
                 FlawSearch::get_f_optimal_transitions(abstraction, shortest_paths, abstract_state.get_id());
 
+            // The abstract state must be copied to not move its Cartesian set.
             pair<CartesianSet, CartesianSet> cartesian_sets =
-                abstract_state.split_domain(split.var_id, split.values);
+                AbstractState(-1, -1, abstract_state.clone_cartesian_set()).split_domain(split.var_id, split.values);
             // ids are not used.
             AbstractState v1 = AbstractState(-1, -1, move(cartesian_sets.first));
             AbstractState v2 = AbstractState(-1, -1, move(cartesian_sets.second));
