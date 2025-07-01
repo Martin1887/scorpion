@@ -78,8 +78,12 @@ const TransitionSystem &Abstraction::get_transition_system() const {
     return *transition_system;
 }
 
-const std::shared_ptr<MutexInformation> &Abstraction::get_mutex_information() const {
+const shared_ptr<MutexInformation> &Abstraction::get_mutex_information() const {
     return mutex_information;
+}
+
+const shared_ptr<disambiguation::DisambiguationMethod> &Abstraction::get_abstract_space_disambiguation() const {
+    return abstract_space_disambiguation;
 }
 
 unique_ptr<RefinementHierarchy> Abstraction::extract_refinement_hierarchy() {

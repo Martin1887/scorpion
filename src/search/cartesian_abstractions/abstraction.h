@@ -119,6 +119,7 @@ public:
     int get_abstract_state_id(const State &state) const;
     const TransitionSystem &get_transition_system() const;
     const std::shared_ptr<MutexInformation> &get_mutex_information() const;
+    const std::shared_ptr<disambiguation::DisambiguationMethod> &get_abstract_space_disambiguation() const;
     std::unique_ptr<RefinementHierarchy> extract_refinement_hierarchy();
 
     /* Needed for CEGAR::separate_facts_unreachable_before_goal(). */

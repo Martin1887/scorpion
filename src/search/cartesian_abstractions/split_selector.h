@@ -68,8 +68,6 @@ enum class PickSplit {
     BALANCE_REFINED_CLOSEST_GOAL,
     // Number of children disambiguated after the refinement (simulated).
     N_CHILDREN_DISAMBIGUATED,
-    // Disambiguation potential estimation score.
-    DISAMBIGUATION_POTENTIAL_ESTIMATION,
 };
 
 inline std::ostream &operator<<(std::ostream &os, const PickSplit &s) {
@@ -125,8 +123,6 @@ inline std::ostream &operator<<(std::ostream &os, const PickSplit &s) {
         return os << "balance_refined_closest_goal";
     case PickSplit::N_CHILDREN_DISAMBIGUATED:
         return os << "n_children_disambiguated";
-    case PickSplit::DISAMBIGUATION_POTENTIAL_ESTIMATION:
-        return os << "disambiguation_potential_estimation";
     default:
         return os << "invalid pick_split";
     }
@@ -253,8 +249,6 @@ class SplitSelector {
     int get_hadd_value(int var_id, int value) const;
     int get_min_hadd_value(int var_id, const std::vector<int> &values) const;
     int get_max_hadd_value(int var_id, const std::vector<int> &values) const;
-    double disambiguation_potential_estimation(const CartesianSet &cartesian_set,
-                                               const std::shared_ptr<MutexInformation> &mutex_information) const;
 
     double rate_split(const AbstractState &state, const Split &split, PickSplit pick, Cost optimal_abstract_plan_cost) const;
     std::vector<Split> compute_max_cover_splits(

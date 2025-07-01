@@ -76,6 +76,43 @@ void AC3Disambiguation::add_new_mutexes(int current_var,
     }
 }
 
+bool AC3Disambiguation::test_disambiguate(const CartesianState &partial_state, const MutexInformation &mutexes, int var, const std::set<int> &values_for_var) const {
+    const mutex_set_for_value &var_mutexes = mutexes.get_var_mutexes(var);
+    vars_pair_queue worklist = mutexes.get_mutex_vars_queue_for_var(var);
+    while (!worklist.empty()) {
+        tuple<int, int> vars_pair = worklist.pop_front();
+        int mutex_var = get<1>(vars_pair);
+        if (test_arc_reduce(partial_state.get_cartesian_set(), values_for_var, mutex_var, var_mutexes)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool AC3Disambiguation::test_arc_reduce(const CartesianSet &partial_state,
+                                        const set<int> &values_for_var,
+                                        int mutex_var,
+                                        const mutex_set_for_value &var_mutexes) const {
+    int mutex_var_size = partial_state.var_size(mutex_var);
+    for (int x_value : values_for_var) {
+        bool all_mutex = true;
+        for (int y_value = 0; y_value < mutex_var_size; y_value++) {
+            if (partial_state.test(mutex_var, y_value)) {
+                if (!var_mutexes.contains({x_value, {mutex_var, y_value}})) {
+                    all_mutex = false;
+                    break;
+                }
+            }
+        }
+        if (all_mutex) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 class AC3DisambiguationFeature : public plugins::TypedFeature<DisambiguationMethod, AC3Disambiguation> {
 public:
     AC3DisambiguationFeature() : TypedFeature("AC3") {

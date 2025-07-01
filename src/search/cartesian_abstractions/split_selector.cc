@@ -304,36 +304,6 @@ int SplitSelector::get_max_hadd_value(int var_id, const vector<int> &values) con
     return max_hadd;
 }
 
-double SplitSelector::disambiguation_potential_estimation(const CartesianSet &cartesian_set,
-                                                          const shared_ptr<MutexInformation> &mutex_information) const {
-    double rating = 0;
-    int n_vars = cartesian_set.get_n_vars();
-    // TODO: This could be faster iterating over mutexes.
-    for (int x = 0; x < n_vars; x++) {
-        int x_size = cartesian_set.var_size(x);
-        const mutex_set_for_value &var_mutexes = mutex_information->get_var_mutexes(x);
-        if (!var_mutexes.empty()) {
-            for (int v_x = 0; v_x < x_size; v_x++) {
-                if (cartesian_set.test(x, v_x)) {
-                for (int y = x + 1; y < n_vars; y++) {
-                        int y_size = cartesian_set.var_size(y);
-                        double y_count = static_cast<double>(cartesian_set.count(y));
-                        int partial_rating = 0;
-                        for (int v_y = 0; v_y < y_size; v_y++) {
-                            if (cartesian_set.test(y, v_y) && var_mutexes.contains({v_x, {y, v_y}})) {
-                                partial_rating++;
-                            }
-                        }
-                        rating += partial_rating / y_count;
-                    }
-                }
-            }
-        }
-    }
-
-    return rating;
-}
-
 double SplitSelector::rate_split(
     const AbstractState &state, const Split &split, PickSplit pick, Cost optimal_abstract_plan_cost) const {
     int var_id = split.var_id;
@@ -489,30 +459,22 @@ double SplitSelector::rate_split(
     }
     case PickSplit::N_CHILDREN_DISAMBIGUATED:
     {
-        auto split_result = abstraction.split(state, var_id, split.values);
-        auto disambiguated = abstraction.disambiguate_split_result(move(split_result), var_id);
-        bool disambiguated_v1 = get<2>(disambiguated);
-        bool disambiguated_v2 = get<3>(disambiguated);
+        set<int> split_one(split.values.begin(), split.values.end());
+        set<int> split_two = {};
+        int var_size = state.get_cartesian_set().var_size(var_id);
+        for (int x = 0; x < var_size; x++) {
+            if (!split_one.contains(x) && state.includes(var_id, x)) {
+                split_two.insert(x);
+            }
+        }
         rating = 0;
-        if (disambiguated_v1) {
+        auto mutex_information = abstraction.get_mutex_information();
+        if (abstraction.get_abstract_space_disambiguation()->test_disambiguate(state, *mutex_information, var_id, split_one)) {
             rating++;
         }
-        if (disambiguated_v2) {
+        if (abstraction.get_abstract_space_disambiguation()->test_disambiguate(state, *mutex_information, var_id, split_two)) {
             rating++;
         }
-        break;
-    }
-    case PickSplit::DISAMBIGUATION_POTENTIAL_ESTIMATION:
-    {
-        auto split_result = abstraction.split_copy(state, var_id, split.values);
-        const shared_ptr<MutexInformation> &mutex_information = abstraction.get_mutex_information();
-        
-
-        rating = 0;
-        rating += disambiguation_potential_estimation(split_result.v1_cartesian_set, mutex_information);
-        rating += disambiguation_potential_estimation(split_result.v2_cartesian_set, mutex_information);
-        
-
         break;
     }
     default:
@@ -882,8 +844,6 @@ static plugins::TypedEnumPlugin<PickSplit> _enum_plugin({
          "max_refined and distance of the state before refinement to goal with the same weight."},
         {"n_children_disambiguated",
          "number of children disambiguated after the refinement (simulated)."},
-        {"disambiguation_potential_estimation",
-         "estimation of the potential of children to be disambiguated in next iterations."}
     });
 static plugins::TypedEnumPlugin<FilterSplit> _enum_plugin_filter({
         {"none", "no filter splits"},
