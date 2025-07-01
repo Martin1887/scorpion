@@ -18,8 +18,8 @@ bool MutexInformation::are_facts_mutex(const FactPair &fact1, const FactPair &fa
     return bool(mutexes[fact1.var][fact1.value].count(fact2));
 }
 
-const std::vector<int> &MutexInformation::get_var_mutex_vars(const int var) const {
-    return var_mutex_vars[var];
+const std::vector<int> &MutexInformation::get_mutex_vars_for_var(const int var) const {
+    return mutex_vars_for_var[var];
 }
 
 const shared_ptr<vector<int>> &MutexInformation::get_vars_with_mutexes() const {

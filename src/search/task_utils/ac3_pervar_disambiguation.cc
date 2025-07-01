@@ -1,6 +1,5 @@
 #include "ac3_pervar_disambiguation.h"
 
-#include "cartesian_set_facts_proxy_iterator.h"
 #include "../plugins/plugin.h"
 #include "mutex_information.h"
 
@@ -26,7 +25,7 @@ bool AC3PerVarDisambiguation::disambiguate(CartesianState &partial_state,
     for (int var = init_var; var < final_var; var++) {
         const mutex_set_for_value &var_mutexes = mutexes.get_var_mutexes(var);
         // Initially, worklist=var_mutex_vars, but it changes.
-        vector<int> worklist = mutexes.get_var_mutex_vars(var);
+        vector<int> worklist = mutexes.get_mutex_vars_for_var(var);
         while (!worklist.empty()) {
             auto iterator = worklist.begin();
             int mutex_var = *iterator;
@@ -72,14 +71,11 @@ bool AC3PerVarDisambiguation::arc_reduce(CartesianSet &disambiguated,
     return change;
 }
 
-bool AC3PerVarDisambiguation::test_disambiguate(const CartesianState &partial_state, const MutexInformation &mutexes, int var, const std::set<int> &values_for_var) const {
-    const mutex_set_for_value &var_mutexes = mutexes.get_var_mutexes(var);
-    vector<int> worklist = mutexes.get_var_mutex_vars(var);
-    while (!worklist.empty()) {
-        auto iterator = worklist.begin();
-        int mutex_var = *iterator;
-        worklist.erase(iterator);
-        if (test_arc_reduce(partial_state.get_cartesian_set(), values_for_var, mutex_var, var_mutexes)) {
+bool AC3PerVarDisambiguation::test_disambiguate(const CartesianState &partial_state, const MutexInformation &mutexes, int mutex_var, const std::set<int> &values_for_var) const {
+    const vector<int> &worklist = mutexes.get_mutex_vars_for_var(mutex_var);
+    for (int var : worklist) {
+        const mutex_set_for_value &var_mutexes = mutexes.get_var_mutexes(var);
+        if (test_arc_reduce(partial_state.get_cartesian_set(), values_for_var, var, mutex_var, var_mutexes)) {
             return true;
         }
     }
@@ -88,22 +84,23 @@ bool AC3PerVarDisambiguation::test_disambiguate(const CartesianState &partial_st
 }
 
 bool AC3PerVarDisambiguation::test_arc_reduce(const CartesianSet &partial_state,
-                                              const set<int> &values_for_var,
+                                              const set<int> &values_for_mutex_var,
+                                              int var,
                                               int mutex_var,
                                               const mutex_set_for_value &var_mutexes) const {
-    int mutex_var_size = partial_state.var_size(mutex_var);
-    for (int x_value : values_for_var) {
-        bool all_mutex = true;
-        for (int y_value = 0; y_value < mutex_var_size; y_value++) {
-            if (partial_state.test(mutex_var, y_value)) {
+    int var_size = partial_state.var_size(var);
+    for (int x_value = 0; x_value < var_size; x_value++) {
+        if (partial_state.test(var, x_value)) {
+            bool all_mutex = true;
+            for (int y_value : values_for_mutex_var) {
                 if (!var_mutexes.contains({x_value, {mutex_var, y_value}})) {
                     all_mutex = false;
                     break;
                 }
             }
-        }
-        if (all_mutex) {
-            return true;
+            if (all_mutex) {
+                return true;
+            }
         }
     }
 

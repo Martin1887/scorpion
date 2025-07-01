@@ -46,7 +46,7 @@ using vars_pair_queue = TrackedExistingPairsDeque;
 class MutexInformation {
     std::vector<std::vector<std::set<FactPair>>> mutexes;
     std::shared_ptr<std::vector<int>> vars_with_mutexes;
-    std::vector<std::vector<int>> var_mutex_vars;
+    std::vector<std::vector<int>> mutex_vars_for_var;
     vars_pair_queue mutex_vars_queue;
     std::vector<vars_pair_queue> per_var_mutex_vars_queue;
     std::vector<mutex_set_for_value> var_mutex_set{};
@@ -65,7 +65,7 @@ public:
         int n_vars = mutexes.size();
         vars_with_mutexes->reserve(n_vars);
         var_mutex_set.reserve(n_vars);
-        var_mutex_vars = std::vector<std::vector<int>>(n_vars, std::vector<int>{});
+        mutex_vars_for_var = std::vector<std::vector<int>>(n_vars, std::vector<int>{});
         for (int i = 0; i < n_vars; i++) {
             std::set<int> mutex_vars;
             for (const std::set<FactPair> &values_mutex : mutexes[i]) {
@@ -76,9 +76,9 @@ public:
             if (!mutex_vars.empty()) {
                 vars_with_mutexes->push_back(i);
             }
-            var_mutex_vars[i].reserve(mutex_vars.size());
+            mutex_vars_for_var[i].reserve(mutex_vars.size());
             for (int j : mutex_vars) {
-                var_mutex_vars[i].push_back(j);
+                mutex_vars_for_var[i].push_back(j);
                 mutex_vars_queue.add(i, j);
                 per_var_mutex_vars_queue[i].add(j, i);
             }
@@ -100,7 +100,7 @@ public:
     const std::set<FactPair> &get_mutexes(const FactPair &fact) const {
         return mutexes[fact.var][fact.value];
     }
-    const std::vector<int> &get_var_mutex_vars(const int var) const;
+    const std::vector<int> &get_mutex_vars_for_var(const int var) const;
     const std::shared_ptr<std::vector<int>> &get_vars_with_mutexes() const;
     const vars_pair_queue &get_mutex_vars_queue() const;
     const vars_pair_queue &get_mutex_vars_queue_for_var(int var) const;
