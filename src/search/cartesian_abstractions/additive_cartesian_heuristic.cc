@@ -18,7 +18,7 @@ using namespace std;
 
 namespace cartesian_abstractions {
 static vector<CartesianHeuristicFunction> generate_heuristic_functions(
-    const plugins::Options &opts, utils::LogProxy &log) {
+    const plugins::Options &opts, const shared_ptr<MutexInformation> &mutex_information, utils::LogProxy &log) {
     if (log.is_at_least_normal()) {
         log << "Initializing additive Cartesian heuristic..." << endl;
     }
@@ -44,17 +44,22 @@ static vector<CartesianHeuristicFunction> generate_heuristic_functions(
         log,
         opts.get<DotGraphVerbosity>("dot_graph_verbosity"));
     return cost_saturation.generate_heuristic_functions(
-        opts.get<shared_ptr<AbstractTask>>("transform"));
+        opts.get<shared_ptr<AbstractTask>>("transform"),
+        mutex_information);
 }
 
 AdditiveCartesianHeuristic::AdditiveCartesianHeuristic(
     const plugins::Options &opts)
     : Heuristic(opts),
-      heuristic_functions(generate_heuristic_functions(opts, log)) {
+      mutex_information(make_shared<MutexInformation>(opts.get<shared_ptr<AbstractTask>>("transform")->mutex_information())),
+      heuristic_functions(generate_heuristic_functions(opts, mutex_information, log)) {
 }
 
 int AdditiveCartesianHeuristic::compute_heuristic(const State &ancestor_state) {
     State state = convert_ancestor_state(ancestor_state);
+    if (mutex_information->is_state_spurious(state)) {
+        return DEAD_END;
+    }
     int sum_h = 0;
     for (const CartesianHeuristicFunction &function : heuristic_functions) {
         int value = function.get_value(state);

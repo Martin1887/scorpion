@@ -2,7 +2,9 @@
 #define TASK_UTILS_MUTEX_INFORMATION_H
 
 #include "parallel_hashmap/phmap.h"
+
 #include "../abstract_task.h"
+#include "../task_proxy.h"
 
 #include <deque>
 #include <set>
@@ -94,6 +96,7 @@ public:
     }
 
     bool are_facts_mutex(const FactPair &fact1, const FactPair &fact2) const;
+    bool is_state_spurious(const State &state) const;
 
     const std::set<FactPair> &get_mutexes(const FactPair &fact) const {
         return mutexes[fact.var][fact.value];

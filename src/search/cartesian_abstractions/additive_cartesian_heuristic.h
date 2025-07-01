@@ -3,6 +3,8 @@
 
 #include "../heuristic.h"
 
+#include "../task_utils/mutex_information.h"
+
 #include <vector>
 
 namespace cartesian_abstractions {
@@ -13,6 +15,7 @@ class CartesianHeuristicFunction;
   summing all of their values.
 */
 class AdditiveCartesianHeuristic : public Heuristic {
+    const std::shared_ptr<MutexInformation> mutex_information;
     const std::vector<CartesianHeuristicFunction> heuristic_functions;
 
 protected:

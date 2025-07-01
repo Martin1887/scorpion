@@ -110,7 +110,8 @@ CostSaturation::CostSaturation(
 }
 
 vector<CartesianHeuristicFunction> CostSaturation::generate_heuristic_functions(
-    const shared_ptr<AbstractTask> &task) {
+    const shared_ptr<AbstractTask> &task,
+    const shared_ptr<MutexInformation> &mutex_information) {
     // For simplicity this is a member object. Make sure it is in a valid state.
     assert(heuristic_functions.empty());
 
@@ -123,7 +124,6 @@ vector<CartesianHeuristicFunction> CostSaturation::generate_heuristic_functions(
 
     State initial_state = task_proxy.get_initial_state();
 
-    auto mutex_information = make_shared<MutexInformation>(task->mutex_information());
     OperatorsProxy orig_ops = task_proxy.get_operators();
     operators = make_shared<vector<disambiguation::DisambiguatedOperator>>();
     operators->reserve(orig_ops.size());
