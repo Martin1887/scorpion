@@ -47,7 +47,7 @@ bool AC3Disambiguation::arc_reduce(CartesianSet &disambiguated,
             bool all_mutex = true;
             for (int y_value = 0; y_value < mutex_var_size; y_value++) {
                 if (disambiguated.test(mutex_var, y_value)) {
-                    if (!var_mutexes.contains({x_value, {mutex_var, y_value}})) {
+                    if (!var_mutexes[x_value].contains({mutex_var, y_value})) {
                         all_mutex = false;
                         break;
                     }
@@ -97,7 +97,7 @@ bool AC3Disambiguation::test_arc_reduce(const CartesianSet &partial_state,
         if (partial_state.test(var, x_value)) {
             bool all_mutex = true;
             for (int y_value : values_for_mutex_var) {
-                if (!var_mutexes.contains({x_value, {mutex_var, y_value}})) {
+                if (!var_mutexes[x_value].contains({mutex_var, y_value})) {
                     all_mutex = false;
                     break;
                 }

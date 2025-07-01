@@ -39,8 +39,7 @@ public:
     }
 };
 
-using tuple_value_fact = std::tuple<int, FactPair>;
-using mutex_set_for_value = phmap::flat_hash_set<tuple_value_fact, utils::Hash<tuple_value_fact>>;
+using mutex_set_for_value = std::vector<phmap::flat_hash_set<FactPair, utils::Hash<FactPair>>>;
 using vars_pair_queue = TrackedExistingPairsDeque;
 
 class MutexInformation {
@@ -84,14 +83,13 @@ public:
             }
 
             const std::vector<std::set<FactPair>> &vec = mutexes[i];
-            mutex_set_for_value mutex_set{};
             int size = vec.size();
+            var_mutex_set.push_back(std::vector<phmap::flat_hash_set<FactPair, utils::Hash<FactPair>>>(size));
             for (int value = 0; value < size; value++) {
                 for (const FactPair &mutex : vec[value]) {
-                    mutex_set.insert({value, mutex});
+                    var_mutex_set[i][value].insert(mutex);
                 }
             }
-            var_mutex_set.push_back(std::move(mutex_set));
         }
     }
 
@@ -112,15 +110,5 @@ public:
     MutexInformation convert(const std::vector<int> &domain_size, const extra_tasks::ValueMap &value_map) const;
 };
 
-namespace utils {
-inline void feed(HashState &hash_state, const tuple_value_fact &val) {
-    feed(hash_state, std::get<0>(val));
-    feed(hash_state, std::get<1>(val));
-}
-inline void feed(HashState &hash_state, const std::tuple<int, int> &val) {
-    feed(hash_state, std::get<0>(val));
-    feed(hash_state, std::get<1>(val));
-}
-}
 
 #endif
