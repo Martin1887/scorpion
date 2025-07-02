@@ -87,6 +87,7 @@ class ShortestPaths {
     utils::LogProxy &log;
     const bool debug;
     const bool task_has_zero_costs;
+    const bool remove_spurious_transitions_in_rewiring;
     std::vector<Cost> operator_costs;
 
     // Keep data structures around to avoid reallocating them.
@@ -130,7 +131,7 @@ class ShortestPaths {
         const bool backward,
         const bool simulated = false);
 public:
-    ShortestPaths(const std::vector<int> &costs, utils::LogProxy &log);
+    ShortestPaths(const std::vector<int> &costs, bool remove_spurious_transitions_in_rewiring, utils::LogProxy &log);
 
     // Use Dijkstra's algorithm to compute the shortest path tree from scratch.
     void recompute(

@@ -4,6 +4,7 @@
 #include "abstract_state.h"
 #include "flaw_search.h"
 #include "shortest_paths.h"
+#include "subtask_generators.h"
 #include "transition_system.h"
 #include "utils.h"
 
@@ -40,11 +41,12 @@ CEGAR::CEGAR(
     int max_concrete_states_per_abstract_state,
     int max_state_expansions,
     bool intersect_flaw_search_abstract_states,
-    bool remove_plan_spurious_transitions,
+    SpuriousTransitionsRemoval remove_spurious_transitions,
     bool refine_init,
     bool refine_goals,
     lp::LPSolverType lp_solver,
     shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
+    shared_ptr<disambiguation::DisambiguationMethod> &transitions_disambiguation,
     std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> _operators,
     utils::RandomNumberGenerator &rng,
     utils::LogProxy &log,
@@ -54,13 +56,14 @@ CEGAR::CEGAR(
       max_states(max_states),
       max_non_looping_transitions(max_non_looping_transitions),
       pick_flawed_abstract_state(pick_flawed_abstract_state),
-      remove_plan_spurious_transitions(remove_plan_spurious_transitions),
+      remove_spurious_transitions(remove_spurious_transitions),
       refine_init(refine_init),
       refine_goals(refine_goals),
       mutex_information(make_shared<MutexInformation>(task->mutex_information())),
       abstract_space_disambiguation(abstract_space_disambiguation),
+      transitions_disambiguation(transitions_disambiguation),
       operators(make_shared<vector<disambiguation::DisambiguatedOperator>>()),
-      simulated_transition_system(make_shared<TransitionSystem>(operators)),
+      simulated_transition_system(make_shared<TransitionSystem>(operators, remove_spurious_transitions, *this)),
       timer(max_time),
       max_time(max_time),
       log(log),
@@ -69,9 +72,11 @@ CEGAR::CEGAR(
     for (auto &op : *_operators) {
         operators->push_back(task->convert_disambiguated_operator(op));
     }
-    abstraction = make_unique<Abstraction>(task, operators, mutex_information, abstract_space_disambiguation, log);
+    abstraction = make_unique<Abstraction>(task, remove_spurious_transitions, *this, operators, mutex_information, abstract_space_disambiguation, log);
     shortest_paths = make_unique<ShortestPaths>(
-        task_properties::get_operator_costs(task_proxy), log);
+        task_properties::get_operator_costs(task_proxy),
+        remove_spurious_transitions == SpuriousTransitionsRemoval::OPTIMAL || remove_spurious_transitions == SpuriousTransitionsRemoval::ALL,
+        log);
     flaw_search = make_unique<FlawSearch>(
         task, *abstraction, *shortest_paths, simulated_transition_system, rng,
         pick_flawed_abstract_state, pick_split, filter_split, tiebreak_split,
@@ -183,43 +188,46 @@ bool CEGAR::may_keep_refining(bool in_current_direction) const {
     return true;
 }
 
+const std::unique_ptr<ShortestPaths> &CEGAR::get_shortest_paths() const {
+    return shortest_paths;
+}
+
+bool CEGAR::is_spurious_transition(const TransitionElements &tr, CartesianState src_state, const CartesianState &target_state) {
+    if (!non_spurious_transitions_cache.contains(tr)) {
+        const DisambiguatedOperator &op = (*operators)[tr.op_id];
+        src_state.inplace_intersection(op.get_precondition());
+        if (src_state.remove(move(transitions_disambiguation->disambiguation_removed_facts(src_state, *mutex_information)))) {
+            return true;
+        }
+        src_state.progress(op);
+        src_state.inplace_intersection(target_state);
+        if (src_state.remove(move(transitions_disambiguation->disambiguation_removed_facts(src_state, *mutex_information)))) {
+            return true;
+        }
+
+        non_spurious_transitions_cache.add(tr);
+    }
+
+    return false;
+}
+
 bool CEGAR::remove_first_invalid_transition(std::unique_ptr<Solution> &solution,
                                             utils::Timer &update_distances_timer) {
     int current_state_id = abstraction->get_initial_state().get_id();
     for (const Transition &transition : *solution) {
-        TransitionElements tr{current_state_id, transition.op_id, transition.target_id};
-        if (!non_spurious_transitions_cache.contains(tr)) {
-            CartesianState current_state = abstraction->get_state(current_state_id);
-            const DisambiguatedOperator &op = (*operators)[transition.op_id];
-            current_state.inplace_intersection(op.get_precondition());
-            if (current_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(current_state, *mutex_information)))) {
-                abstraction->remove_transition(current_state_id, transition.op_id, transition.target_id);
-                update_shortest_paths_incrementally(abstraction->get_transition_system().get_incoming_transitions(),
-                                                    abstraction->get_transition_system().get_outgoing_transitions(),
-                                                    STATE_NOT_SPLIT, current_state_id, transition.target_id, false,
-                                                    {}, {},
-                                                    abstraction->get_goals(),
-                                                    abstraction->get_initial_state().get_id(),
-                                                    update_distances_timer);
-                removed_optimal_plan_transitions++;
-                return true;
-            }
-            current_state.progress(op);
-            current_state.inplace_intersection(abstraction->get_state(transition.target_id));
-            if (current_state.remove(move(abstract_space_disambiguation->disambiguation_removed_facts(current_state, *mutex_information)))) {
-                abstraction->remove_transition(current_state_id, transition.op_id, transition.target_id);
-                update_shortest_paths_incrementally(abstraction->get_transition_system().get_incoming_transitions(),
-                                                    abstraction->get_transition_system().get_outgoing_transitions(),
-                                                    STATE_NOT_SPLIT, current_state_id, transition.target_id, false,
-                                                    {}, {},
-                                                    abstraction->get_goals(),
-                                                    abstraction->get_initial_state().get_id(),
-                                                    update_distances_timer);
-                removed_optimal_plan_transitions++;
-                return true;
-            }
-
-            non_spurious_transitions_cache.add(tr);
+        if (is_spurious_transition({current_state_id, transition.op_id, transition.target_id},
+                                   abstraction->get_state(current_state_id),
+                                   abstraction->get_state(transition.target_id))) {
+            abstraction->remove_transition(current_state_id, transition.op_id, transition.target_id);
+            update_shortest_paths_incrementally(abstraction->get_transition_system().get_incoming_transitions(),
+                                                abstraction->get_transition_system().get_outgoing_transitions(),
+                                                STATE_NOT_SPLIT, current_state_id, transition.target_id, false,
+                                                {}, {},
+                                                abstraction->get_goals(),
+                                                abstraction->get_initial_state().get_id(),
+                                                update_distances_timer);
+            removed_optimal_plan_transitions++;
+            return true;
         }
         current_state_id = transition.target_id;
     }
@@ -233,7 +241,7 @@ unique_ptr<Solution> CEGAR::get_optimal_abstract_solution(utils::Timer &update_d
     do {
         solution = shortest_paths->extract_solution(
             abstraction->get_initial_state().get_id(), abstraction->get_goals());
-    } while (remove_plan_spurious_transitions && remove_first_invalid_transition(solution, update_distances_timer));
+    } while (remove_spurious_transitions == SpuriousTransitionsRemoval::PLAN && remove_first_invalid_transition(solution, update_distances_timer));
 
     return solution;
 }

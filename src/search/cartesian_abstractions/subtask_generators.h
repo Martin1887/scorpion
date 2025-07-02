@@ -31,6 +31,20 @@ using Facts = std::vector<FactPair>;
 
 struct SubtaskParams {
 };
+
+enum class FactOrder {
+    ORIGINAL,
+    RANDOM,
+    HADD_UP,
+    HADD_DOWN
+};
+
+enum class SpuriousTransitionsRemoval {
+    NONE,
+    PLAN,
+    OPTIMAL,
+    ALL
+};
 struct Subtask {
     // Subtasks can be copies of the same task/subtask (with different split
     // strategies for instance) or subtasks of the original Planning task. Each
@@ -46,19 +60,11 @@ struct Subtask {
     PickSequenceFlaw sequence_split;
     PickSequenceFlaw sequence_tiebreak_split;
     bool intersect_flaw_search_abstract_states;
-    bool remove_plan_spurious_transitions;
+    SpuriousTransitionsRemoval remove_spurious_transitions;
     bool refine_init;
     bool refine_goals;
 };
 using SharedTasks = std::vector<Subtask>;
-
-enum class FactOrder {
-    ORIGINAL,
-    RANDOM,
-    HADD_UP,
-    HADD_DOWN
-};
-
 
 Facts filter_and_order_facts(
     const std::shared_ptr<AbstractTask> &task,
@@ -87,7 +93,7 @@ protected:
     PickSequenceFlaw sequence_split;
     PickSequenceFlaw sequence_tiebreak_split;
     bool intersect_flaw_search_abstract_states;
-    bool remove_plan_spurious_transitions;
+    SpuriousTransitionsRemoval remove_spurious_transitions;
     bool refine_init;
     bool refine_goals;
 
@@ -99,7 +105,7 @@ protected:
           sequence_split(opts.get<PickSequenceFlaw>("sequence_split")),
           sequence_tiebreak_split(opts.get<PickSequenceFlaw>("sequence_tiebreak_split")),
           intersect_flaw_search_abstract_states(opts.get<bool>("intersect_flaw_search_abstract_states")),
-          remove_plan_spurious_transitions(opts.get<bool>("remove_plan_spurious_transitions")),
+          remove_spurious_transitions(opts.get<SpuriousTransitionsRemoval>("remove_spurious_transitions")),
           refine_init(opts.get<bool>("refine_init")),
           refine_goals(opts.get<bool>("refine_goals")) {
     }
@@ -165,7 +171,7 @@ protected:
     PickFlawedAbstractState pick_flawed_abstract_state;
     PickSplit tiebreak_split;
     bool intersect_flaw_search_abstract_states;
-    bool remove_plan_spurious_transitions;
+    SpuriousTransitionsRemoval remove_spurious_transitions;
     bool refine_init;
     bool refine_goals;
 
@@ -173,7 +179,7 @@ protected:
         : pick_flawed_abstract_state(opts.get<PickFlawedAbstractState>("pick_flawed_abstract_state")),
           tiebreak_split(opts.get<PickSplit>("tiebreak_split")),
           intersect_flaw_search_abstract_states(opts.get<bool>("intersect_flaw_search_abstract_states")),
-          remove_plan_spurious_transitions((opts.get<bool>("remove_plan_spurious_transitions"))),
+          remove_spurious_transitions((opts.get<SpuriousTransitionsRemoval>("remove_spurious_transitions"))),
           refine_init(opts.get<bool>("refine_init")),
           refine_goals(opts.get<bool>("refine_goals")) {
     }

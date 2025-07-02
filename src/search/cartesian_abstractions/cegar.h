@@ -4,6 +4,7 @@
 #include "flaw_search.h"
 #include "refinement_hierarchy.h"
 #include "split_selector.h"
+#include "subtask_generators.h"
 #include "types.h"
 
 #include "../task_proxy.h"
@@ -89,13 +90,13 @@ class CEGAR {
     const int max_states;
     const int max_non_looping_transitions;
     const PickFlawedAbstractState pick_flawed_abstract_state;
-    bool remove_plan_spurious_transitions;
+    SpuriousTransitionsRemoval remove_spurious_transitions;
     const bool refine_init;
     const bool refine_goals;
 
     std::shared_ptr<MutexInformation> mutex_information;
     std::shared_ptr<disambiguation::DisambiguationMethod> abstract_space_disambiguation;
-    std::shared_ptr<disambiguation::DisambiguationMethod> flaw_search_states_disambiguation;
+    std::shared_ptr<disambiguation::DisambiguationMethod> transitions_disambiguation;
     std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> operators;
 
     std::unique_ptr<Abstraction> abstraction;
@@ -163,11 +164,12 @@ public:
         int max_concrete_states_per_abstract_state,
         int max_state_expansions,
         bool intersect_flaw_search_abstract_states,
-        bool remove_plan_spurious_transitions,
+        SpuriousTransitionsRemoval remove_spurious_transitions,
         bool refine_init,
         bool refine_goals,
         lp::LPSolverType lp_solver,
         std::shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
+        std::shared_ptr<disambiguation::DisambiguationMethod> &transitions_disambiguation,
         std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> _operators,
         utils::RandomNumberGenerator &rng,
         utils::LogProxy &log,
@@ -177,6 +179,9 @@ public:
     CEGAR(const CEGAR &) = delete;
 
     std::unique_ptr<Abstraction> extract_abstraction();
+
+    bool is_spurious_transition(const TransitionElements &tr, CartesianState src_state, const CartesianState &target_state);
+    const std::unique_ptr<ShortestPaths> &get_shortest_paths() const;
 
     void print_useless_refinements(const RefinementHierarchy &hier, const std::vector<int> &goal_distances) const;
 };

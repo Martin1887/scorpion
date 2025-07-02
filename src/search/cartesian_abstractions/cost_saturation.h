@@ -46,6 +46,7 @@ class CostSaturation {
     lp::LPSolverType lp_solver;
     std::shared_ptr<disambiguation::DisambiguationMethod> operators_disambiguation;
     std::shared_ptr<disambiguation::DisambiguationMethod> abstract_space_disambiguation;
+    std::shared_ptr<disambiguation::DisambiguationMethod> transitions_disambiguation;
     std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> operators;
     utils::RandomNumberGenerator &rng;
     utils::LogProxy &log;
@@ -82,6 +83,7 @@ public:
         lp::LPSolverType lp_solver,
         std::shared_ptr<disambiguation::DisambiguationMethod> operators_disambiguation,
         std::shared_ptr<disambiguation::DisambiguationMethod> abstract_space_disambiguation,
+        std::shared_ptr<disambiguation::DisambiguationMethod> transitions_disambiguation,
         utils::RandomNumberGenerator &rng,
         utils::LogProxy &log,
         DotGraphVerbosity dot_graph_verbosity);

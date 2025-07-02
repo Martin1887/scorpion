@@ -112,7 +112,7 @@ SharedTasks TaskDuplicator::get_subtasks(
         .sequence_split = sequence_split,
         .sequence_tiebreak_split = sequence_tiebreak_split,
         .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
-        .remove_plan_spurious_transitions = remove_plan_spurious_transitions,
+        .remove_spurious_transitions = remove_spurious_transitions,
         .refine_init = refine_init,
         .refine_goals = refine_goals
     };
@@ -150,7 +150,7 @@ SharedTasks GoalDecomposition::get_subtasks(
             .sequence_split = sequence_split,
             .sequence_tiebreak_split = sequence_tiebreak_split,
             .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
-            .remove_plan_spurious_transitions = remove_plan_spurious_transitions,
+            .remove_spurious_transitions = remove_spurious_transitions,
             .refine_init = refine_init,
             .refine_goals = refine_goals
         };
@@ -208,7 +208,7 @@ SharedTasks LandmarkDecomposition::get_subtasks(
             .sequence_split = sequence_split,
             .sequence_tiebreak_split = sequence_tiebreak_split,
             .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
-            .remove_plan_spurious_transitions = remove_plan_spurious_transitions,
+            .remove_spurious_transitions = remove_spurious_transitions,
             .refine_init = refine_init,
             .refine_goals = refine_goals
         };
@@ -246,7 +246,7 @@ SharedTasks VarsOrdersSubtaskGenerator::get_subtasks(
                 .sequence_split = PickSequenceFlaw::BEST_SPLIT,
                 .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
                 .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
-                .remove_plan_spurious_transitions = remove_plan_spurious_transitions,
+                .remove_spurious_transitions = remove_spurious_transitions,
                 .refine_init = refine_init,
                 .refine_goals = refine_goals
             }
@@ -274,7 +274,7 @@ SharedTasks BestStrategiesSubtaskGenerator::get_subtasks(
             .sequence_split = PickSequenceFlaw::CLOSEST_TO_GOAL_FLAW,
             .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
             .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
-            .remove_plan_spurious_transitions = remove_plan_spurious_transitions,
+            .remove_spurious_transitions = remove_spurious_transitions,
             .refine_init = refine_init,
             .refine_goals = refine_goals
         });
@@ -301,7 +301,7 @@ SharedTasks BestStrategiesSubtaskGenerator::get_subtasks(
                 .sequence_split = PickSequenceFlaw::BEST_SPLIT,
                 .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
                 .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states,
-                .remove_plan_spurious_transitions = remove_plan_spurious_transitions,
+                .remove_spurious_transitions = remove_spurious_transitions,
                 .refine_init = refine_init,
                 .refine_goals = refine_goals
             });
@@ -351,10 +351,10 @@ static void add_all_base_options(plugins::Feature &feature) {
         "sequence_tiebreak_split",
         "split-selection strategy for breaking ties when choosing among flaws in different states",
         "best_split");
-    feature.add_option<bool>(
-        "remove_plan_spurious_transitions",
-        "remove optimal abstract plan spurious transitions by using the operators disambiguation method",
-        "false");
+    feature.add_option<SpuriousTransitionsRemoval>(
+        "remove_spurious_transitions",
+        "remove spurious transitions by using the transitions disambiguation method",
+        "none");
     feature.add_option<bool>(
         "refine_init",
         "refine the initial state before the refinement loop",
@@ -438,5 +438,11 @@ static plugins::TypedEnumPlugin<FactOrder> _enum_plugin({
         {"random", "according to a random permutation"},
         {"hadd_up", "according to their h^add value, lowest first"},
         {"hadd_down", "according to their h^add value, highest first "}
+    });
+static plugins::TypedEnumPlugin<SpuriousTransitionsRemoval> _enum_plugin_spurious({
+        {"none", "Remove no transition"},
+        {"plan", "Remove spurious transitions only from the optimal abstract plans"},
+        {"optimal", "Remove all optimal spuriuos transitions while rewiring. Note that optimal transitions to the parent are considered, and after removing all of them no additional transition is removed despite being the new optimal transition"},
+        {"all", "Remove all spurious transitions while rewiring"}
     });
 }

@@ -11,10 +11,11 @@ using namespace std;
 namespace cartesian_abstractions {
 const Cost ShortestPaths::DIRTY = numeric_limits<Cost>::max() - 1;
 
-ShortestPaths::ShortestPaths(const vector<int> &costs, utils::LogProxy &log)
+ShortestPaths::ShortestPaths(const vector<int> &costs, bool remove_spurious_transitions_in_rewiring, utils::LogProxy &log)
     : log(log),
       debug(log.is_at_least_debug()),
-      task_has_zero_costs(any_of(costs.begin(), costs.end(), [](int c) {return c == 0;})) {
+      task_has_zero_costs(any_of(costs.begin(), costs.end(), [](int c) {return c == 0;})),
+      remove_spurious_transitions_in_rewiring(remove_spurious_transitions_in_rewiring) {
     operator_costs.reserve(costs.size());
     for (int cost : costs) {
         operator_costs.push_back(convert_to_64_bit_cost(cost));
@@ -214,6 +215,7 @@ void ShortestPaths::update_incrementally_in_direction(
     const int initial_state,
     const bool backward,
     const bool simulated) {
+    disambiguated = disambiguated || remove_spurious_transitions_in_rewiring;
     vector<Cost> *distances;
     Transitions *virtual_shortest_path;
     if (simulated) {

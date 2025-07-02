@@ -14,6 +14,7 @@ class CartesianState;
 }
 
 namespace disambiguation {
+class DisambiguationMethod;
 class DisambiguatedOperator;
 }
 
@@ -22,11 +23,15 @@ class LogProxy;
 }
 
 namespace cartesian_abstractions {
+class CEGAR;
+enum class SpuriousTransitionsRemoval;
 /*
   Rewire transitions after each split.
 */
 class TransitionSystem {
     const std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> operators;
+    SpuriousTransitionsRemoval remove_spurious_transitions;
+    CEGAR &cegar;
 
     // Transitions from and to other abstract states.
     std::vector<Transitions> incoming;
@@ -59,7 +64,10 @@ class TransitionSystem {
         const bool simulated = false);
 
 public:
-    explicit TransitionSystem(const std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> &ops);
+    explicit TransitionSystem(
+        const std::shared_ptr<std::vector<disambiguation::DisambiguatedOperator>> &ops,
+        SpuriousTransitionsRemoval remove_spurious_transitions,
+        CEGAR &cegar);
 
     // Update transition system after v has been split for var into v1 and v2.
     std::tuple<Transitions, Transitions> rewire(

@@ -1,6 +1,8 @@
 #include "transition_system.h"
 
 #include "abstract_state.h"
+#include "cegar.h"
+#include "subtask_generators.h"
 #include "transition.h"
 #include "utils.h"
 
@@ -35,8 +37,13 @@ static void remove_op_transitions_with_given_target(
 }
 
 
-TransitionSystem::TransitionSystem(const shared_ptr<vector<DisambiguatedOperator>> &ops)
+TransitionSystem::TransitionSystem(
+    const shared_ptr<vector<DisambiguatedOperator>> &ops,
+    SpuriousTransitionsRemoval remove_spurious_transitions,
+    CEGAR &cegar)
     : operators(ops),
+      remove_spurious_transitions(remove_spurious_transitions),
+      cegar(cegar),
       redundant_operators(0),
       num_non_loops(0),
       num_loops(0) {
@@ -100,8 +107,6 @@ void TransitionSystem::rewire_incoming_transitions(
     const vector<int> &modified_vars) {
     /* State v has been split into v1 and v2. Now for all transitions
        u->v we need to add transitions u->v1, u->v2, or both. */
-    int v1_id = v1.get_id();
-    int v2_id = v2.get_id();
 
     unordered_set<int> updated_states;
     for (const Transition &transition : old_incoming) {
@@ -113,15 +118,37 @@ void TransitionSystem::rewire_incoming_transitions(
     }
     num_non_loops -= old_incoming.size();
 
+    const unique_ptr<ShortestPaths> &shortest_paths = cegar.get_shortest_paths();
+
     for (const Transition &transition : old_incoming) {
         int op_id = transition.op_id;
         int u_id = transition.target_id;
         const AbstractState &u = *states[u_id];
-        if (u.reach_with_op(v1, (*operators)[op_id], modified_vars)) {
-            add_transition(u_id, op_id, v1_id);
-        }
-        if (u.reach_with_op(v2, (*operators)[op_id], modified_vars)) {
-            add_transition(u_id, op_id, v2_id);
+        for (const AbstractState &child : {v1, v2}) {
+            if (u.reach_with_op(child, (*operators)[op_id], modified_vars)) {
+                int child_id = child.get_id();
+                switch (remove_spurious_transitions) {
+                case SpuriousTransitionsRemoval::ALL:
+                    if (!cegar.is_spurious_transition({u_id, op_id, child_id},
+                                                      u,
+                                                      child)) {
+                        add_transition(u_id, op_id, child_id);
+                    }
+                    break;
+                case SpuriousTransitionsRemoval::OPTIMAL:
+                    if ((!shortest_paths->is_optimal_transition(u_id, op_id, v_id) && !shortest_paths->is_backward_optimal_transition(v_id, op_id, u_id)) ||
+                        !cegar.is_spurious_transition({u_id, op_id, child_id},
+                                                      u,
+                                                      child)) {
+                        add_transition(u_id, op_id, child_id);
+                    }
+                    break;
+                case SpuriousTransitionsRemoval::PLAN:
+                case SpuriousTransitionsRemoval::NONE:
+                    add_transition(u_id, op_id, child_id);
+                    break;
+                }
+            }
         }
     }
 }
@@ -132,8 +159,6 @@ void TransitionSystem::rewire_outgoing_transitions(
     const vector<int> &modified_vars) {
     /* State v has been split into v1 and v2. Now for all transitions
        v->w we need to add transitions v1->w, v2->w, or both. */
-    int v1_id = v1.get_id();
-    int v2_id = v2.get_id();
 
     unordered_set<int> updated_states;
     for (const Transition &transition : old_outgoing) {
@@ -145,17 +170,39 @@ void TransitionSystem::rewire_outgoing_transitions(
     }
     num_non_loops -= old_outgoing.size();
 
+    const unique_ptr<ShortestPaths> &shortest_paths = cegar.get_shortest_paths();
+
     for (const Transition &transition : old_outgoing) {
         int op_id = transition.op_id;
         int w_id = transition.target_id;
         const AbstractState &w = *states[w_id];
-        if (v1.is_applicable((*operators)[op_id], modified_vars) &&
-            v1.reach_with_op(w, (*operators)[op_id], modified_vars)) {
-            add_transition(v1_id, op_id, w_id);
-        }
-        if (v2.is_applicable((*operators)[op_id], modified_vars) &&
-            v2.reach_with_op(w, (*operators)[op_id], modified_vars)) {
-            add_transition(v2_id, op_id, w_id);
+
+        for (const AbstractState &child : {v1, v2}) {
+            if (child.is_applicable((*operators)[op_id], modified_vars) &&
+                child.reach_with_op(w, (*operators)[op_id], modified_vars)) {
+                int child_id = child.get_id();
+                switch (remove_spurious_transitions) {
+                case SpuriousTransitionsRemoval::ALL:
+                    if (!cegar.is_spurious_transition({child_id, op_id, w_id},
+                                                      child,
+                                                      w)) {
+                        add_transition(child_id, op_id, w_id);
+                    }
+                    break;
+                case SpuriousTransitionsRemoval::OPTIMAL:
+                    if ((!shortest_paths->is_optimal_transition(v_id, op_id, w_id) && !shortest_paths->is_backward_optimal_transition(w_id, op_id, v_id)) ||
+                        !cegar.is_spurious_transition({child_id, op_id, w_id},
+                                                      child,
+                                                      w)) {
+                        add_transition(child_id, op_id, w_id);
+                    }
+                    break;
+                case SpuriousTransitionsRemoval::PLAN:
+                case SpuriousTransitionsRemoval::NONE:
+                    add_transition(child_id, op_id, w_id);
+                    break;
+                }
+            }
         }
     }
 }

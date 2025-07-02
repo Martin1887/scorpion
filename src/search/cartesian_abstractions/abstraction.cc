@@ -21,12 +21,14 @@ using namespace std;
 
 namespace cartesian_abstractions {
 Abstraction::Abstraction(const shared_ptr<AbstractTask> &task,
+                         SpuriousTransitionsRemoval remove_spurious_transitions,
+                         CEGAR &cegar,
                          const shared_ptr<vector<disambiguation::DisambiguatedOperator>> &operators,
                          shared_ptr<MutexInformation> &mutex_information,
                          shared_ptr<disambiguation::DisambiguationMethod> &abstract_space_disambiguation,
                          utils::LogProxy &log)
     : task_proxy(TaskProxy(*task)),
-      transition_system(make_unique<TransitionSystem>(operators)),
+      transition_system(make_unique<TransitionSystem>(operators, remove_spurious_transitions, cegar)),
       concrete_initial_state(task_proxy.get_initial_state()),
       goal_facts(task_properties::get_fact_pairs(task_proxy.get_goals())),
       mutex_information(mutex_information),
