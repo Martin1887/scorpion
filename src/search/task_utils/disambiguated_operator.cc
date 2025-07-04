@@ -20,7 +20,7 @@ void DisambiguatedOperator::disambiguate(const EffectsProxy &ep,
     // 2. Assign disambiguated postconditions values of variables without
     //    effect to preconditions.
     // 3. Disambiguate preconditions.
-    // 4. Assign disambiguated precondtions values of variables without
+    // 4. Assign disambiguated preconditions values of variables without
     //    effect to postconditions.
     CartesianSet effects_cartesian_set(precondition.get_cartesian_set());
     // Build non-disambiguated postconditions.
