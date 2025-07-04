@@ -416,6 +416,15 @@ create_fast_downward_library(
 )
 
 create_fast_downward_library(
+    NAME dead_pairs_pruning
+    HELP "Pruning method by using dead pairs"
+    SOURCES
+        pruning/dead_pairs_pruning
+    DEPENDS
+        task_properties
+)
+
+create_fast_downward_library(
     NAME search_common
     HELP "Basic classes used for all search algorithms"
     SOURCES
