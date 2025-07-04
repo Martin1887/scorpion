@@ -43,6 +43,7 @@ public:
     void add_all(int var);
     void remove_all(int var);
     void inplace_intersection(const CartesianSet &other);
+    void inplace_intersection(const CartesianSet &other, std::vector<int> &modified_vars_after_intersection, bool for_target);
     CartesianSet intersection(const CartesianSet &other) const;
     utils::HashSet<int> var_intersection(const CartesianSet &other, int var) const;
 

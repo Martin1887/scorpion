@@ -423,6 +423,10 @@ void CartesianState::inplace_intersection(const CartesianState &other) {
     cartesian_set.inplace_intersection(other.get_cartesian_set());
 }
 
+void CartesianState::inplace_intersection(const CartesianState &other, vector<int> &modified_vars_after_intersection, bool for_target) {
+    cartesian_set.inplace_intersection(other.get_cartesian_set(), modified_vars_after_intersection, for_target);
+}
+
 CartesianState CartesianState::intersection(const CartesianState &other) const {
     return CartesianState(cartesian_set.intersection(other.get_cartesian_set()));
 }

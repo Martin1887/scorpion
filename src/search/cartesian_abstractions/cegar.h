@@ -119,6 +119,7 @@ class CEGAR {
     int removed_optimal_plan_transitions = 0;
 
     NonSpuriousTransitionsCache non_spurious_transitions_cache;
+    std::vector<int> modified_vars_after_intersection;
 
     bool may_keep_refining(bool in_current_direction = false) const;
 

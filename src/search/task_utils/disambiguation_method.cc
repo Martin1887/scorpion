@@ -12,18 +12,16 @@ void DisambiguationMethod::add_disambiguation_base_options(plugins::Feature &fea
 }
 
 
-std::vector<FactPair> DisambiguationMethod::get_disambiguation_removed_values(const CartesianState &cartesian_state,
-                                                                              const MutexInformation &mutex_information) {
-    CartesianState disambiguated = disambiguate_copy(cartesian_state, mutex_information);
-    const CartesianSet &dis_set = disambiguated.get_cartesian_set();
+std::vector<FactPair> DisambiguationMethod::get_disambiguation_removed_values(const CartesianSet &set,
+                                                                              const CartesianSet &dis_set) {
     std::vector<FactPair> removed_values{};
 
-    const CartesianSet &set = cartesian_state.get_cartesian_set();
     int n_vars = set.get_n_vars();
     for (int var = 0; var < n_vars; var++) {
-        for (auto &&fact : set.iter(var)) {
-            if (!dis_set.test(var, fact.value)) {
-                removed_values.push_back(fact);
+        int var_size = set.var_size(var);
+        for (int value = 0; value < var_size; value++) {
+            if (set.test(var, value) && !dis_set.test(var, value)) {
+                removed_values.push_back({var, value});
             }
         }
     }
@@ -37,11 +35,28 @@ std::vector<FactPair> DisambiguationMethod::disambiguation_removed_facts(Cartesi
         CartesianSet &cartesian_set = state.get_mutable_cartesian_set();
         cartesian_set.set_vars_with_mutexes(mutex_information.get_vars_with_mutexes());
         if (!cache.contains(cartesian_set)) {
-            cache.insert_or_assign(cartesian_set, get_disambiguation_removed_values(state, mutex_information));
+            cache.insert_or_assign(cartesian_set,
+                                   get_disambiguation_removed_values(cartesian_set, disambiguate_copy(state, mutex_information).get_cartesian_set()));
         }
         return cache.at(cartesian_set);
     } else {
-        return get_disambiguation_removed_values(state, mutex_information);
+        return get_disambiguation_removed_values(state.get_cartesian_set(), disambiguate_copy(state, mutex_information).get_cartesian_set());
+    }
+}
+
+std::vector<FactPair> DisambiguationMethod::disambiguation_removed_facts(CartesianState &state,
+                                                                         const MutexInformation &mutex_information,
+                                                                         const std::vector<int> &modified_vars) {
+    if (cache_disambiguations) {
+        CartesianSet &cartesian_set = state.get_mutable_cartesian_set();
+        cartesian_set.set_vars_with_mutexes(mutex_information.get_vars_with_mutexes());
+        if (!cache.contains(cartesian_set)) {
+            cache.insert_or_assign(cartesian_set,
+                                   get_disambiguation_removed_values(cartesian_set, disambiguate_copy(state, mutex_information, modified_vars).get_cartesian_set()));
+        }
+        return cache.at(cartesian_set);
+    } else {
+        return get_disambiguation_removed_values(state.get_cartesian_set(), disambiguate_copy(state, mutex_information, modified_vars).get_cartesian_set());
     }
 }
 
@@ -50,6 +65,14 @@ CartesianState DisambiguationMethod::disambiguate_copy(const CartesianState &car
                                                        std::optional<int> var) const {
     CartesianState copy = cartesian_state;
     disambiguate(copy, mutexes, var);
+    return copy;
+}
+
+CartesianState DisambiguationMethod::disambiguate_copy(const CartesianState &cartesian_state,
+                                                       const MutexInformation &mutexes,
+                                                       const std::vector<int> &modified_vars) const {
+    CartesianState copy = cartesian_state;
+    disambiguate(copy, mutexes, modified_vars);
     return copy;
 }
 

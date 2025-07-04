@@ -12,10 +12,37 @@ bool AC3Disambiguation::disambiguate(CartesianState &partial_state,
     if (partial_state.got_empty()) {
         return false;
     }
+    vars_pair_queue worklist = var.has_value() ? mutexes.get_mutex_vars_queue_for_var(var.value()) : mutexes.get_mutex_vars_queue();
+    return disambiguate_from_worklist(partial_state, mutexes, worklist);
+}
+
+bool AC3Disambiguation::disambiguate(CartesianState &partial_state,
+                                     const MutexInformation &mutexes,
+                                     const vector<int> &modified_vars) const {
+    if (partial_state.got_empty()) {
+        return false;
+    }
+
+    vars_pair_queue worklist = mutexes.get_mutex_vars_queue_for_var(modified_vars[0]);
+    bool first = true;
+    for (int var : modified_vars) {
+        if (first) {
+            first = false;
+        } else {
+            vars_pair_queue for_var = mutexes.get_mutex_vars_queue_for_var(var);
+            const std::deque<std::tuple<int, int>> &for_var_queue = for_var.get_queue();
+            for (auto &[first, second] : for_var_queue) {
+                worklist.add(first, second);
+            }
+        }
+    }
+    return disambiguate_from_worklist(partial_state, mutexes, worklist);
+}
+
+bool AC3Disambiguation::disambiguate_from_worklist(CartesianState &partial_state, const MutexInformation &mutexes, vars_pair_queue &worklist) const {
     bool changed = false;
     CartesianSet &disambiguated = partial_state.get_mutable_cartesian_set();
 
-    vars_pair_queue worklist = var.has_value() ? mutexes.get_mutex_vars_queue_for_var(var.value()) : mutexes.get_mutex_vars_queue();
     while (!worklist.empty()) {
         tuple<int, int> vars_pair = worklist.pop_front();
         int var = get<0>(vars_pair);

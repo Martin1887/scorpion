@@ -101,6 +101,26 @@ void CartesianSet::inplace_intersection(const CartesianSet &other) {
     }
 }
 
+void CartesianSet::inplace_intersection(const CartesianSet &other, vector<int> &modified_vars_after_intersection, bool for_target) {
+    modified_vars_after_intersection.clear();
+    for (int var = 0; var < n_vars; ++var) {
+        bool added = false;
+        int domain_size = var_size(var);
+        for (int value = 0; value < domain_size; ++value) {
+            if (!other.test(var, value)) {
+                remove(var, value);
+                if (!for_target && !added) {
+                    modified_vars_after_intersection.push_back(var);
+                    added = true;
+                }
+            } else if (for_target && !added && !test(var, value)) {
+                modified_vars_after_intersection.push_back(var);
+                added = true;
+            }
+        }
+    }
+}
+
 CartesianSet CartesianSet::intersection(const CartesianSet &other) const {
     CartesianSet intersection(*this);
     intersection.inplace_intersection(other);

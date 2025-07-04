@@ -37,6 +37,10 @@ public:
     bool empty() const {
         return queue.empty();
     }
+
+    const std::deque<std::tuple<int, int>> &get_queue() const {
+        return queue;
+    }
 };
 
 using mutex_set_for_value = std::vector<phmap::flat_hash_set<FactPair, utils::Hash<FactPair>>>;

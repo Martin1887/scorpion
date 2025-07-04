@@ -43,6 +43,36 @@ bool AC3PerVarDisambiguation::disambiguate(CartesianState &partial_state,
     return changed;
 }
 
+bool AC3PerVarDisambiguation::disambiguate(CartesianState &partial_state,
+                                           const MutexInformation &mutexes,
+                                           const vector<int> &modified_vars) const {
+    if (partial_state.got_empty()) {
+        return false;
+    }
+    bool changed = false;
+    CartesianSet &disambiguated = partial_state.get_mutable_cartesian_set();
+
+    for (int var : modified_vars) {
+        const mutex_set_for_value &var_mutexes = mutexes.get_var_mutexes(var);
+        // Initially, worklist=var_mutex_vars, but it changes.
+        vector<int> worklist = mutexes.get_mutex_vars_for_var(var);
+        while (!worklist.empty()) {
+            auto iterator = worklist.begin();
+            int mutex_var = *iterator;
+            worklist.erase(iterator);
+            if (arc_reduce(disambiguated, var, mutex_var, var_mutexes)) {
+                changed = true;
+                if (disambiguated.count(var) == 0) {
+                    partial_state.got_empty();
+                    return changed;
+                }
+            }
+        }
+    }
+
+    return changed;
+}
+
 bool AC3PerVarDisambiguation::arc_reduce(CartesianSet &disambiguated,
                                          int var,
                                          int mutex_var,

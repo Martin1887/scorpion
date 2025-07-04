@@ -92,6 +92,7 @@ public:
     void set_var_values(int var, const CartesianSet &other);
     bool remove(const std::vector<FactPair> &values);
     void inplace_intersection(const CartesianState &other);
+    void inplace_intersection(const CartesianState &other, std::vector<int> &modified_vars_after_intersection, bool for_target);
     CartesianState intersection(const CartesianState &other) const;
 
     friend std::ostream &operator<<(std::ostream &os, const CartesianState &state) {

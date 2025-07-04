@@ -26,19 +26,22 @@ namespace disambiguation  {
 class DisambiguationMethod {
     bool cache_disambiguations = false;
     phmap::flat_hash_map<CartesianSet, std::vector<FactPair>, utils::HashMutexVars> cache;
-    std::vector<FactPair> get_disambiguation_removed_values(const CartesianState &cartesian_set,
-                                                            const MutexInformation &mutex_information);
+    std::vector<FactPair> get_disambiguation_removed_values(const CartesianSet &set,
+                                                            const CartesianSet &dis_set);
 public:
     DisambiguationMethod(bool cache_disambiguations)
         : cache_disambiguations(cache_disambiguations) {}
     virtual ~DisambiguationMethod() = default;
 
     virtual std::vector<FactPair> disambiguation_removed_facts(CartesianState &, const MutexInformation &);
+    virtual std::vector<FactPair> disambiguation_removed_facts(CartesianState &, const MutexInformation &, const std::vector<int> &);
 
     virtual CartesianState disambiguate_copy(const CartesianState &, const MutexInformation &, std::optional<int> var = std::nullopt) const;
+    virtual CartesianState disambiguate_copy(const CartesianState &, const MutexInformation &, const std::vector<int> &) const;
 
     // Returns true if the Cartesian set is changed
     virtual bool disambiguate(CartesianState &, const MutexInformation &, std::optional<int> var = std::nullopt) const = 0;
+    virtual bool disambiguate(CartesianState &, const MutexInformation &, const std::vector<int> &) const = 0;
     virtual bool test_disambiguate(const CartesianState &, const MutexInformation &, int var, const std::set<int> &values_for_var) const = 0;
 
     static void add_disambiguation_base_options(plugins::Feature &feature);
@@ -50,6 +53,9 @@ public:
         : DisambiguationMethod(opt.get<bool>("cache_disambiguations")) {}
 
     virtual bool disambiguate(CartesianState &, const MutexInformation &, std::optional<int>) const override {
+        return false;
+    }
+    virtual bool disambiguate(CartesianState &, const MutexInformation &, const std::vector<int> &) const override {
         return false;
     }
 

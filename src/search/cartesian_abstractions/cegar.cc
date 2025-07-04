@@ -85,6 +85,8 @@ CEGAR::CEGAR(
         intersect_flaw_search_abstract_states, lp_solver,
         log);
 
+    modified_vars_after_intersection.reserve(domain_sizes.size());
+
     if (log.is_at_least_normal()) {
         log << "Start building abstraction." << endl;
         log << "Maximum number of states: " << max_states << endl;
@@ -195,14 +197,28 @@ const std::unique_ptr<ShortestPaths> &CEGAR::get_shortest_paths() const {
 bool CEGAR::is_spurious_transition(const TransitionElements &tr, CartesianState src_state, const CartesianState &target_state, bool non_spurious_cache) {
     if (!non_spurious_cache || !non_spurious_transitions_cache.contains(tr)) {
         const DisambiguatedOperator &op = (*operators)[tr.op_id];
-        src_state.inplace_intersection(op.get_precondition());
-        if (src_state.remove(move(transitions_disambiguation->disambiguation_removed_facts(src_state, *mutex_information)))) {
-            return true;
+        if (abstract_space_disambiguation == transitions_disambiguation) {
+            src_state.inplace_intersection(op.get_precondition(), modified_vars_after_intersection, false);
+            if (src_state.remove(move(transitions_disambiguation->disambiguation_removed_facts(src_state, *mutex_information, modified_vars_after_intersection)))) {
+                return true;
+            }
+        } else {
+            src_state.inplace_intersection(op.get_precondition());
+            if (src_state.remove(move(transitions_disambiguation->disambiguation_removed_facts(src_state, *mutex_information)))) {
+                return true;
+            }
         }
         src_state.progress(op);
-        src_state.inplace_intersection(target_state);
-        if (src_state.remove(move(transitions_disambiguation->disambiguation_removed_facts(src_state, *mutex_information)))) {
-            return true;
+        if (abstract_space_disambiguation == transitions_disambiguation) {
+            src_state.inplace_intersection(target_state, modified_vars_after_intersection, true);
+            if (src_state.remove(move(transitions_disambiguation->disambiguation_removed_facts(src_state, *mutex_information, modified_vars_after_intersection)))) {
+                return true;
+            }
+        } else {
+            src_state.inplace_intersection(target_state);
+            if (src_state.remove(move(transitions_disambiguation->disambiguation_removed_facts(src_state, *mutex_information)))) {
+                return true;
+            }
         }
 
         if (non_spurious_cache) {

@@ -23,6 +23,7 @@ public:
     AC3PerVarDisambiguation(const plugins::Options &opt)
         : DisambiguationMethod(opt.get<bool>("cache_disambiguations")) {}
     virtual bool disambiguate(CartesianState &, const MutexInformation &, std::optional<int> var) const override;
+    virtual bool disambiguate(CartesianState &, const MutexInformation &, const std::vector<int> &modified_vars) const override;
     virtual bool test_disambiguate(const CartesianState &, const MutexInformation &, int mutex_var, const std::set<int> &values_for_var) const override;
 };
 }
