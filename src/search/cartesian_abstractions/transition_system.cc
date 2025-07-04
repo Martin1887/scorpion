@@ -19,12 +19,6 @@ using namespace std;
 using namespace disambiguation;
 
 namespace cartesian_abstractions {
-enum SpuriousTransition {
-    UNKNOWN,
-    NO,
-    YES,
-};
-
 static void remove_transitions_with_given_target(
     Transitions &transitions, int state_id) {
     auto new_end = remove_if(
@@ -130,42 +124,28 @@ void TransitionSystem::rewire_incoming_transitions(
         int op_id = transition.op_id;
         int u_id = transition.target_id;
         const AbstractState &u = *states[u_id];
-        SpuriousTransition sp = SpuriousTransition::UNKNOWN;
         for (const AbstractState &child : {v1, v2}) {
             if (u.reach_with_op(child, (*operators)[op_id], modified_vars)) {
                 int child_id = child.get_id();
                 switch (remove_spurious_transitions) {
                 case SpuriousTransitionsRemoval::ALL:
-                    if (sp == SpuriousTransition::UNKNOWN) {
-                        sp = cegar.is_spurious_transition({u_id, op_id, child_id},
-                                                          u,
-                                                          child) ? SpuriousTransition::YES : SpuriousTransition::NO;
-                    }
-                    if (sp == SpuriousTransition::NO) {
+                    if (!cegar.is_spurious_transition({u_id, op_id, child_id},
+                                                      u,
+                                                      child)) {
                         add_transition(u_id, op_id, child_id);
                     }
                     break;
                 case SpuriousTransitionsRemoval::OPTIMAL:
-                    switch (sp) {
-                    case SpuriousTransition::YES:
-                        break;
-                    case SpuriousTransition::NO:
+                {
+                    bool is_optimal = shortest_paths->is_optimal_transition(u_id, op_id, v_id) ||
+                        shortest_paths->is_backward_optimal_transition(v_id, op_id, u_id);
+                    if (!is_optimal || !cegar.is_spurious_transition({u_id, op_id, child_id},
+                                                                     u,
+                                                                     child)) {
                         add_transition(u_id, op_id, child_id);
-                        break;
-                    case SpuriousTransition::UNKNOWN:
-                        bool is_optimal = shortest_paths->is_optimal_transition(u_id, op_id, v_id) ||
-                            shortest_paths->is_backward_optimal_transition(v_id, op_id, u_id);
-                        if (is_optimal) {
-                            sp = cegar.is_spurious_transition({u_id, op_id, child_id},
-                                                              u,
-                                                              child) ? SpuriousTransition::YES : SpuriousTransition::NO;
-                        }
-                        if (!is_optimal || sp == SpuriousTransition::NO) {
-                            add_transition(u_id, op_id, child_id);
-                        }
-                        break;
                     }
                     break;
+                }
                 case SpuriousTransitionsRemoval::PLAN:
                 case SpuriousTransitionsRemoval::NONE:
                     add_transition(u_id, op_id, child_id);
@@ -199,43 +179,29 @@ void TransitionSystem::rewire_outgoing_transitions(
         int op_id = transition.op_id;
         int w_id = transition.target_id;
         const AbstractState &w = *states[w_id];
-        SpuriousTransition sp = SpuriousTransition::UNKNOWN;
         for (const AbstractState &child : {v1, v2}) {
             if (child.is_applicable((*operators)[op_id], modified_vars) &&
                 child.reach_with_op(w, (*operators)[op_id], modified_vars)) {
                 int child_id = child.get_id();
                 switch (remove_spurious_transitions) {
                 case SpuriousTransitionsRemoval::ALL:
-                    if (sp == SpuriousTransition::UNKNOWN) {
-                        sp = cegar.is_spurious_transition({child_id, op_id, w_id},
-                                                          child,
-                                                          w) ? SpuriousTransition::YES : SpuriousTransition::NO;
-                    }
-                    if (sp == SpuriousTransition::NO) {
+                    if (!cegar.is_spurious_transition({child_id, op_id, w_id},
+                                                      child,
+                                                      w)) {
                         add_transition(child_id, op_id, w_id);
                     }
                     break;
                 case SpuriousTransitionsRemoval::OPTIMAL:
-                    switch (sp) {
-                    case SpuriousTransition::YES:
-                        break;
-                    case SpuriousTransition::NO:
+                {
+                    bool is_optimal = shortest_paths->is_optimal_transition(v_id, op_id, w_id) ||
+                        shortest_paths->is_backward_optimal_transition(w_id, op_id, v_id);
+                    if (!is_optimal || !cegar.is_spurious_transition({child_id, op_id, w_id},
+                                                                     child,
+                                                                     w)) {
                         add_transition(child_id, op_id, w_id);
-                        break;
-                    case SpuriousTransition::UNKNOWN:
-                        bool is_optimal = shortest_paths->is_optimal_transition(v_id, op_id, w_id) ||
-                            shortest_paths->is_backward_optimal_transition(w_id, op_id, v_id);
-                        if (is_optimal) {
-                            sp = cegar.is_spurious_transition({child_id, op_id, w_id},
-                                                              child,
-                                                              w) ? SpuriousTransition::YES : SpuriousTransition::NO;
-                        }
-                        if (!is_optimal || sp == SpuriousTransition::NO) {
-                            add_transition(child_id, op_id, w_id);
-                        }
-                        break;
                     }
                     break;
+                }
                 case SpuriousTransitionsRemoval::PLAN:
                 case SpuriousTransitionsRemoval::NONE:
                     add_transition(child_id, op_id, w_id);
