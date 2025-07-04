@@ -205,7 +205,9 @@ bool CEGAR::is_spurious_transition(const TransitionElements &tr, CartesianState 
             return true;
         }
 
-        non_spurious_transitions_cache.add(tr);
+        if (non_spurious_cache) {
+            non_spurious_transitions_cache.add(tr);
+        }
     }
 
     return false;
