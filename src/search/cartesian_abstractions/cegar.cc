@@ -192,8 +192,8 @@ const std::unique_ptr<ShortestPaths> &CEGAR::get_shortest_paths() const {
     return shortest_paths;
 }
 
-bool CEGAR::is_spurious_transition(const TransitionElements &tr, CartesianState src_state, const CartesianState &target_state) {
-    if (!non_spurious_transitions_cache.contains(tr)) {
+bool CEGAR::is_spurious_transition(const TransitionElements &tr, CartesianState src_state, const CartesianState &target_state, bool non_spurious_cache) {
+    if (!non_spurious_cache || !non_spurious_transitions_cache.contains(tr)) {
         const DisambiguatedOperator &op = (*operators)[tr.op_id];
         src_state.inplace_intersection(op.get_precondition());
         if (src_state.remove(move(transitions_disambiguation->disambiguation_removed_facts(src_state, *mutex_information)))) {
@@ -217,7 +217,8 @@ bool CEGAR::remove_first_invalid_transition(std::unique_ptr<Solution> &solution,
     for (const Transition &transition : *solution) {
         if (is_spurious_transition({current_state_id, transition.op_id, transition.target_id},
                                    abstraction->get_state(current_state_id),
-                                   abstraction->get_state(transition.target_id))) {
+                                   abstraction->get_state(transition.target_id),
+                                   true)) {
             abstraction->remove_transition(current_state_id, transition.op_id, transition.target_id);
             update_shortest_paths_incrementally(abstraction->get_transition_system().get_incoming_transitions(),
                                                 abstraction->get_transition_system().get_outgoing_transitions(),

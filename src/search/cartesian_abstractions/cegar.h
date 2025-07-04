@@ -180,7 +180,7 @@ public:
 
     std::unique_ptr<Abstraction> extract_abstraction();
 
-    bool is_spurious_transition(const TransitionElements &tr, CartesianState src_state, const CartesianState &target_state);
+    bool is_spurious_transition(const TransitionElements &tr, CartesianState src_state, const CartesianState &target_state, bool non_spurious_cache = false);
     const std::unique_ptr<ShortestPaths> &get_shortest_paths() const;
 
     void print_useless_refinements(const RefinementHierarchy &hier, const std::vector<int> &goal_distances) const;
