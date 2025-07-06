@@ -131,6 +131,18 @@ void CEGAR::separate_facts_unreachable_before_goal(bool refine_goals) const {
         }
         if (!unreachable_values.empty() &&
             init_set.count(var_id) > static_cast<int>(unreachable_values.size())) {
+            // To remove only spurious transitions refine function needs distances.
+            if (remove_spurious_transitions == SpuriousTransitionsRemoval::OPTIMAL) {
+                shortest_paths->recompute(
+                    abstraction->get_transition_system().get_incoming_transitions(),
+                    abstraction->get_transition_system().get_outgoing_transitions(),
+                    abstraction->get_goals(),
+                    abstraction->get_initial_state().get_id());
+                assert(shortest_paths->test_distances(
+                           abstraction->get_transition_system().get_incoming_transitions(),
+                           abstraction->get_transition_system().get_outgoing_transitions(),
+                           abstraction->get_goals()));
+            }
             auto ref_result = abstraction->refine(abstraction->get_initial_state(), var_id, unreachable_values);
             int child1 = get<0>(ref_result);
             int child2 = get<1>(ref_result);
@@ -301,6 +313,18 @@ void CEGAR::refinement_loop() {
             }
             FactPair fact = goal.get_pair();
             if (current->get_cartesian_set().count(fact.var) > 1) {
+                // To remove only spurious transitions refine function needs distances.
+                if (remove_spurious_transitions == SpuriousTransitionsRemoval::OPTIMAL) {
+                    shortest_paths->recompute(
+                        abstraction->get_transition_system().get_incoming_transitions(),
+                        abstraction->get_transition_system().get_outgoing_transitions(),
+                        abstraction->get_goals(),
+                        abstraction->get_initial_state().get_id());
+                    assert(shortest_paths->test_distances(
+                               abstraction->get_transition_system().get_incoming_transitions(),
+                               abstraction->get_transition_system().get_outgoing_transitions(),
+                               abstraction->get_goals()));
+                }
                 auto pair = abstraction->refine(*current, fact.var, {fact.value});
                 current = &abstraction->get_state(get<1>(pair));
             }
@@ -333,6 +357,18 @@ void CEGAR::refinement_loop() {
             // contains any other value.
             if (!other_values.empty() &&
                 abstraction->get_initial_state().get_cartesian_set().count(fact.var) > static_cast<int>(other_values.size())) {
+                // To remove only spurious transitions refine function needs distances.
+                if (remove_spurious_transitions == SpuriousTransitionsRemoval::OPTIMAL) {
+                    shortest_paths->recompute(
+                        abstraction->get_transition_system().get_incoming_transitions(),
+                        abstraction->get_transition_system().get_outgoing_transitions(),
+                        abstraction->get_goals(),
+                        abstraction->get_initial_state().get_id());
+                    assert(shortest_paths->test_distances(
+                               abstraction->get_transition_system().get_incoming_transitions(),
+                               abstraction->get_transition_system().get_outgoing_transitions(),
+                               abstraction->get_goals()));
+                }
                 abstraction->refine(abstraction->get_initial_state(), fact.var, other_values);
             }
         }
