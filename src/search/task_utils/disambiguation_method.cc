@@ -8,7 +8,7 @@ void DisambiguationMethod::add_disambiguation_base_options(plugins::Feature &fea
     feature.add_option<bool>(
         "cache_disambiguations",
         "cache disambiguations by storing the removed values in the Cartesian set",
-        "true");
+        "false");
 }
 
 
