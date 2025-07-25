@@ -19,7 +19,6 @@ private:
     OperatorProxy op;
 
     CartesianState precondition;
-    CartesianState post;
     std::vector<int> effect_in_var;
 
     void disambiguate(const EffectsProxy &ep,
@@ -31,7 +30,6 @@ public:
                           const std::shared_ptr<DisambiguationMethod> &method,
                           const std::shared_ptr<MutexInformation> &mutex_information);
     DisambiguatedOperator(CartesianSet &&_pre,
-                          CartesianSet &&_post,
                           const OperatorProxy &_op);
 
     bool is_redundant() const;
@@ -46,7 +44,7 @@ public:
 
     const OperatorProxy get_operator() const;
     const CartesianState &get_precondition() const;
-    const CartesianState &get_post() const;
+    CartesianSet get_post_cartesian_set() const;
     bool has_effect(int var) const;
     int get_effect(int var) const;
 };

@@ -390,7 +390,7 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                         log << "  Paths deviate." << endl;
                         log << "  Previous flaw-search state: " << flaw_search_state << endl;
                         log << "  Previous abstract state: " << *abstract_state << endl;
-                        log << "  Op pre: " << op.get_precondition() << endl << "  Op post: " << op.get_post() << endl;
+                        log << "  Op pre: " << op.get_precondition() << endl << endl;
                     }
                     push_flaw_if_not_filtered(flaws,
                                               LegacyFlaw(flaw_search_state,
@@ -444,7 +444,7 @@ vector<LegacyFlaw> FlawSearch::get_forward_flaws(const Solution &solution,
                         if (debug) {
                             log << "  The state " << flaw_search_state << " does not intersects" << endl;
                             log << "  Abstract state: " << *abstract_state << endl;
-                            log << "  Op pre: " << op.get_precondition() << ", op post: " << op.get_post() << endl;
+                            log << "  Op pre: " << op.get_precondition() << endl;
                         }
                         flaw_search_state.undeviate(*abstract_state);
                         if (debug)
@@ -588,14 +588,14 @@ vector<LegacyFlaw> FlawSearch::get_backward_flaws(const Solution &solution,
                     << op.get_name() << endl;
                 log << "  In flaw-search space move from "
                     << flaw_search_state << " with " << op.get_name() << endl;
-                log << "  Op pre: " << op.get_precondition() << endl << "  Op post: " << op.get_post() << endl;
+                log << "  Op pre: " << op.get_precondition() << endl << endl;
             }
             if (!flaw_search_state.reach_backwards_with_op(*next_abstract_state, op)) {
                 if (debug) {
                     log << "  Paths deviate." << endl;
                     log << "  Flaw-search state: " << flaw_search_state << endl;
                     log << "  Previous abstract state: " << *abstract_state << endl;
-                    log << "  Op pre: " << op.get_precondition() << endl << "  Op post: " << op.get_post() << endl;
+                    log << "  Op pre: " << op.get_precondition() << endl;
                     log << "  Abstract state: " << *next_abstract_state << endl;
                 }
                 push_flaw_if_not_filtered(flaws,

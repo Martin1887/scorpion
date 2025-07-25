@@ -157,8 +157,7 @@ CartesianSet DomainAbstractedTask::convert_cartesian_set(const CartesianSet &car
 
 disambiguation::DisambiguatedOperator DomainAbstractedTask::convert_disambiguated_operator(const disambiguation::DisambiguatedOperator &op) const {
     CartesianSet new_pre = convert_cartesian_set(op.get_precondition().get_cartesian_set());
-    CartesianSet new_post = convert_cartesian_set(op.get_post().get_cartesian_set());
 
-    return disambiguation::DisambiguatedOperator(move(new_pre), move(new_post), op.get_operator());
+    return disambiguation::DisambiguatedOperator(move(new_pre), op.get_operator());
 }
 }

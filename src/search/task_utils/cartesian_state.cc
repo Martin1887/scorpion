@@ -144,7 +144,7 @@ bool CartesianState::is_backward_applicable(const DisambiguatedOperator &op, int
         if (eff_value != disambiguation::MULTIPLE_POSTCONDITIONS) {
             return cartesian_set.test(var, eff_value);
         } else {
-            return cartesian_set.intersects(op.get_post().get_cartesian_set(), var);
+            return cartesian_set.intersects(op.get_precondition().get_cartesian_set(), var);
         }
     }
 }
@@ -228,10 +228,9 @@ bool CartesianState::reach_with_inapplicable_op(const CartesianState &other, con
     } else {
         const CartesianSet &other_set = other.get_cartesian_set();
         const CartesianSet &pre = op.get_precondition().get_cartesian_set();
-        const CartesianSet &post = op.get_post().get_cartesian_set();
         int n_vars = cartesian_set.get_n_vars();
         for (int var = 0; var < n_vars; var++) {
-            if (!reach_with_inapplicable_op(other_set, pre, post, op.get_effect(var), var)) {
+            if (!reach_with_inapplicable_op(other_set, pre, op.get_effect(var), var)) {
                 return false;
             }
         }
@@ -239,11 +238,11 @@ bool CartesianState::reach_with_inapplicable_op(const CartesianState &other, con
         return true;
     }
 }
-bool CartesianState::reach_with_inapplicable_op(const CartesianSet &other_set, const CartesianSet &pre, const CartesianSet &post, int var_effect, int var) const {
+bool CartesianState::reach_with_inapplicable_op(const CartesianSet &other_set, const CartesianSet &pre, int var_effect, int var) const {
     if (var_effect != disambiguation::MULTIPLE_POSTCONDITIONS) {
         return other_set.test(var, var_effect);
-    } else if (!pre.intersects(other_set, var)) {
-        return post.intersects(other_set, var);
+    } else if (!pre.intersects(cartesian_set, var)) {
+        return pre.intersects(other_set, var);
     } else {
         return other_set.intersects_intersection(cartesian_set, pre, var);
     }
@@ -330,16 +329,16 @@ void CartesianState::progress(const OperatorProxy &op) {
     }
 }
 void CartesianState::progress(const DisambiguatedOperator &op) {
-    const CartesianSet &post = op.get_post().get_cartesian_set();
+    const CartesianSet &pre = op.get_precondition().get_cartesian_set();
     int n_vars = cartesian_set.get_n_vars();
     for (int var = 0; var < n_vars; var++) {
         int eff_value = op.get_effect(var);
         if (eff_value != disambiguation::MULTIPLE_POSTCONDITIONS) {
             cartesian_set.set_single_value(var, eff_value);
         } else {
-            if (!cartesian_set.set_intersection_values(var, post)) {
+            if (!cartesian_set.set_intersection_values(var, pre)) {
                 // This only happens if the operator is not applicable.
-                cartesian_set.set_values(var, post);
+                cartesian_set.set_values(var, pre);
             }
         }
     }

@@ -83,9 +83,8 @@ static std::vector<utils::HashSet<int>> compute_possibly_before_facts(
         updated = false;
         for (DisambiguatedOperator &op : *ops) {
             if (!op.is_redundant()) {
-                const CartesianSet &post = op.get_post().get_cartesian_set();
                 // Ignore operators that achieve last_fact.
-                if (op.has_effect(last_fact_var) && post.test(last_fact_var, last_fact_value)) {
+                if (op.get_effect(last_fact_var) == last_fact_value) {
                     continue;
                 }
                 // Add all facts that are achieved by an applicable operator.

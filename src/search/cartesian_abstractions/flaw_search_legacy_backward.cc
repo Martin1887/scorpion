@@ -51,7 +51,6 @@ unique_ptr<Split> FlawSearch::create_backward_split(
         int op_id = pair.first;
         const vector<int> &sources = pair.second;
         const disambiguation::DisambiguatedOperator &op = (*abstraction.get_transition_system().get_operators())[op_id];
-        const CartesianSet &post_set = op.get_post().get_cartesian_set();
         const CartesianSet &abstract_state_set = abstract_state.get_cartesian_set();
 
         if (log.is_at_least_debug()) {
@@ -90,6 +89,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(
                                               {value}, 1,
                                               op.get_cost()), true);
                             } else {
+                                CartesianSet post_set = op.get_post_cartesian_set();
                                 add_split(splits, Split(
                                               abstract_state_id, var, value,
                                               post_set.get_intersection_values(var, abstract_state_set), 1,

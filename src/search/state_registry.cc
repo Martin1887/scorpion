@@ -128,8 +128,7 @@ State StateRegistry::get_successor_state(const State &predecessor, const disambi
     */
     state_data_pool.push_back(predecessor.get_buffer());
     PackedStateBin *buffer = state_data_pool[state_data_pool.size() - 1];
-    const CartesianSet &post = op.get_post().get_cartesian_set();
-    int n_vars = post.get_n_vars();
+    int n_vars = op.get_precondition().get_cartesian_set().get_n_vars();
     /* Experiments for issue348 showed that for tasks with axioms it's faster
        to compute successor states using unpacked data. */
     if (task_properties::has_axioms(task_proxy)) {
