@@ -61,10 +61,11 @@ DisambiguatedOperator::DisambiguatedOperator(TaskProxy task,
 }
 
 DisambiguatedOperator::DisambiguatedOperator(CartesianSet &&_pre,
+                                             vector<int> &&_effect_in_var,
                                              const OperatorProxy &_op)
     : op(_op),
       precondition(move(_pre)),
-      effect_in_var(precondition.get_cartesian_set().get_n_vars(), MULTIPLE_POSTCONDITIONS) {
+      effect_in_var(move(_effect_in_var)) {
     int n_vars = precondition.get_cartesian_set().get_n_vars();
     const CartesianSet &pre_set = precondition.get_cartesian_set();
     // All postconditions with a single value are actual effects.
@@ -114,6 +115,10 @@ CartesianSet DisambiguatedOperator::get_post_cartesian_set() const {
     }
 
     return post;
+}
+
+const vector<int> &DisambiguatedOperator::get_effect_in_var() const {
+    return effect_in_var;
 }
 
 bool DisambiguatedOperator::has_effect(int var) const {

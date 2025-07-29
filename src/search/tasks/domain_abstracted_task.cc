@@ -155,9 +155,25 @@ CartesianSet DomainAbstractedTask::convert_cartesian_set(const CartesianSet &car
     return new_set;
 }
 
+
+const std::vector<int> DomainAbstractedTask::convert_effects(const std::vector<int> &effect_in_var) const {
+    int n_vars = domain_size.size();
+    vector<int> new_effects(domain_size);
+    for (int var = 0; var < n_vars; var++) {
+        if (effect_in_var[var] == disambiguation::MULTIPLE_POSTCONDITIONS) {
+            new_effects[var] = disambiguation::MULTIPLE_POSTCONDITIONS;
+        } else {
+            new_effects[var] = value_map.convert({var, effect_in_var[var]}).value;
+        }
+    }
+
+    return new_effects;
+}
+
 disambiguation::DisambiguatedOperator DomainAbstractedTask::convert_disambiguated_operator(const disambiguation::DisambiguatedOperator &op) const {
     CartesianSet new_pre = convert_cartesian_set(op.get_precondition().get_cartesian_set());
+    vector<int> effects = convert_effects(op.get_effect_in_var());
 
-    return disambiguation::DisambiguatedOperator(move(new_pre), op.get_operator());
+    return disambiguation::DisambiguatedOperator(move(new_pre), move(effects), op.get_operator());
 }
 }

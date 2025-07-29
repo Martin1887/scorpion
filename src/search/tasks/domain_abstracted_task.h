@@ -52,6 +52,7 @@ class DomainAbstractedTask : public tasks::DelegatingTask {
     MutexInformation mutexes;
 
     cartesian_set::CartesianSet convert_cartesian_set(const cartesian_set::CartesianSet &cartesian_set) const;
+    const std::vector<int> convert_effects(const std::vector<int> &effect_in_var) const;
 
 public:
     DomainAbstractedTask(

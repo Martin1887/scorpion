@@ -30,6 +30,7 @@ public:
                           const std::shared_ptr<DisambiguationMethod> &method,
                           const std::shared_ptr<MutexInformation> &mutex_information);
     DisambiguatedOperator(CartesianSet &&_pre,
+                          std::vector<int> &&_effect_in_var,
                           const OperatorProxy &_op);
 
     bool is_redundant() const;
@@ -45,6 +46,7 @@ public:
     const OperatorProxy get_operator() const;
     const CartesianState &get_precondition() const;
     CartesianSet get_post_cartesian_set() const;
+    const std::vector<int> &get_effect_in_var() const;
     bool has_effect(int var) const;
     int get_effect(int var) const;
 };
