@@ -10,19 +10,13 @@ using namespace std;
 
 
 namespace disambiguation {
-void DisambiguatedOperator::disambiguate(const EffectsProxy &ep,
-                                         const shared_ptr<DisambiguationMethod> &method,
+void DisambiguatedOperator::disambiguate(const shared_ptr<DisambiguationMethod> &method,
                                          const shared_ptr<MutexInformation> &mutex_information) {
     // The following steps are followed for a full disambiguation:
     // 1. Remove from preconditions the facts mutex with effects in variables
     //    without effect.
     // 2. Disambiguate preconditions.
     CartesianSet &pre_set = precondition.get_mutable_cartesian_set();
-    for (auto &&ef : ep) {
-        FactPair fact = ef.get_fact().get_pair();
-        effect_in_var[fact.var] = fact.value;
-    }
-
     int n_vars = pre_set.get_n_vars();
     for (int var = 0; var < n_vars; var++) {
         // For variables without effect.
@@ -41,13 +35,6 @@ void DisambiguatedOperator::disambiguate(const EffectsProxy &ep,
         }
     }
     method->disambiguate(precondition, *mutex_information);
-
-    // All single-possible-value prevails are actual effects.
-    for (int var = 0; var < n_vars; var++) {
-        if (effect_in_var[var] == MULTIPLE_POSTCONDITIONS && precondition.count(var) == 1) {
-            effect_in_var[var] = (*pre_set.iter(var).begin()).value;
-        }
-    }
 }
 
 DisambiguatedOperator::DisambiguatedOperator(TaskProxy task,
@@ -57,7 +44,24 @@ DisambiguatedOperator::DisambiguatedOperator(TaskProxy task,
     : op(_op),
       precondition(CartesianSet(task, op.get_preconditions())),
       effect_in_var(task.get_variables().size(), MULTIPLE_POSTCONDITIONS) {
-    disambiguate(op.get_effects(), method, mutex_information);
+    const EffectsProxy &ep = op.get_effects();
+    const CartesianSet &pre_set = precondition.get_cartesian_set();
+    int n_vars = pre_set.get_n_vars();
+    for (auto &&ef : ep) {
+        FactPair fact = ef.get_fact().get_pair();
+        effect_in_var[fact.var] = fact.value;
+    }
+
+    if (method->can_disambiguate()) {
+        disambiguate(method, mutex_information);
+    }
+
+    // All single-possible-value prevails are actual effects.
+    for (int var = 0; var < n_vars; var++) {
+        if (effect_in_var[var] == MULTIPLE_POSTCONDITIONS && precondition.count(var) == 1) {
+            effect_in_var[var] = (*pre_set.iter(var).begin()).value;
+        }
+    }
 }
 
 DisambiguatedOperator::DisambiguatedOperator(CartesianSet &&_pre,

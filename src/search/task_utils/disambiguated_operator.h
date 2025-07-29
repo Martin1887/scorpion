@@ -21,8 +21,7 @@ private:
     CartesianState precondition;
     std::vector<int> effect_in_var;
 
-    void disambiguate(const EffectsProxy &ep,
-                      const std::shared_ptr<DisambiguationMethod> &method,
+    void disambiguate(const std::shared_ptr<DisambiguationMethod> &method,
                       const std::shared_ptr<MutexInformation> &mutex_information);
 public:
     DisambiguatedOperator(TaskProxy task,

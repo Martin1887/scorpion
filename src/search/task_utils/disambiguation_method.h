@@ -24,13 +24,16 @@ struct HashMutexVars {
 
 namespace disambiguation  {
 class DisambiguationMethod {
+    bool apply_disambiguation = true;
     bool cache_disambiguations = false;
     phmap::flat_hash_map<CartesianSet, std::vector<FactPair>, utils::HashMutexVars> cache;
     std::vector<FactPair> get_disambiguation_removed_values(const CartesianSet &set,
                                                             const CartesianSet &dis_set);
 public:
-    DisambiguationMethod(bool cache_disambiguations)
-        : cache_disambiguations(cache_disambiguations) {}
+    DisambiguationMethod(bool apply_disambiguation,
+                         bool cache_disambiguations)
+        : apply_disambiguation(apply_disambiguation),
+          cache_disambiguations(cache_disambiguations) {}
     virtual ~DisambiguationMethod() = default;
 
     virtual std::vector<FactPair> disambiguation_removed_facts(CartesianState &, const MutexInformation &);
@@ -44,13 +47,17 @@ public:
     virtual bool disambiguate(CartesianState &, const MutexInformation &, const std::vector<int> &) const = 0;
     virtual bool test_disambiguate(const CartesianState &, const MutexInformation &, int var, const std::set<int> &values_for_var) const = 0;
 
+    bool can_disambiguate() const {
+        return apply_disambiguation;
+    }
+
     static void add_disambiguation_base_options(plugins::Feature &feature);
 };
 
 class NoDisambiguation : public DisambiguationMethod {
 public:
     NoDisambiguation(const plugins::Options &opt)
-        : DisambiguationMethod(opt.get<bool>("cache_disambiguations")) {}
+        : DisambiguationMethod(false, opt.get<bool>("cache_disambiguations")) {}
 
     virtual bool disambiguate(CartesianState &, const MutexInformation &, std::optional<int>) const override {
         return false;
