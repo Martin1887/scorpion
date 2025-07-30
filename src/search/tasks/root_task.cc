@@ -3,6 +3,7 @@
 #include "../state_registry.h"
 
 #include "../plugins/plugin.h"
+#include "../task_utils/mutex_information.h"
 #include "../utils/collections.h"
 #include "../utils/timer.h"
 
@@ -76,6 +77,7 @@ public:
     virtual string get_fact_name(const FactPair &fact) const override;
     virtual bool are_facts_mutex(
         const FactPair &fact1, const FactPair &fact2) const override;
+    virtual MutexInformation mutex_information() const override;
 
     virtual int get_operator_cost(int index, bool is_axiom) const override;
     virtual string get_operator_name(
@@ -416,6 +418,10 @@ bool RootTask::are_facts_mutex(const FactPair &fact1, const FactPair &fact2) con
     assert(utils::in_bounds(fact1.var, mutexes));
     assert(utils::in_bounds(fact1.value, mutexes[fact1.var]));
     return bool(mutexes[fact1.var][fact1.value].count(fact2));
+}
+
+MutexInformation RootTask::mutex_information() const {
+    return mutexes;
 }
 
 int RootTask::get_operator_cost(int index, bool is_axiom) const {

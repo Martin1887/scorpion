@@ -377,6 +377,14 @@ fast_downward_plugin(
 )
 
 fast_downward_plugin(
+    NAME DEAD_PAIRS_PRUNING
+    HELP "Prune states by using dead pairs of MutexInformation"
+    SOURCES
+        pruning/dead_pairs_pruning
+    DEPENDS TASK_PROPERTIES
+)
+
+fast_downward_plugin(
     NAME SEARCH_COMMON
     HELP "Basic classes used for all search engines"
     SOURCES

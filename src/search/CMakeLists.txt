@@ -415,6 +415,16 @@ create_fast_downward_library(
         task_properties
 )
 
+
+create_fast_downward_library(
+    NAME dead_pairs_pruning
+    HELP "Pruning method by using dead pairs"
+    SOURCES
+        pruning/dead_pairs_pruning
+    DEPENDS
+        task_properties
+)
+
 create_fast_downward_library(
     NAME search_common
     HELP "Basic classes used for all search algorithms"
@@ -760,6 +770,15 @@ create_fast_downward_library(
     DEPENDS
         task_properties
     DEPENDENCY_ONLY
+)
+
+
+create_fast_downward_library(
+    NAME mutex_information
+        HELP "Mutex Information"
+    SOURCES
+        task_utils/mutex_information
+        CORE_LIBRARY
 )
 
 create_fast_downward_library(
