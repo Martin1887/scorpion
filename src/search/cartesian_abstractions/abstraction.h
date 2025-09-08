@@ -7,6 +7,7 @@
 
 #include "../task_proxy.h"
 #include "../task_utils/cartesian_set.h"
+#include "../task_utils/cartesian_state.h"
 #include "../task_utils/mutex_information.h"
 #include "../utils/collections.h"
 
@@ -76,6 +77,8 @@ class Abstraction {
     const std::unique_ptr<TransitionSystem> transition_system;
     const State concrete_initial_state;
     const std::vector<FactPair> goal_facts;
+    const std::unordered_set<int> goal_vars;
+    const cartesian_state::CartesianState goals_cartesian_state;
 
     std::shared_ptr<MutexInformation> mutex_information;
     std::shared_ptr<disambiguation::DisambiguationMethod> abstract_space_disambiguation;

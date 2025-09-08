@@ -20,6 +20,15 @@
 using namespace std;
 
 namespace cartesian_abstractions {
+static unordered_set<int> get_fact_vars(const vector<FactPair> &goal_facts) {
+    unordered_set<int> vars{};
+
+    for (auto &[var, value] : goal_facts) {
+        vars.insert(var);
+    }
+
+    return vars;
+}
 Abstraction::Abstraction(const shared_ptr<AbstractTask> &task,
                          SpuriousTransitionsRemoval remove_spurious_transitions,
                          CEGAR &cegar,
@@ -31,6 +40,8 @@ Abstraction::Abstraction(const shared_ptr<AbstractTask> &task,
       transition_system(make_unique<TransitionSystem>(operators, remove_spurious_transitions, cegar)),
       concrete_initial_state(task_proxy.get_initial_state()),
       goal_facts(task_properties::get_fact_pairs(task_proxy.get_goals())),
+      goal_vars(get_fact_vars(goal_facts)),
+      goals_cartesian_state(get_domain_sizes(task_proxy), goal_facts),
       mutex_information(mutex_information),
       abstract_space_disambiguation(abstract_space_disambiguation),
       refinement_hierarchy(utils::make_unique_ptr<RefinementHierarchy>(task)),
@@ -270,11 +281,24 @@ tuple<int, int, bool, Transitions, Transitions> Abstraction::refine(
 
     if (goals.count(v_id)) {
         goals.erase(v_id);
-        if (v1->includes(goal_facts)) {
-            goals.insert(split_result.v1_id);
-        }
-        if (v2->includes(goal_facts)) {
-            goals.insert(split_result.v2_id);
+        if (goal_vars.contains(var)) {
+            if (v1->includes(goal_facts)) {
+                goals.insert(split_result.v1_id);
+            }
+            if (v2->includes(goal_facts)) {
+                goals.insert(split_result.v2_id);
+            }
+        } else {
+            CartesianState v1_inter_goals = v1->intersection(goals_cartesian_state);
+            abstract_space_disambiguation->disambiguate(v1_inter_goals, *mutex_information, var);
+            if (!v1_inter_goals.got_empty()) {
+                goals.insert(split_result.v1_id);
+            }
+            CartesianState v2_inter_goals = v2->intersection(goals_cartesian_state);
+            abstract_space_disambiguation->disambiguate(v2_inter_goals, *mutex_information, var);
+            if (!v2_inter_goals.got_empty()) {
+                goals.insert(split_result.v2_id);
+            }
         }
         if (log.is_at_least_debug()) {
             log << "Goal states: " << goals.size() << endl;
