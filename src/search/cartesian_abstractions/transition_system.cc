@@ -136,6 +136,7 @@ void TransitionSystem::rewire_incoming_transitions(
                     }
                     break;
                 case SpuriousTransitionsRemoval::OPTIMAL:
+                case SpuriousTransitionsRemoval::OPTIMAL_UNTIL_COST_NOT_IMPROVED:
                 {
                     bool is_optimal = shortest_paths->is_optimal_transition(u_id, op_id, v_id) ||
                         shortest_paths->is_backward_optimal_transition(v_id, op_id, u_id);
@@ -192,6 +193,7 @@ void TransitionSystem::rewire_outgoing_transitions(
                     }
                     break;
                 case SpuriousTransitionsRemoval::OPTIMAL:
+                case SpuriousTransitionsRemoval::OPTIMAL_UNTIL_COST_NOT_IMPROVED:
                 {
                     bool is_optimal = shortest_paths->is_optimal_transition(v_id, op_id, w_id) ||
                         shortest_paths->is_backward_optimal_transition(w_id, op_id, v_id);

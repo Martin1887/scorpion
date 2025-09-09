@@ -528,6 +528,58 @@ void CEGAR::refinement_loop() {
                                             abstraction->get_initial_state().get_id(),
                                             update_goal_distances_timer);
 
+        if (remove_spurious_transitions == SpuriousTransitionsRemoval::OPTIMAL_UNTIL_COST_NOT_IMPROVED) {
+            int v1 = get<0>(refinement);
+            int v2 = get<1>(refinement);
+            bool shortest_paths_updated = true;
+            while (shortest_paths_updated) {
+                Cost v1_goal_dist = shortest_paths->get_64bit_goal_distance(v1);
+                Cost v1_init_dist = shortest_paths->get_64bit_init_distance(v1);
+                Cost v2_goal_dist = shortest_paths->get_64bit_goal_distance(v2);
+                Cost v2_init_dist = shortest_paths->get_64bit_init_distance(v2);
+                bool any_transition_removed = false;
+                for (int child_id : {v1, v2}) {
+                    for (const Transition &tr : abstraction->get_transition_system().get_incoming_transitions()[child_id]) {
+                        bool is_optimal = shortest_paths->is_optimal_transition(tr.target_id, tr.op_id, child_id) ||
+                            shortest_paths->is_backward_optimal_transition(child_id, tr.op_id, tr.target_id);
+                        if (is_optimal && is_spurious_transition({tr.target_id, tr.op_id, child_id},
+                                                                 abstraction->get_state(tr.target_id),
+                                                                 abstraction->get_state(child_id))) {
+                            any_transition_removed = true;
+                            abstraction->remove_transition(tr.target_id, tr.op_id, child_id);
+                        }
+                    }
+                    for (const Transition &tr : abstraction->get_transition_system().get_outgoing_transitions()[child_id]) {
+                        bool is_optimal = shortest_paths->is_optimal_transition(child_id, tr.op_id, tr.target_id) ||
+                            shortest_paths->is_backward_optimal_transition(tr.target_id, tr.op_id, child_id);
+                        if (is_optimal && is_spurious_transition({child_id, tr.op_id, tr.target_id},
+                                                                 abstraction->get_state(child_id),
+                                                                 abstraction->get_state(tr.target_id))) {
+                            any_transition_removed = true;
+                            abstraction->remove_transition(child_id, tr.op_id, tr.target_id);
+                        }
+                    }
+                }
+                if (any_transition_removed) {
+                    update_shortest_paths_incrementally(abstraction->get_transition_system().get_incoming_transitions(),
+                                                        abstraction->get_transition_system().get_outgoing_transitions(),
+                                                        state_id, get<0>(refinement), get<1>(refinement), get<2>(refinement),
+                                                        get<3>(refinement), get<4>(refinement),
+                                                        abstraction->get_goals(),
+                                                        abstraction->get_initial_state().get_id(),
+                                                        update_goal_distances_timer);
+                    if (shortest_paths->get_64bit_goal_distance(v1) == v1_goal_dist &&
+                        shortest_paths->get_64bit_init_distance(v1) == v1_init_dist &&
+                        shortest_paths->get_64bit_goal_distance(v2) == v2_goal_dist &&
+                        shortest_paths->get_64bit_init_distance(v2) == v2_init_dist) {
+                        shortest_paths_updated = false;
+                    }
+                } else {
+                    shortest_paths_updated = false;
+                }
+            }
+        }
+
         if (log.is_at_least_verbose() &&
             abstraction->get_num_states() % 1000 == 0) {
             log << abstraction->get_num_states() << "/" << max_states << " states, "

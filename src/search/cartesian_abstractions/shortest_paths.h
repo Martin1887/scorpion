@@ -156,6 +156,7 @@ public:
         const bool simulated = false);
 
     Cost get_64bit_goal_distance(int abstract_state_id, const bool simulated = false) const;
+    Cost get_64bit_init_distance(int abstract_state_id, const bool simulated = false) const;
     int get_32bit_goal_distance(int abstract_state_id, bool simulated = false) const;
     bool is_optimal_transition(int start_id, int op_id, int target_id) const;
     bool is_backward_optimal_transition(int start_id, int op_id, int target_id) const;

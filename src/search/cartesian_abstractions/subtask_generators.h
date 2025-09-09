@@ -43,6 +43,7 @@ enum class SpuriousTransitionsRemoval {
     NONE,
     PLAN,
     OPTIMAL,
+    OPTIMAL_UNTIL_COST_NOT_IMPROVED,
     ALL
 };
 struct Subtask {

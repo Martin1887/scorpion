@@ -441,8 +441,9 @@ static plugins::TypedEnumPlugin<FactOrder> _enum_plugin({
     });
 static plugins::TypedEnumPlugin<SpuriousTransitionsRemoval> _enum_plugin_spurious({
         {"none", "Remove no transition"},
-        {"plan", "Remove spurious transitions only from the optimal abstract plans"},
-        {"optimal", "Remove all optimal spuriuos transitions while rewiring. Note that optimal transitions to the parent are considered, and after removing all of them no additional transition is removed despite being the new optimal transition"},
-        {"all", "Remove all spurious transitions while rewiring"}
+        {"plan", "Remove dead transitions only from the optimal abstract plans"},
+        {"optimal", "Remove all optimal dead transitions while rewiring. Note that optimal transitions to the parent are considered, and after removing all of them no additional transition is removed despite being the new optimal transition"},
+        {"optimal_until_cost_not_improved", "Remove all optimal dead transitions, including the new optimal transitions and optimal backward transitions for children if the plan cost is increased"},
+        {"all", "Remove all dead transitions while rewiring"}
     });
 }

@@ -575,6 +575,13 @@ Cost ShortestPaths::get_64bit_goal_distance(int abstract_state_id, const bool si
         return goal_distances.at(abstract_state_id);
     }
 }
+Cost ShortestPaths::get_64bit_init_distance(int abstract_state_id, const bool simulated) const {
+    if (simulated) {
+        return simulated_init_distances.at(abstract_state_id);
+    } else {
+        return init_distances.at(abstract_state_id);
+    }
+}
 
 int ShortestPaths::get_32bit_goal_distance(int abstract_state_id, const bool simulated) const {
     return convert_to_32_bit_cost(get_64bit_goal_distance(abstract_state_id, simulated));
