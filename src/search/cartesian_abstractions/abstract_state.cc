@@ -26,6 +26,80 @@ AbstractState::AbstractState(
       cartesian_set(domain_sizes, facts, partial_state) {
 }
 
+vector<bool> AbstractState::get_possibly_triggered_effect_in_variable(const OperatorProxy &op) const {
+    int nvars = n_vars();
+    vector<bool> possibly_triggered_in_var(nvars, false);
+
+    // Auxiliary variables.
+    vector<bool> triggered_for_sure_in_var(nvars, false);
+    vector<bool> some_possible_effect_in_var(nvars, false);
+    EffectsProxy effects = op.get_effects();
+    for (const EffectProxy &ef : effects) {
+        some_possible_effect_in_var[ef.get_fact().get_variable().get_id()] = true;
+    }
+
+    int n_effects = effects.size();
+    deque<int> possibly_triggered_effects_queue{};
+    for (int i = 0; i < n_effects; i++) {
+        possibly_triggered_effects_queue.push_back(i);
+    }
+    // Fix point is checked at the end of the loop.
+    while (true) {
+        deque<int> next_possibly_triggered_effects_queue{};
+        size_t prev_queue_size = possibly_triggered_effects_queue.size();
+        while (!possibly_triggered_effects_queue.empty()) {
+            int eff_index = possibly_triggered_effects_queue.front();
+            EffectProxy ef = effects[eff_index];
+            possibly_triggered_effects_queue.pop_front();
+            EffectConditionsProxy conds = ef.get_conditions();
+            if (conds.empty()) {
+                possibly_triggered_in_var[ef.get_fact().get_variable().get_id()] = true;
+                triggered_for_sure_in_var[ef.get_fact().get_variable().get_id()] = true;
+            } else {
+                bool possibly_triggered = true;
+                bool triggered_for_sure = false;
+                for (const FactProxy &cond : conds) {
+                    FactPair cond_pair = cond.get_pair();
+                    if (cartesian_set.test(cond_pair.var, cond_pair.value) ||
+                        triggered_for_sure_in_var[cond_pair.var]) {
+                        triggered_for_sure = true;
+                    } else if (!cartesian_set.test(cond_pair.var, cond_pair.value) &&
+                               !some_possible_effect_in_var[cond_pair.var]) {
+                        triggered_for_sure = false;
+                        possibly_triggered = false;
+                        break;
+                    }
+                }
+                if (triggered_for_sure) {
+                    possibly_triggered_in_var[ef.get_fact().get_variable().get_id()] = true;
+                    triggered_for_sure_in_var[ef.get_fact().get_variable().get_id()] = true;
+                } else if (!possibly_triggered) {
+                    some_possible_effect_in_var[ef.get_fact().get_variable().get_id()] = false;
+                } else {
+                    next_possibly_triggered_effects_queue.push_back(eff_index);
+                }
+            }
+        }
+        possibly_triggered_effects_queue = move(next_possibly_triggered_effects_queue);
+        if (possibly_triggered_effects_queue.size() == prev_queue_size) {
+            // Fix point reached.
+            break;
+        }
+        bool all_possibly_triggered = true;
+        for (bool triggered : possibly_triggered_in_var) {
+            if (!triggered) {
+                all_possibly_triggered = false;
+                break;
+            }
+        }
+        if (all_possibly_triggered) {
+            break;
+        }
+    }
+
+    return possibly_triggered_in_var;
+}
+
 int AbstractState::n_vars() const {
     return cartesian_set.get_num_variables();
 }
@@ -211,26 +285,49 @@ void AbstractState::progress(const OperatorProxy &op) {
 }
 
 void AbstractState::regress(const OperatorProxy &op) {
-    for (EffectProxy effect : op.get_effects()) {
-        int var_id = effect.get_fact().get_variable().get_id();
+    vector<bool> possibly_triggered_effect_in_variable;
+    bool possibly_triggered_computed = false;
+    EffectsProxy effects = op.get_effects();
+    for (EffectProxy eff : effects) {
+        int var_id = eff.get_fact().get_variable().get_id();
         // For conditional effects, or the predecessor has this value or the
         // conditions of the effect are satisfied. This is not Cartesian,
-        // but we overapproximate it to the Cartesian set that satisfies both.
-        // Since we don't know if the effect result is due to satisfied
-        // conditions we have to set all values in the variable anyway.
-        if (effect.get_conditions().empty()) {
-            assert(cartesian_set.test(var_id, effect.get_fact().get_value()));
+        // but we over-approximate it to the Cartesian set that satisfies both.
+        if (eff.get_conditions().empty()) {
+            assert(cartesian_set.test(var_id, eff.get_fact().get_value()));
             cartesian_set.add_all(var_id);
-        } else if (cartesian_set.test(var_id, effect.get_fact().get_value())) {
+        } else if (cartesian_set.test(var_id, eff.get_fact().get_value())) {
+            if (!possibly_triggered_computed) {
+                possibly_triggered_effect_in_variable = get_possibly_triggered_effect_in_variable(op);
+                possibly_triggered_computed = true;
+            }
             // Only effects true in this state are taken into account
             // (not fired effects must not be taken into account).
-            for (const FactProxy &cond : effect.get_conditions()) {
-                cartesian_set.add(cond.get_variable().get_id(), cond.get_value());
+            // Also, only possibly triggered effects should be considered.
+            // For each condition (all effect conditions are assumed to be
+            // non-conflicting with the preconditions):
+            // 1. It is satisfied in this state.
+            // 2. It is not satisfied in this state but another effect has
+            //    possibly been triggered in such variable.
+            bool possibly_triggered = true;
+            EffectConditionsProxy conds = eff.get_conditions();
+            for (const FactProxy &cond : conds) {
+                if (!cartesian_set.test(cond.get_variable().get_id(), cond.get_value()) &&
+                    !possibly_triggered_effect_in_variable[cond.get_variable().get_id()]) {
+                    possibly_triggered = false;
+                    break;
+                }
             }
-            cartesian_set.add_all(var_id);
+            if (possibly_triggered) {
+                cartesian_set.add_all(var_id);
+                for (const FactProxy &cond : conds) {
+                    cartesian_set.add(cond.get_variable().get_id(), cond.get_value());
+                }
+            }
         }
     }
-    for (FactProxy precondition : op.get_preconditions()) {
+    PreconditionsProxy pre = op.get_preconditions();
+    for (const FactProxy &precondition : pre) {
         int var_id = precondition.get_variable().get_id();
         cartesian_set.set_single_value(var_id, precondition.get_value());
     }
