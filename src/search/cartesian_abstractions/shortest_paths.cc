@@ -220,8 +220,13 @@ unique_ptr<Solution> ShortestPaths::extract_solution(
     while (!goals.count(current_state)) {
         if (debug) {
             log << "State: " << current_state << endl;
-            log << "Parents: " << parents[current_state] << endl;
-            log << "Children: " << children[current_state] << endl;
+            if (use_cache) {
+                log << "Parents: " << parents[current_state] << endl;
+                log << "Children: " << children[current_state] << endl;
+            } else {
+                log << "Parent: " << parent[current_state] << endl;
+                log << "Reverse parent: " << reverse_parent[current_state] << endl;
+            }
         }
         assert(!use_cache || !parents[current_state].empty());
         // Pick arbitrary parent if there are multiple parents.
