@@ -97,6 +97,10 @@ vector<bool> AbstractState::get_possibly_triggered_effect_in_variable(const Oper
         }
     }
 
+    for (int possibly_triggered_eff_index : possibly_triggered_effects_queue) {
+        possibly_triggered_in_var[effects[possibly_triggered_eff_index].get_fact().get_variable().get_id()] = true;
+    }
+
     return possibly_triggered_in_var;
 }
 
