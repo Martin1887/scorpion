@@ -1559,7 +1559,7 @@ static plugins::TypedEnumPlugin<PickFlawedAbstractState> _enum_plugin({
 
 static plugins::TypedEnumPlugin<PickSequenceFlaw> _enum_sequence_plugin({
         {"all_flaws",
-         "Consdier the best split among all flaws by the pick_split and tiebreaks."},
+         "Consider the best split among all flaws by the pick_split and tiebreaks."},
         {"last_flaw",
          "Consider the best split by pick_split only in the last flawed state."}
     });
