@@ -26,19 +26,27 @@ AbstractState::AbstractState(
       cartesian_set(domain_sizes, facts, partial_state) {
 }
 
-vector<bool> AbstractState::get_possibly_triggered_effect_in_variable(const OperatorProxy &op) const {
+vector<bool> AbstractState::get_possibly_triggered_effect_in_variable(const OperatorProxy &op, const Abstraction &abs) const {
     int nvars = n_vars();
     vector<bool> possibly_triggered_in_var(nvars, false);
 
     // Auxiliary variables.
     vector<bool> triggered_for_sure_in_var(nvars, false);
     vector<bool> some_possible_effect_in_var(nvars, false);
-    EffectsProxy effects = op.get_effects();
-    for (const EffectProxy &ef : effects) {
-        some_possible_effect_in_var[ef.get_fact().get_variable().get_id()] = true;
+
+    int op_id = op.get_id();
+    const vector<FactPair> &uncond_effects = abs.get_unconditional_effects(op_id);
+    for (const FactPair &eff : uncond_effects) {
+        possibly_triggered_in_var[eff.var] = true;
+        some_possible_effect_in_var[eff.var] = true;
+        triggered_for_sure_in_var[eff.var] = true;
+    }
+    const vector<CondEffect> &cond_effects = abs.get_conditional_effects(op_id);
+    for (const CondEffect &ef : cond_effects) {
+        some_possible_effect_in_var[ef.effect.var] = true;
     }
 
-    int n_effects = effects.size();
+    int n_effects = cond_effects.size();
     deque<int> possibly_triggered_effects_queue{};
     for (int i = 0; i < n_effects; i++) {
         possibly_triggered_effects_queue.push_back(i);
@@ -49,35 +57,28 @@ vector<bool> AbstractState::get_possibly_triggered_effect_in_variable(const Oper
         size_t prev_queue_size = possibly_triggered_effects_queue.size();
         while (!possibly_triggered_effects_queue.empty()) {
             int eff_index = possibly_triggered_effects_queue.front();
-            EffectProxy ef = effects[eff_index];
+            const CondEffect &ef = cond_effects[eff_index];
             possibly_triggered_effects_queue.pop_front();
-            EffectConditionsProxy conds = ef.get_conditions();
-            if (conds.empty()) {
-                possibly_triggered_in_var[ef.get_fact().get_variable().get_id()] = true;
-                triggered_for_sure_in_var[ef.get_fact().get_variable().get_id()] = true;
+            bool possibly_triggered = true;
+            bool triggered_for_sure = false;
+            for (const FactPair &cond : ef.conds) {
+                if (cartesian_set.test(cond.var, cond.value) ||
+                    triggered_for_sure_in_var[cond.var]) {
+                    triggered_for_sure = true;
+                } else if (!cartesian_set.test(cond.var, cond.value) &&
+                           !some_possible_effect_in_var[cond.var]) {
+                    triggered_for_sure = false;
+                    possibly_triggered = false;
+                    break;
+                }
+            }
+            if (triggered_for_sure) {
+                possibly_triggered_in_var[ef.effect.var] = true;
+                triggered_for_sure_in_var[ef.effect.var] = true;
+            } else if (!possibly_triggered) {
+                some_possible_effect_in_var[ef.effect.var] = false;
             } else {
-                bool possibly_triggered = true;
-                bool triggered_for_sure = false;
-                for (const FactProxy &cond : conds) {
-                    FactPair cond_pair = cond.get_pair();
-                    if (cartesian_set.test(cond_pair.var, cond_pair.value) ||
-                        triggered_for_sure_in_var[cond_pair.var]) {
-                        triggered_for_sure = true;
-                    } else if (!cartesian_set.test(cond_pair.var, cond_pair.value) &&
-                               !some_possible_effect_in_var[cond_pair.var]) {
-                        triggered_for_sure = false;
-                        possibly_triggered = false;
-                        break;
-                    }
-                }
-                if (triggered_for_sure) {
-                    possibly_triggered_in_var[ef.get_fact().get_variable().get_id()] = true;
-                    triggered_for_sure_in_var[ef.get_fact().get_variable().get_id()] = true;
-                } else if (!possibly_triggered) {
-                    some_possible_effect_in_var[ef.get_fact().get_variable().get_id()] = false;
-                } else {
-                    next_possibly_triggered_effects_queue.push_back(eff_index);
-                }
+                next_possibly_triggered_effects_queue.push_back(eff_index);
             }
         }
         possibly_triggered_effects_queue = move(next_possibly_triggered_effects_queue);
@@ -98,7 +99,7 @@ vector<bool> AbstractState::get_possibly_triggered_effect_in_variable(const Oper
     }
 
     for (int possibly_triggered_eff_index : possibly_triggered_effects_queue) {
-        possibly_triggered_in_var[effects[possibly_triggered_eff_index].get_fact().get_variable().get_id()] = true;
+        possibly_triggered_in_var[cond_effects[possibly_triggered_eff_index].effect.var] = true;
     }
 
     return possibly_triggered_in_var;
@@ -150,9 +151,9 @@ pair<CartesianSet, CartesianSet> AbstractState::split_domain(
     return make_pair(move(v1_cartesian_set), move(v2_cartesian_set));
 }
 
-bool AbstractState::is_applicable(const OperatorProxy &op) const {
-    for (const FactProxy &precondition : op.get_preconditions()) {
-        if (!contains(precondition.get_variable().get_id(), precondition.get_value())) {
+bool AbstractState::is_applicable(const std::vector<FactPair> &preconditions) const {
+    for (const FactPair &precondition : preconditions) {
+        if (!contains(precondition.var, precondition.value)) {
             return false;
         }
     }
@@ -179,36 +180,42 @@ bool AbstractState::reach_with_op(const AbstractState &other,
     int n_vars = cartesian_set.get_num_variables();
     int op_id = op.get_id();
     vector<bool> vars_with_post(n_vars, false);
-    for (const EffectProxy &eff : op.get_effects()) {
+    const vector<FactPair> &uncond_effects = abs.get_unconditional_effects(op_id);
+    for (const FactPair &eff : uncond_effects) {
+        if (!other.contains(eff.var, eff.value)) {
+            return false;
+        }
+        vars_with_post[eff.var] = true;
+    }
+    const vector<CondEffect> &effects = abs.get_conditional_effects(op_id);
+    for (const CondEffect &eff : effects) {
         bool satisfied = true;
-        for (const FactProxy &cond : eff.get_conditions()) {
-            int cond_var = cond.get_variable().get_id();
-            int pre_in_cond_var = abs.get_precondition_value(op_id, cond_var);
+        for (const FactPair &cond : eff.conds) {
+            int pre_in_cond_var = abs.get_precondition_value(op_id, cond.var);
             if (pre_in_cond_var != UNDEFINED) {
-                if (pre_in_cond_var != cond.get_value()) {
+                if (pre_in_cond_var != cond.value) {
                     satisfied = false;
                     break;
                 }
-            } else if (!contains(cond_var, cond.get_value())) {
+            } else if (!contains(cond.var, cond.value)) {
                 satisfied = false;
                 break;
             }
         }
         if (satisfied) {
-            const FactPair &eff_fact = eff.get_fact().get_pair();
-            if (!other.contains(eff_fact.var, eff_fact.value)) {
+            if (!other.contains(eff.effect.var, eff.effect.value)) {
                 return false;
             }
-            vars_with_post[eff_fact.var] = true;
+            vars_with_post[eff.effect.var] = true;
         }
     }
 
-    for (const FactProxy &pre : op.get_preconditions()) {
-        const FactPair &fact = pre.get_pair();
-        if (!vars_with_post[fact.var] && !other.contains(fact.var, fact.value)) {
+    const vector<FactPair> &preconds = abs.get_preconditions(op_id);
+    for (const FactPair &pre : preconds) {
+        if (!vars_with_post[pre.var] && !other.contains(pre.var, pre.value)) {
             return false;
         }
-        vars_with_post[fact.var] = true;
+        vars_with_post[pre.var] = true;
     }
 
     for (int var = 0; var < n_vars; var++) {
@@ -220,34 +227,41 @@ bool AbstractState::reach_with_op(const AbstractState &other,
     return true;
 }
 
-bool AbstractState::reach_backwards_with_op(const AbstractState &other, const OperatorProxy &op) const {
+bool AbstractState::reach_backwards_with_op(const AbstractState &other,
+                                            const OperatorProxy &op,
+                                            const Abstraction &abs) const {
     int n_vars = cartesian_set.get_num_variables();
+    int op_id = op.get_id();
     vector<bool> fixed_value_vars(n_vars, false);
     const CartesianSet &other_set = other.get_cartesian_set();
     // Variables with precondition must have precondition value,
     // variables on always fired effects can have any value,
     // variables on conditional effects can have any value if conditions are
     // satisfied, the rest of variables must intersect with this state.
-    for (const FactProxy &pre : op.get_preconditions()) {
-        int var = pre.get_variable().get_id();
-        if (!other_set.test(var, pre.get_value())) {
+    const vector<FactPair> &preconds = abs.get_preconditions(op_id);
+    for (const FactPair &pre : preconds) {
+        if (!other_set.test(pre.var, pre.value)) {
             return false;
         }
-        fixed_value_vars[var] = true;
+        fixed_value_vars[pre.var] = true;
     }
-    for (const EffectProxy &eff : op.get_effects()) {
-        int var = eff.get_fact().get_variable().get_id();
-        if (!fixed_value_vars[var] && cartesian_set.test(var, eff.get_fact().get_value())) {
+    const vector<FactPair> &uncond_effects = abs.get_unconditional_effects(op_id);
+    for (const FactPair &eff : uncond_effects) {
+        fixed_value_vars[eff.var] = true;
+    }
+    const vector<CondEffect> &cond_effects = abs.get_conditional_effects(op_id);
+    for (const CondEffect &eff : cond_effects) {
+        if (!fixed_value_vars[eff.effect.var] && cartesian_set.test(eff.effect.var, eff.effect.value)) {
             bool conds_satisfied = true;
-            for (const FactProxy &cond : eff.get_conditions()) {
-                if (!other_set.test(cond.get_variable().get_id(), cond.get_value())) {
+            for (const FactPair &cond : eff.conds) {
+                if (!other_set.test(cond.var, cond.value)) {
                     conds_satisfied = false;
                     break;
                 }
             }
             if (conds_satisfied) {
                 // Any value is good.
-                fixed_value_vars[var] = true;
+                fixed_value_vars[eff.effect.var] = true;
             }
         }
     }
@@ -260,25 +274,27 @@ bool AbstractState::reach_backwards_with_op(const AbstractState &other, const Op
     return true;
 }
 
-void AbstractState::progress(const OperatorProxy &op) {
-    for (const FactProxy &pre : op.get_preconditions()) {
-        cartesian_set.set_single_value(pre.get_variable().get_id(), pre.get_value());
+void AbstractState::progress(const OperatorProxy &op, const Abstraction &abs) {
+    int op_id = op.get_id();
+    const vector<FactPair> &preconds = abs.get_preconditions(op_id);
+    for (const FactPair &pre : preconds) {
+        cartesian_set.set_single_value(pre.var, pre.value);
     }
 
-    // Effects cannot be applied until conditions of all effects have been checked.
+    // Conditional effects cannot be applied until conditions of all effects have been checked.
     int n_vars = cartesian_set.get_num_variables();
     vector<int> effect_in_var(n_vars, UNDEFINED);
-    for (const EffectProxy &eff : op.get_effects()) {
+    const vector<CondEffect> &cond_effects = abs.get_conditional_effects(op_id);
+    for (const CondEffect &eff : cond_effects) {
         bool satisfied = true;
-        for (const FactProxy &cond : eff.get_conditions()) {
-            if (!contains(cond.get_variable().get_id(), cond.get_value())) {
+        for (const FactPair &cond : eff.conds) {
+            if (!contains(cond.var, cond.value)) {
                 satisfied = false;
                 break;
             }
         }
         if (satisfied) {
-            const FactProxy &eff_fact = eff.get_fact();
-            effect_in_var[eff_fact.get_variable().get_id()] = eff_fact.get_value();
+            effect_in_var[eff.effect.var] = eff.effect.value;
         }
     }
     for (int var = 0; var < n_vars; var++) {
@@ -286,23 +302,24 @@ void AbstractState::progress(const OperatorProxy &op) {
             cartesian_set.set_single_value(var, effect_in_var[var]);
         }
     }
+    const vector<FactPair> &uncond_effects = abs.get_unconditional_effects(op_id);
+    for (const FactPair &eff : uncond_effects) {
+        cartesian_set.set_single_value(eff.var, eff.value);
+    }
 }
 
-void AbstractState::regress(const OperatorProxy &op) {
+void AbstractState::regress(const OperatorProxy &op, const Abstraction &abs) {
     vector<bool> possibly_triggered_effect_in_variable;
     bool possibly_triggered_computed = false;
-    EffectsProxy effects = op.get_effects();
-    for (EffectProxy eff : effects) {
-        int var_id = eff.get_fact().get_variable().get_id();
+    int op_id = op.get_id();
+    const vector<CondEffect> &cond_effects = abs.get_conditional_effects(op_id);
+    for (const CondEffect &eff : cond_effects) {
         // For conditional effects, or the predecessor has this value or the
         // conditions of the effect are satisfied. This is not Cartesian,
         // but we over-approximate it to the Cartesian set that satisfies both.
-        if (eff.get_conditions().empty()) {
-            assert(cartesian_set.test(var_id, eff.get_fact().get_value()));
-            cartesian_set.add_all(var_id);
-        } else if (cartesian_set.test(var_id, eff.get_fact().get_value())) {
+        if (cartesian_set.test(eff.effect.var, eff.effect.value)) {
             if (!possibly_triggered_computed) {
-                possibly_triggered_effect_in_variable = get_possibly_triggered_effect_in_variable(op);
+                possibly_triggered_effect_in_variable = get_possibly_triggered_effect_in_variable(op, abs);
                 possibly_triggered_computed = true;
             }
             // Only effects true in this state are taken into account
@@ -314,26 +331,29 @@ void AbstractState::regress(const OperatorProxy &op) {
             // 2. It is not satisfied in this state but another effect has
             //    possibly been triggered in such variable.
             bool possibly_triggered = true;
-            EffectConditionsProxy conds = eff.get_conditions();
-            for (const FactProxy &cond : conds) {
-                if (!cartesian_set.test(cond.get_variable().get_id(), cond.get_value()) &&
-                    !possibly_triggered_effect_in_variable[cond.get_variable().get_id()]) {
+            for (const FactPair &cond : eff.conds) {
+                if (!cartesian_set.test(cond.var, cond.value) &&
+                    !possibly_triggered_effect_in_variable[cond.var]) {
                     possibly_triggered = false;
                     break;
                 }
             }
             if (possibly_triggered) {
-                cartesian_set.add_all(var_id);
-                for (const FactProxy &cond : conds) {
-                    cartesian_set.add(cond.get_variable().get_id(), cond.get_value());
+                cartesian_set.add_all(eff.effect.var);
+                for (const FactPair &cond : eff.conds) {
+                    cartesian_set.add(cond.var, cond.value);
                 }
             }
         }
     }
-    PreconditionsProxy pre = op.get_preconditions();
-    for (const FactProxy &precondition : pre) {
-        int var_id = precondition.get_variable().get_id();
-        cartesian_set.set_single_value(var_id, precondition.get_value());
+    const vector<FactPair> &uncond_effects = abs.get_unconditional_effects(op_id);
+    for (const FactPair &eff : uncond_effects) {
+        assert(cartesian_set.test(eff.var, eff.value));
+        cartesian_set.add_all(eff.var);
+    }
+    const vector<FactPair> &preconds = abs.get_preconditions(op_id);
+    for (const FactPair &pre : preconds) {
+        cartesian_set.set_single_value(pre.var, pre.value);
     }
 }
 
