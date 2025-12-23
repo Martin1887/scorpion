@@ -212,7 +212,7 @@ bool AbstractState::reach_with_op(const AbstractState &other,
     }
 
     for (int var = 0; var < n_vars; var++) {
-        if (!vars_with_post[var] && !intersects(other, var)) {
+        if (!vars_with_post[var] && !is_subset_of(other, var)) {
             return false;
         }
     }
