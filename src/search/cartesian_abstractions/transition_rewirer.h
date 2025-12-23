@@ -39,7 +39,7 @@ struct AddTransitionTo {
 class TransitionRewirer {
     const int n_vars;
     AddTransitionTo add_transition_to;
-    const std::unordered_map<int, std::vector<CondEffect>> cond_effects_by_op;
+    const std::vector<std::vector<CondEffect>> cond_effects_by_op;
     const std::vector<std::vector<bool>> exists_effect_condition_in_var_by_op;
     const std::vector<std::vector<FactPair>> preconditions_by_operator;
     const std::vector<std::vector<FactPair>> postconditions_by_operator;
@@ -117,6 +117,9 @@ public:
     }
     const std::vector<Facts> &get_postconditions() const {
         return postconditions_by_operator;
+    }
+    const std::vector<std::vector<CondEffect>> &get_cond_effects_by_op() const {
+        return cond_effects_by_op;
     }
     int get_precondition_value(int op_id, int var) const;
     int get_postcondition_value(int op_id, int var) const;

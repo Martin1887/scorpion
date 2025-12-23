@@ -144,9 +144,9 @@ static vector<vector<bool>> get_exists_effect_condition_in_var_by_op(
     return exists_effect_condition_in_var_by_op;
 }
 
-static unordered_map<int, vector<CondEffect>> get_cond_effects_by_op(
+static vector<vector<CondEffect>> compute_cond_effects_by_op(
     const OperatorsProxy &ops) {
-    unordered_map<int, vector<CondEffect>> cond_effects_by_op;
+    vector<vector<CondEffect>> cond_effects_by_op(ops.size());
     for (OperatorProxy op : ops) {
         cond_effects_by_op[op.get_id()] = get_cond_effects(op);
     }
@@ -190,7 +190,7 @@ static void add_loop(deque<Loops> &loops, int state_id, int op_id) {
 TransitionRewirer::TransitionRewirer(const OperatorsProxy &ops,
                                      const vector<int> &domain_sizes)
     : n_vars(domain_sizes.size()),
-      cond_effects_by_op(get_cond_effects_by_op(ops)),
+      cond_effects_by_op(compute_cond_effects_by_op(ops)),
       exists_effect_condition_in_var_by_op(get_exists_effect_condition_in_var_by_op(n_vars, ops)),
       preconditions_by_operator(get_preconditions_by_operator(ops)),
       postconditions_by_operator(get_postconditions_by_operator(ops)),
@@ -215,7 +215,7 @@ void TransitionRewirer::compute_partial_post_cartesian_set(const AbstractState &
     vars_changed.assign(n_vars, false);
     const CartesianSet &child_set = child.get_cartesian_set();
 
-    const vector<CondEffect> &cond_effects = cond_effects_by_op.at(op_id);
+    const vector<CondEffect> &cond_effects = cond_effects_by_op[op_id];
     // The most probable thing is that some state not satisfying
     // all conditions exist in the source abstract state, and then
     // post = pre.
@@ -455,7 +455,7 @@ Transitions TransitionRewirer::rewire_incoming_transitions(
         if (post == OP_WITH_CONDS) {
             // If the effect has conditions, all effects in this var must be
             // checked.
-            const vector<CondEffect> &cond_effects = cond_effects_by_op.at(op_id);
+            const vector<CondEffect> &cond_effects = cond_effects_by_op[op_id];
             // The most probable thing is that some state not satisfying
             // all conditions exist in the source abstract state, and then
             // post = pre. If for some effect all states satisfy all
@@ -547,7 +547,7 @@ Transitions TransitionRewirer::rewire_outgoing_transitions(
             if (post == OP_WITH_CONDS) {
                 // If the effect has conditions, all effects in this var must be
                 // checked.
-                vector<CondEffect> cond_effects = cond_effects_by_op.at(op_id);
+                vector<CondEffect> cond_effects = cond_effects_by_op[op_id];
                 // The most probable thing is that some state not satisfying
                 // all conditions exist in the source abstract state, and then
                 // post = pre.
@@ -637,7 +637,7 @@ void TransitionRewirer::rewire_loops(
             if (post == OP_WITH_CONDS) {
                 // If the effect has conditions, all effects in this var must be
                 // checked.
-                vector<CondEffect> cond_effects = cond_effects_by_op.at(op_id);
+                vector<CondEffect> cond_effects = cond_effects_by_op[op_id];
                 // The most probable thing is that some state not satisfying
                 // all conditions exist in the source abstract state, and then
                 // post = pre.
