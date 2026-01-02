@@ -528,6 +528,7 @@ static void get_deviation_splits(
 static void get_backward_deviation_splits(
     const AbstractState &abs_state,
     const AbstractState &flaw_search_state,
+    const vector<CondEffect> cond_effects,
     const vector<bool> &affected_variables,
     const AbstractState &source_abs_state,
     const vector<int> &domain_sizes,
@@ -544,8 +545,8 @@ static void get_backward_deviation_splits(
                 if (abs_state.contains(var, state_value) &&
                     flaw_search_state.contains(var, state_value)) {
                     // For conditional effects, the deviation is not always real
-                    // because conditions could be satisfied in the source state,
-                    // if the abstract state has only a single value in the variable
+                    // because conditions could be satisfied in the source state.
+                    // If the abstract state has only a single value in the variable
                     // for some of them, such a variable cannot be the cause.
                     if (abs_state_has_multiple_values_in_var) {
                         fact_count[var][state_value] = true;
@@ -557,7 +558,8 @@ static void get_backward_deviation_splits(
     for (size_t var = 0; var < domain_sizes.size(); ++var) {
         for (int value = 0; value < domain_sizes[var]; ++value) {
             // Direct deviations in unaffected variables.
-            if (fact_count[var][value] && !source_abs_state.contains(var, value)) {
+            if (fact_count[var][value] && !source_abs_state.contains(var, value) &&
+                !flaw_search_state.intersects(source_abs_state, var)) {
                 // Note: we could precompute the "wanted" vector, but not the split.
                 vector<int> wanted;
                 for (int value = 0; value < domain_sizes[var]; ++value) {
@@ -570,6 +572,45 @@ static void get_backward_deviation_splits(
                 add_backward_split(splits, Split(
                                        abs_state.get_id(), var, value, move(wanted),
                                        1));
+            } else if (fact_count[var][value]) {
+                // Deviation produced because the condition must be satisfied
+                // in the target abstract state to trigger the effect and so
+                // change the value of a variable modified by a conditional
+                // effect. For each conditional effect:
+                // 1. Check that the effect value is in the target in the
+                //    variable of such effect and it is not in the source
+                //    abstract state.
+                // 2. Check that all conditions may be satisfied in the source
+                //    state.
+                // 3. The wanted value is the value of the condition.
+                for (const CondEffect &eff : cond_effects) {
+                    if (flaw_search_state.contains(eff.effect.var, eff.effect.value) &&
+                        !source_abs_state.contains(eff.effect.var, eff.effect.value) &&
+                        !flaw_search_state.intersects(source_abs_state, eff.effect.var)) {
+                        int cond_value = -1;
+                        bool conds_satisfied = true;
+                        for (const FactPair &cond : eff.conds) {
+                            if (!source_abs_state.contains(cond.var, cond.value)) {
+                                conds_satisfied = false;
+                                break;
+                            }
+                            if (cond.var == static_cast<int>(var)) {
+                                if (flaw_search_state.contains(cond.var, cond.value)) {
+                                    // The condition is satisfied in the flaw-search state,
+                                    // and so this condition is not the source of deviation.
+                                    break;
+                                } else {
+                                    cond_value = cond.value;
+                                }
+                            }
+                        }
+                        if (conds_satisfied && cond_value >= 0) {
+                            add_backward_split(splits, Split(
+                                                   abs_state.get_id(), var, value, {cond_value},
+                                                   1));
+                        }
+                    }
+                }
             }
         }
     }
@@ -884,6 +925,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(AbstractState &&state, int a
                 get_backward_deviation_splits(
                     abstract_state,
                     state,
+                    abstraction.get_conditional_effects(op_id),
                     affected_vars,
                     source_state, domain_sizes,
                     backward_deviation_fact_count, splits);
@@ -1302,7 +1344,7 @@ unique_ptr<Split> FlawSearch::get_backward_split(const Solution &solution) {
             if (!flaw_search_state.reach_backwards_with_op(*next_abstract_state, op, abstraction)) {
                 if (debug) {
                     log << "  Paths deviate." << endl;
-                    log << "  Flaw-search state: " << flaw_search_state << endl;
+                    log << "  Previous flaw-search state: " << flaw_search_state << endl;
                     log << "  Previous abstract state: " << *abstract_state << endl;
                     log << "  Abstract state: " << *next_abstract_state << endl;
                 }

@@ -42,6 +42,7 @@ class TransitionRewirer {
     const std::vector<std::vector<CondEffect>> cond_effects_by_op;
     const std::vector<std::vector<FactPair>> uncond_effects_by_op;
     const std::vector<std::vector<bool>> exists_effect_condition_in_var_by_op;
+    const std::vector<std::vector<bool>> exists_effect_in_var_by_op;
     const std::vector<std::vector<FactPair>> preconditions_by_operator;
     const std::vector<std::vector<FactPair>> postconditions_by_operator;
     const std::vector<std::vector<std::unordered_set<int>>> postcondition_set_by_operator;
@@ -51,10 +52,7 @@ class TransitionRewirer {
     std::vector<bool> affected_vars;
     std::vector<bool> vars_changed;
 
-    bool exists_outgoing_transition(int var,
-                                    int pre,
-                                    const AbstractState &source,
-                                    const AbstractState &target);
+    bool exists_outgoing_transition(const AbstractState &target);
     void update_incoming_transitions_for_post(const AbstractState &u,
                                               const AbstractState &v1,
                                               const AbstractState &v2,
@@ -75,6 +73,7 @@ class TransitionRewirer {
                                                     int post,
                                                     bool with_condition = false);
     void compute_partial_post_cartesian_set(const AbstractState &child,
+                                            const AbstractState &target,
                                             int op_id,
                                             int var);
 
@@ -124,6 +123,9 @@ public:
     }
     const std::vector<std::vector<FactPair>> &get_uncond_effects_by_op() const {
         return uncond_effects_by_op;
+    }
+    const std::vector<bool> &exists_effect_in_var(int op_id) const {
+        return exists_effect_in_var_by_op[op_id];
     }
     int get_precondition_value(int op_id, int var) const;
     int get_postcondition_value(int op_id, int var) const;

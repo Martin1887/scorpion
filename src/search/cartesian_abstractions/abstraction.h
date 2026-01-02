@@ -81,6 +81,7 @@ public:
     const std::vector<Facts> &get_postconditions() const;
     const std::vector<CondEffect> &get_conditional_effects(int op_id) const;
     const std::vector<FactPair> &get_unconditional_effects(int op_id) const;
+    const std::vector<bool> &exists_effect_in_var(int op_id) const;
     int get_precondition_value(int op_id, int var) const;
     int get_postcondition_value(int op_id, int var) const;
     int get_num_operators() const;

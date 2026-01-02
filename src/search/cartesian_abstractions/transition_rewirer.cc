@@ -99,6 +99,14 @@ static vector<bool> get_exists_effect_condition_in_var(int n_vars,
     return exists_cond_in_var;
 }
 
+static vector<bool> get_exists_effect_in_var(int n_vars, const OperatorProxy &op) {
+    vector<bool> exists_effect_in_var(n_vars, false);
+    for (EffectProxy effect : op.get_effects()) {
+        exists_effect_in_var[effect.get_fact().get_variable().get_id()] = true;
+    }
+    return exists_effect_in_var;
+}
+
 static vector<CondEffect> get_cond_effects(const OperatorProxy &op) {
     vector<CondEffect> cond_effects{};
     for (EffectProxy effect : op.get_effects()) {
@@ -151,6 +159,17 @@ static vector<vector<bool>> get_exists_effect_condition_in_var_by_op(
     exists_effect_condition_in_var_by_op.reserve(ops.size());
     for (OperatorProxy op : ops) {
         exists_effect_condition_in_var_by_op.push_back(get_exists_effect_condition_in_var(n_vars, op));
+    }
+    return exists_effect_condition_in_var_by_op;
+}
+
+static vector<vector<bool>> get_exists_effect_in_var_by_op(
+    int n_vars,
+    const OperatorsProxy &ops) {
+    vector<vector<bool>> exists_effect_condition_in_var_by_op;
+    exists_effect_condition_in_var_by_op.reserve(ops.size());
+    for (const OperatorProxy op : ops) {
+        exists_effect_condition_in_var_by_op.push_back(get_exists_effect_in_var(n_vars, op));
     }
     return exists_effect_condition_in_var_by_op;
 }
@@ -213,6 +232,7 @@ TransitionRewirer::TransitionRewirer(const OperatorsProxy &ops,
       cond_effects_by_op(build_cond_effects_by_op(ops)),
       uncond_effects_by_op(build_uncond_effects_by_op(ops)),
       exists_effect_condition_in_var_by_op(get_exists_effect_condition_in_var_by_op(n_vars, ops)),
+      exists_effect_in_var_by_op(get_exists_effect_in_var_by_op(n_vars, ops)),
       preconditions_by_operator(get_preconditions_by_operator(ops)),
       postconditions_by_operator(get_postconditions_by_operator(ops)),
       postcondition_set_by_operator(get_postcondition_set_by_operator(ops, domain_sizes)),
@@ -222,6 +242,7 @@ TransitionRewirer::TransitionRewirer(const OperatorsProxy &ops,
 }
 
 void TransitionRewirer::compute_partial_post_cartesian_set(const AbstractState &child,
+                                                           const AbstractState &target,
                                                            int op_id,
                                                            int var) {
     // The only affected vars respect to the parent are the split var and the
@@ -260,7 +281,9 @@ void TransitionRewirer::compute_partial_post_cartesian_set(const AbstractState &
             if (cond_fact.var == var) {
                 affected_vars[effect_fact.var] = true;
             }
-            if (!child.contains(cond_fact.var, cond_fact.value)) {
+            if (!child.contains(cond_fact.var, cond_fact.value) ||
+                (!exists_effect_in_var_by_op[op_id][cond_fact.var] &&
+                 !target.contains(cond_fact.var, cond_fact.value))) {
                 some_effect_always_triggered[effect_fact.var] = false;
                 conds_satisfied = false;
                 break;
@@ -285,9 +308,9 @@ void TransitionRewirer::compute_partial_post_cartesian_set(const AbstractState &
 
     // If no conditional effects but an effect without conditions exists in the
     // variable, such an effect is always triggered.
-    const vector<FactPair> &effects = postconditions_by_operator[op_id];
+    const vector<FactPair> &effects = uncond_effects_by_op[op_id];
     for (const FactPair &eff : effects) {
-        if (affected_vars[eff.var] && eff.value != OP_WITH_CONDS) {
+        if (affected_vars[eff.var]) {
             partial_post_set.set_single_value(eff.var, eff.value);
             some_effect_always_triggered[eff.var] = true;
         }
@@ -428,12 +451,8 @@ void TransitionRewirer::update_loops_and_intertransitions_for_post(const Abstrac
     }
 }
 
-bool TransitionRewirer::exists_outgoing_transition(int var,
-                                                   int pre,
-                                                   const AbstractState &source,
-                                                   const AbstractState &target) {
-    return (pre == UNDEFINED || source.contains(var, pre)) &&
-           target.domain_subsets_intersect(partial_post_set, affected_vars);
+bool TransitionRewirer::exists_outgoing_transition(const AbstractState &target) {
+    return target.domain_subsets_intersect(partial_post_set, affected_vars);
 }
 
 
@@ -465,6 +484,7 @@ Transitions TransitionRewirer::rewire_incoming_transitions(
         }
     }
 
+    const AbstractState &v = *states[v_id];
     int v1_id = v1.get_id();
     int v2_id = v2.get_id();
     for (const Transition &transition : old_incoming) {
@@ -473,10 +493,28 @@ Transitions TransitionRewirer::rewire_incoming_transitions(
         const AbstractState &u = *states[u_id];
         int post = get_postcondition_value(op_id, var);
         add_transition_to.reset();
+        // Impossible transition because of transition with incompatible condition in var.
+        bool impossible_to_v1 = false;
+        bool impossible_to_v2 = false;
+        const vector<CondEffect> &cond_effects = cond_effects_by_op[op_id];
+        if (exists_effect_condition_in_var_by_op[op_id][var] && !exists_effect_in_var_by_op[op_id][var]) {
+            for (const CondEffect &cond_effect : cond_effects) {
+                for (const FactPair &cond_fact : cond_effect.conds) {
+                    if (cond_fact.var == var) {
+                        if (!v1.contains(cond_fact.var, cond_fact.value) &&
+                            !v1.intersects(u, cond_effect.effect.var)) {
+                            impossible_to_v1 = true;
+                        } else if (!v2.contains(cond_fact.var, cond_fact.value) &&
+                                   !v2.intersects(u, cond_effect.effect.var)) {
+                            impossible_to_v2 = true;
+                        }
+                    }
+                }
+            }
+        }
         if (post == OP_WITH_CONDS) {
             // If the effect has conditions, all effects in this var must be
             // checked.
-            const vector<CondEffect> &cond_effects = cond_effects_by_op[op_id];
             // The most probable thing is that some state not satisfying
             // all conditions exist in the source abstract state, and then
             // post = pre. If for some effect all states satisfy all
@@ -491,7 +529,11 @@ Transitions TransitionRewirer::rewire_incoming_transitions(
                     some_effect_always_triggered = true;
                     bool conds_satisfied = true;
                     for (const FactPair &cond_fact : cond_effect.conds) {
-                        if (!u.contains(cond_fact.var, cond_fact.value)) {
+                        if (!u.contains(cond_fact.var, cond_fact.value) ||
+                            (!exists_effect_in_var_by_op[op_id][cond_fact.var] &&
+                             !v.contains(cond_fact.var, cond_fact.value))) {
+                            // If the condition is in var, then an effect exists in var,
+                            // and otherwise checking in v is enough.
                             some_effect_always_triggered = false;
                             conds_satisfied = false;
                             break;
@@ -517,10 +559,10 @@ Transitions TransitionRewirer::rewire_incoming_transitions(
         } else {
             update_incoming_transitions_for_post(u, v1, v2, var, post);
         }
-        if (add_transition_to.first) {
+        if (add_transition_to.first && !impossible_to_v1) {
             add_transition(incoming, outgoing, u_id, op_id, v1_id);
         }
-        if (add_transition_to.second) {
+        if (add_transition_to.second && !impossible_to_v2) {
             add_transition(incoming, outgoing, u_id, op_id, v2_id);
         }
     }
@@ -556,13 +598,17 @@ Transitions TransitionRewirer::rewire_outgoing_transitions(
         int pre = get_precondition_value(op_id, var);
         int post = get_postcondition_value(op_id, var);
         if (exists_effect_condition_in_var_by_op[op_id][var]) {
-            compute_partial_post_cartesian_set(v1, op_id, var);
-            if (exists_outgoing_transition(var, pre, v1, w)) {
-                add_transition(incoming, outgoing, v1_id, op_id, w_id);
+            if (pre == UNDEFINED || v1.contains(var, pre)) {
+                compute_partial_post_cartesian_set(v1, w, op_id, var);
+                if (exists_outgoing_transition(w)) {
+                    add_transition(incoming, outgoing, v1_id, op_id, w_id);
+                }
             }
-            compute_partial_post_cartesian_set(v2, op_id, var);
-            if (exists_outgoing_transition(var, pre, v2, w)) {
-                add_transition(incoming, outgoing, v2_id, op_id, w_id);
+            if (pre == UNDEFINED || v2.contains(var, pre)) {
+                compute_partial_post_cartesian_set(v2, w, op_id, var);
+                if (exists_outgoing_transition(w)) {
+                    add_transition(incoming, outgoing, v2_id, op_id, w_id);
+                }
             }
         } else {
             if (post == OP_WITH_CONDS) {
@@ -587,7 +633,9 @@ Transitions TransitionRewirer::rewire_outgoing_transitions(
                             // considered in another function using a post Cartesian set),
                             // any child can be used for both children because they have
                             // the same value in that var.
-                            if (!v1.contains(cond_fact.var, cond_fact.value)) {
+                            if (!v1.contains(cond_fact.var, cond_fact.value) ||
+                                (!exists_effect_condition_in_var_by_op[op_id][cond_fact.var] &&
+                                 !w.contains(cond_fact.var, cond_fact.value))) {
                                 some_effect_always_triggered = false;
                                 conds_satisfied = false;
                                 break;
@@ -640,19 +688,25 @@ void TransitionRewirer::rewire_loops(
         int pre = get_precondition_value(op_id, var);
         int post = get_postcondition_value(op_id, var);
         if (exists_effect_condition_in_var_by_op[op_id][var]) {
-            compute_partial_post_cartesian_set(v1, op_id, var);
-            if (exists_outgoing_transition(var, pre, v1, v1)) {
-                add_loop(loops, v1_id, op_id);
+            if (pre == UNDEFINED || v1.contains(var, pre)) {
+                compute_partial_post_cartesian_set(v1, v1, op_id, var);
+                if (exists_outgoing_transition(v1)) {
+                    add_loop(loops, v1_id, op_id);
+                }
+                compute_partial_post_cartesian_set(v1, v2, op_id, var);
+                if (exists_outgoing_transition(v2)) {
+                    add_transition(incoming, outgoing, v1_id, op_id, v2_id);
+                }
             }
-            if (exists_outgoing_transition(var, pre, v1, v2)) {
-                add_transition(incoming, outgoing, v1_id, op_id, v2_id);
-            }
-            compute_partial_post_cartesian_set(v2, op_id, var);
-            if (exists_outgoing_transition(var, pre, v2, v2)) {
-                add_loop(loops, v2_id, op_id);
-            }
-            if (exists_outgoing_transition(var, pre, v2, v1)) {
-                add_transition(incoming, outgoing, v2_id, op_id, v1_id);
+            if (pre == UNDEFINED || v2.contains(var, pre)) {
+                compute_partial_post_cartesian_set(v2, v2, op_id, var);
+                if (exists_outgoing_transition(v2)) {
+                    add_loop(loops, v2_id, op_id);
+                }
+                compute_partial_post_cartesian_set(v2, v1, op_id, var);
+                if (exists_outgoing_transition(v1)) {
+                    add_transition(incoming, outgoing, v2_id, op_id, v1_id);
+                }
             }
         } else {
             if (post == OP_WITH_CONDS) {
@@ -677,7 +731,9 @@ void TransitionRewirer::rewire_loops(
                             // considered in another function using a post Cartesian set),
                             // any child can be used for both children because they have
                             // the same value in that var.
-                            if (!v1.contains(cond_fact.var, cond_fact.value)) {
+                            if (!v1.contains(cond_fact.var, cond_fact.value) ||
+                                (!exists_effect_condition_in_var_by_op[op_id][cond_fact.var] &&
+                                 !v1.contains(cond_fact.var, cond_fact.value))) {
                                 some_effect_always_triggered = false;
                                 conds_satisfied = false;
                                 break;

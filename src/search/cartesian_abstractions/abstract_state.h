@@ -26,7 +26,9 @@ class AbstractState {
 
     CartesianSet cartesian_set;
 
-    std::vector<bool> get_possibly_triggered_effect_in_variable(const OperatorProxy &, const Abstraction &) const;
+    std::vector<bool> get_possibly_triggered_effect_in_variable(const OperatorProxy &op,
+                                                                const Abstraction &abs,
+                                                                const std::optional<std::reference_wrapper<const CartesianSet>> &target = std::nullopt) const;
 
 public:
     AbstractState(int state_id, NodeID node_id, CartesianSet &&cartesian_set);

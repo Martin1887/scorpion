@@ -26,7 +26,9 @@ AbstractState::AbstractState(
       cartesian_set(domain_sizes, facts, partial_state) {
 }
 
-vector<bool> AbstractState::get_possibly_triggered_effect_in_variable(const OperatorProxy &op, const Abstraction &abs) const {
+vector<bool> AbstractState::get_possibly_triggered_effect_in_variable(const OperatorProxy &op,
+                                                                      const Abstraction &abs,
+                                                                      const optional<reference_wrapper<const CartesianSet>> &target) const {
     int nvars = n_vars();
     vector<bool> possibly_triggered_in_var(nvars, false);
 
@@ -49,7 +51,24 @@ vector<bool> AbstractState::get_possibly_triggered_effect_in_variable(const Oper
     int n_effects = cond_effects.size();
     deque<int> possibly_triggered_effects_queue{};
     for (int i = 0; i < n_effects; i++) {
-        possibly_triggered_effects_queue.push_back(i);
+        const CondEffect &ef = cond_effects[i];
+        if (cartesian_set.test(ef.effect.var, ef.effect.value)) {
+            // If conditions are not satisfied in the target it is not possible.
+            if (target.has_value()) {
+                bool conds_satisfied = true;
+                for (const FactPair &cond : ef.conds) {
+                    if (!target.value().get().test(cond.var, cond.value)) {
+                        conds_satisfied = false;
+                        break;
+                    }
+                }
+                if (conds_satisfied) {
+                    possibly_triggered_effects_queue.push_back(i);
+                }
+            } else {
+                possibly_triggered_effects_queue.push_back(i);
+            }
+        }
     }
     // Fix point is checked at the end of the loop.
     while (true) {
@@ -62,7 +81,8 @@ vector<bool> AbstractState::get_possibly_triggered_effect_in_variable(const Oper
             bool possibly_triggered = true;
             bool triggered_for_sure = false;
             for (const FactPair &cond : ef.conds) {
-                if (cartesian_set.test(cond.var, cond.value) ||
+                if (ef.effect.var == cond.var ||
+                    cartesian_set.test(cond.var, cond.value) ||
                     triggered_for_sure_in_var[cond.var]) {
                     triggered_for_sure = true;
                 } else if (!cartesian_set.test(cond.var, cond.value) &&
@@ -234,6 +254,8 @@ bool AbstractState::reach_backwards_with_op(const AbstractState &other,
     int op_id = op.get_id();
     vector<bool> fixed_value_vars(n_vars, false);
     const CartesianSet &other_set = other.get_cartesian_set();
+    // Preconditions must be satisfied by the current state if no possible
+    // effect in them, and the same to satisfy effects conditions.
     // Variables with precondition must have precondition value,
     // variables on always fired effects can have any value,
     // variables on conditional effects can have any value if conditions are
@@ -249,12 +271,19 @@ bool AbstractState::reach_backwards_with_op(const AbstractState &other,
     for (const FactPair &eff : uncond_effects) {
         fixed_value_vars[eff.var] = true;
     }
+    // To do this call without errors because of non-induced transitions, it
+    // should be used during rewiring and doing so is too expensive.
+    // vector<bool> possible_effect_in_var = get_possibly_triggered_effect_in_variable(op, abs, optional(ref(other_set)));
+    vector<bool> possible_effect_in_var = abs.exists_effect_in_var(op_id);
+
     const vector<CondEffect> &cond_effects = abs.get_conditional_effects(op_id);
     for (const CondEffect &eff : cond_effects) {
         if (!fixed_value_vars[eff.effect.var] && cartesian_set.test(eff.effect.var, eff.effect.value)) {
             bool conds_satisfied = true;
             for (const FactPair &cond : eff.conds) {
-                if (!other_set.test(cond.var, cond.value)) {
+                if (!other_set.test(cond.var, cond.value) ||
+                    (!possible_effect_in_var[cond.var] &&
+                     !cartesian_set.test(cond.var, cond.value))) {
                     conds_satisfied = false;
                     break;
                 }
@@ -309,20 +338,23 @@ void AbstractState::progress(const OperatorProxy &op, const Abstraction &abs) {
 }
 
 void AbstractState::regress(const OperatorProxy &op, const Abstraction &abs) {
-    vector<bool> possibly_triggered_effect_in_variable;
-    bool possibly_triggered_computed = false;
     int op_id = op.get_id();
+
+    // To do this call without errors because of non-induced transitions, it
+    // should be used during rewiring and doing so is too expensive.
+    // bool possibly_triggered_computed = false;
+    vector<bool> possibly_triggered_effect_in_variable = abs.exists_effect_in_var(op_id);
     const vector<CondEffect> &cond_effects = abs.get_conditional_effects(op_id);
     for (const CondEffect &eff : cond_effects) {
         // For conditional effects, or the predecessor has this value or the
         // conditions of the effect are satisfied. This is not Cartesian,
         // but we over-approximate it to the Cartesian set that satisfies both.
         if (cartesian_set.test(eff.effect.var, eff.effect.value)) {
-            if (!possibly_triggered_computed) {
-                possibly_triggered_effect_in_variable = get_possibly_triggered_effect_in_variable(op, abs);
-                possibly_triggered_computed = true;
-            }
-            // Only effects true in this state are taken into account
+            // if (!possibly_triggered_computed) {
+            //     possibly_triggered_effect_in_variable = get_possibly_triggered_effect_in_variable(op, abs);
+            //     possibly_triggered_computed = true;
+            // }
+            // // Only effects true in this state are taken into account
             // (not fired effects must not be taken into account).
             // Also, only possibly triggered effects should be considered.
             // For each condition (all effect conditions are assumed to be

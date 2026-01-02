@@ -110,6 +110,10 @@ const vector<FactPair> &Abstraction::get_unconditional_effects(int op_id) const 
     return transition_rewirer->get_uncond_effects_by_op()[op_id];
 }
 
+const std::vector<bool> &Abstraction::exists_effect_in_var(int op_id) const {
+    return transition_rewirer->exists_effect_in_var(op_id);
+}
+
 int Abstraction::get_precondition_value(int op_id, int var) const {
     return transition_rewirer->get_precondition_value(op_id, var);
 }
