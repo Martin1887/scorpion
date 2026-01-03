@@ -35,7 +35,8 @@ public:
         bool cache_splits,
         int max_concrete_states_per_abstract_state, int max_state_expansions,
         TransitionRepresentation transition_representation,
-        int memory_padding, int random_seed, DotGraphVerbosity dot_graph_verbosity,
+        int memory_padding, int random_seed,
+        DotGraphVerbosity dot_graph_verbosity, bool debug_shortest_paths,
         bool use_general_costs,
         const std::shared_ptr<AbstractTask> &transform,
         bool cache_estimates, const std::string &description, utils::Verbosity verbosity);

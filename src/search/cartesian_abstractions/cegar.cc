@@ -36,7 +36,8 @@ CEGAR::CEGAR(
     TransitionRepresentation transition_representation,
     utils::RandomNumberGenerator &rng,
     utils::LogProxy &log,
-    DotGraphVerbosity dot_graph_verbosity)
+    DotGraphVerbosity dot_graph_verbosity,
+    bool debug_shortest_paths)
     : task_proxy(*task),
       domain_sizes(get_domain_sizes(task_proxy)),
       max_states(max_states),
@@ -55,7 +56,7 @@ CEGAR::CEGAR(
                                      : max_transitions;
     shortest_paths = make_unique<ShortestPaths>(
         *transition_rewirer, task_properties::get_operator_costs(task_proxy),
-        max_cached_spt, timer, log);
+        max_cached_spt, timer, log, debug_shortest_paths);
     flaw_search = make_unique<FlawSearch>(
         task, *abstraction, *shortest_paths, rng,
         pick_flawed_abstract_state, pick_sequence_flaw,

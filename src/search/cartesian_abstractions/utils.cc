@@ -252,6 +252,10 @@ void add_common_cegar_options(plugins::Feature &feature) {
     add_memory_padding_option(feature);
     utils::add_rng_options_to_feature(feature);
     add_dot_graph_verbosity(feature);
+    feature.add_option<bool>(
+        "debug_shortest_paths",
+        "debug shortest paths, useful when changes in this component but really verbose",
+        "false");
 }
 
 static plugins::TypedEnumPlugin<DotGraphVerbosity> _enum_plugin_dot_graph_verbosity({

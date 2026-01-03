@@ -117,7 +117,7 @@ void CartesianAbstractionGenerator::build_abstractions_for_subtasks(
             transition_representation,
             *rng,
             log,
-            dot_graph_verbosity);
+            dot_graph_verbosity, false);
         cout << endl;
         auto cartesian_abstraction = cegar->extract_abstraction();
         // If the timer expired, the goal distances might only be lower bounds.

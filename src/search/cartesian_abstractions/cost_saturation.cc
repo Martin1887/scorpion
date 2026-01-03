@@ -93,7 +93,7 @@ CostSaturation::CostSaturation(
     int memory_padding_mb,
     utils::RandomNumberGenerator &rng,
     utils::LogProxy &log,
-    DotGraphVerbosity dot_graph_verbosity)
+    DotGraphVerbosity dot_graph_verbosity, bool debug_shortest_paths)
     : subtask_generators(subtask_generators),
       max_states(max_states),
       max_transitions(max_transitions),
@@ -113,6 +113,7 @@ CostSaturation::CostSaturation(
       rng(rng),
       log(log),
       dot_graph_verbosity(dot_graph_verbosity),
+      debug_shortest_paths(debug_shortest_paths),
       fast_downward_new_handler(get_new_handler()),
       num_states(0),
       num_transitions(0) {
@@ -254,7 +255,8 @@ void CostSaturation::build_abstractions(
             transition_representation,
             rng,
             log,
-            dot_graph_verbosity);
+            dot_graph_verbosity,
+            debug_shortest_paths);
         // Reset new-handler if we ran out of memory.
         if (!utils::extra_memory_padding_is_reserved()) {
             set_new_handler(fast_downward_new_handler);

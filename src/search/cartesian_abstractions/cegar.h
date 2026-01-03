@@ -87,7 +87,8 @@ public:
         TransitionRepresentation transition_representation,
         utils::RandomNumberGenerator &rng,
         utils::LogProxy &log,
-        DotGraphVerbosity dot_graph_verbosity);
+        DotGraphVerbosity dot_graph_verbosity,
+        bool debug_shortest_paths);
     ~CEGAR();
 
     CEGAR(const CEGAR &) = delete;
