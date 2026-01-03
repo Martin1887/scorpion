@@ -176,7 +176,8 @@ public:
         const std::vector<int> &costs,
         int max_cached_spt,
         const utils::CountdownTimer &timer,
-        utils::LogProxy &log);
+        utils::LogProxy &log,
+        bool debug);
 
     // Use Dijkstra's algorithm to compute the shortest path tree from scratch.
     void recompute(

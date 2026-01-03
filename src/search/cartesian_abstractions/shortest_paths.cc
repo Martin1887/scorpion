@@ -22,13 +22,14 @@ ShortestPaths::ShortestPaths(
     const vector<int> &costs,
     int max_cached_spt,
     const utils::CountdownTimer &timer,
-    utils::LogProxy &log)
+    utils::LogProxy &log,
+    bool debug)
     : rewirer(rewirer),
       timer(timer),
       log(log),
       max_cached_shortest_paths(max_cached_spt),
       use_cache(max_cached_spt > 0),
-      debug(log.is_at_least_debug()),
+      debug(debug),
       task_has_zero_costs(any_of(costs.begin(), costs.end(), [](int c) {return c == 0;})),
       num_cached_shortest_paths(0) {
     operator_costs.reserve(costs.size());

@@ -47,6 +47,7 @@ class CostSaturation {
     utils::RandomNumberGenerator &rng;
     utils::LogProxy &log;
     const cartesian_abstractions::DotGraphVerbosity dot_graph_verbosity;
+    const bool debug_shortest_paths;
 
     void (*fast_downward_new_handler)();
     std::vector<CartesianHeuristicFunction> heuristic_functions;
@@ -85,7 +86,8 @@ public:
         int memory_padding_mb,
         utils::RandomNumberGenerator &rng,
         utils::LogProxy &log,
-        DotGraphVerbosity dot_graph_verbosity);
+        DotGraphVerbosity dot_graph_verbosity,
+        bool debug_shortest_paths);
 
     std::vector<CartesianHeuristicFunction> generate_heuristic_functions(
         const std::shared_ptr<AbstractTask> &task);
