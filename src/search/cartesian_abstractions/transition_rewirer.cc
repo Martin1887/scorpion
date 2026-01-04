@@ -466,6 +466,38 @@ tuple<Transitions, Transitions> TransitionRewirer::rewire_transitions(
     return {old_incoming, old_outgoing};
 }
 
+static bool cond_effect_satisfied_by_another_cond_set(const AbstractState &child,
+                                                      const AbstractState &parent,
+                                                      const AbstractState &target,
+                                                      int var,
+                                                      const CondEffect &cond_effect,
+                                                      const vector<CondEffect> &cond_effects) {
+    bool satisfied_for_other_conds = false;
+    for (const CondEffect &another_eff : cond_effects) {
+        if (another_eff.effect.var == cond_effect.effect.var) {
+            bool satisfied = true;
+            for (const FactPair &another_cond_fact : another_eff.conds) {
+                if (another_cond_fact.var != var &&
+                    !parent.contains(another_cond_fact.var, another_cond_fact.value)) {
+                    satisfied = false;
+                    break;
+                } else if (another_cond_fact.var == var &&
+                           !child.contains(another_cond_fact.var, another_cond_fact.value) &&
+                           !child.intersects(target, another_eff.effect.var)) {
+                    satisfied = false;
+                    break;
+                }
+            }
+            if (satisfied) {
+                satisfied_for_other_conds = true;
+                break;
+            }
+        }
+    }
+
+    return satisfied_for_other_conds;
+}
+
 Transitions TransitionRewirer::rewire_incoming_transitions(
     deque<Transitions> &incoming, deque<Transitions> &outgoing,
     const AbstractStates &states, int v_id,
@@ -503,9 +535,17 @@ Transitions TransitionRewirer::rewire_incoming_transitions(
                     if (cond_fact.var == var) {
                         if (!v1.contains(cond_fact.var, cond_fact.value) &&
                             !v1.intersects(u, cond_effect.effect.var)) {
-                            impossible_to_v1 = true;
-                        } else if (!v2.contains(cond_fact.var, cond_fact.value) &&
-                                   !v2.intersects(u, cond_effect.effect.var)) {
+                            // It is impossible only if it is not triggered for
+                            // another condition set that is satisfied.
+                            if (!cond_effect_satisfied_by_another_cond_set(v1, v, u, var, cond_effect, cond_effects)) {
+                                impossible_to_v1 = true;
+                            }
+                        }
+                    } else if (!v2.contains(cond_fact.var, cond_fact.value) &&
+                               // It is impossible only if it is not triggered for
+                               // another condition set that is satisfied.
+                               !v2.intersects(u, cond_effect.effect.var)) {
+                        if (!cond_effect_satisfied_by_another_cond_set(v2, v, u, var, cond_effect, cond_effects)) {
                             impossible_to_v2 = true;
                         }
                     }
