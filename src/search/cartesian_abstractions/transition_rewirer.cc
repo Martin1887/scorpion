@@ -467,9 +467,6 @@ tuple<Transitions, Transitions> TransitionRewirer::rewire_transitions(
 }
 
 static bool cond_effect_satisfied_by_another_cond_set(const AbstractState &child,
-                                                      const AbstractState &parent,
-                                                      const AbstractState &target,
-                                                      int var,
                                                       const CondEffect &cond_effect,
                                                       const vector<CondEffect> &cond_effects) {
     bool satisfied_for_other_conds = false;
@@ -477,13 +474,10 @@ static bool cond_effect_satisfied_by_another_cond_set(const AbstractState &child
         if (another_eff.effect.var == cond_effect.effect.var) {
             bool satisfied = true;
             for (const FactPair &another_cond_fact : another_eff.conds) {
-                if (another_cond_fact.var != var &&
-                    !parent.contains(another_cond_fact.var, another_cond_fact.value)) {
-                    satisfied = false;
-                    break;
-                } else if (another_cond_fact.var == var &&
-                           !child.contains(another_cond_fact.var, another_cond_fact.value) &&
-                           !child.intersects(target, another_eff.effect.var)) {
+                if (!child.contains(another_cond_fact.var, another_cond_fact.value)) {
+                    // This is not needed to be checked because it always happens
+                    // when this function is called:
+                    // && !child.intersects(target, another_eff.effect.var)
                     satisfied = false;
                     break;
                 }
@@ -537,7 +531,7 @@ Transitions TransitionRewirer::rewire_incoming_transitions(
                             !v1.intersects(u, cond_effect.effect.var)) {
                             // It is impossible only if it is not triggered for
                             // another condition set that is satisfied.
-                            if (!cond_effect_satisfied_by_another_cond_set(v1, v, u, var, cond_effect, cond_effects)) {
+                            if (!cond_effect_satisfied_by_another_cond_set(v1, cond_effect, cond_effects)) {
                                 impossible_to_v1 = true;
                             }
                         }
@@ -545,7 +539,7 @@ Transitions TransitionRewirer::rewire_incoming_transitions(
                                // It is impossible only if it is not triggered for
                                // another condition set that is satisfied.
                                !v2.intersects(u, cond_effect.effect.var)) {
-                        if (!cond_effect_satisfied_by_another_cond_set(v2, v, u, var, cond_effect, cond_effects)) {
+                        if (!cond_effect_satisfied_by_another_cond_set(v2, cond_effect, cond_effects)) {
                             impossible_to_v2 = true;
                         }
                     }
