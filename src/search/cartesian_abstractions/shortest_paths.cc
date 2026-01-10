@@ -538,6 +538,17 @@ void ShortestPaths::update_incrementally_in_direction(
       consider the SPT, we cannot make this optimization anymore and need to
       add both states to the candidate queue.
     */
+    if (debug) {
+        int i = 0;
+        for (const StateInfo &state : states) {
+            if (state.dirty) {
+                log << "State dirty: " << i << ", dirty candidate: " <<
+                    state.dirty_candidate << ", init_distance = " << state.init_distance <<
+                    ", goal distance = " << state.goal_distance << endl;
+            }
+            i++;
+        }
+    }
     assert(all_of(states.begin(), states.end(), [backward](const StateInfo &s) {
                       return !s.dirty || s.init_distance == INF_COSTS || s.goal_distance == INF_COSTS;
                   }));
@@ -590,21 +601,15 @@ void ShortestPaths::update_incrementally_in_direction(
             }
         }
     }
-    // They may have been marked as dirty in the other direction if they
-    // are dead-ends.
-    if (!states[v1].dirty) {
-        states[v1].dirty_candidate = true;
-        candidate_queue.push(states[v1].init_distance, v1);
-        if (debug) {
-            log << "Push to candidate queue: " << states[v1].init_distance << ", " << v1 << endl;
-        }
+    states[v1].dirty_candidate = true;
+    candidate_queue.push(backward ? states[v1].init_distance: states[v1].goal_distance, v1);
+    if (debug) {
+        log << "Push to candidate queue: " << (backward ? states[v1].init_distance : states[v1].goal_distance) << ", " << v1 << endl;
     }
-    if (!states[v2].dirty) {
-        states[v2].dirty_candidate = true;
-        candidate_queue.push(states[v2].init_distance, v2);
-        if (debug) {
-            log << "Push to candidate queue: " << states[v2].init_distance << ", " << v2 << endl;
-        }
+    states[v2].dirty_candidate = true;
+    candidate_queue.push(states[v2].init_distance, v2);
+    if (debug) {
+        log << "Push to candidate queue: " << (backward ? states[v2].init_distance : states[v2].goal_distance) << ", " << v2 << endl;
     }
 
     // So, after this all dirty states are marked.
@@ -788,11 +793,11 @@ void ShortestPaths::update_incrementally_in_direction(
     /*
       We use dirty_states to efficiently loop over dirty states. Check that all
       solvable states marked as dirty are part of the vector.
-      We don't explicitly reset dirty states.
+      We explicitly reset dirty states (not dirty but unreachable or dead-ends).
     */
     int num_states = states.size();
     for (int i = 0; i < num_states; ++i) {
-        if (states[i].dirty && states[i].init_distance != INF_COSTS && states[i].goal_distance != INF_COSTS) {
+        if (states[i].dirty) {
             assert(count(dirty_states.begin(), dirty_states.end(), i) == 1);
         }
     }
@@ -884,6 +889,9 @@ void ShortestPaths::update_incrementally_in_direction(
             }
             continue;
         }
+        if (debug && g != (backward ? states[state].init_distance : states[state].goal_distance)) {
+            log << "state: " << state << ", g: " << g << ", dist: " << (backward ? states[state].init_distance : states[state].goal_distance) << endl;
+        }
         assert(g == (backward ? states[state].init_distance : states[state].goal_distance));
         assert(g != INF_COSTS);
         assert(states[state].dirty);
@@ -917,6 +925,10 @@ void ShortestPaths::update_incrementally_in_direction(
                 add_parent(succ, Transition(op_id, state), backward);
             }
         }
+    }
+    for (StateInfo &state : states) {
+        // It is unreachable or dead-end, but not dirty.
+        state.dirty = false;
     }
 }
 
@@ -1033,10 +1045,6 @@ bool ShortestPaths::test_distances(
                 assert(abstraction.has_transition(v, op_id, u));
             }
         } else {
-            if (states[v].goal_distance == INF_COSTS ||
-                states[v].init_distance == INF_COSTS) {
-                continue;
-            }
             const Transition &t = parent[v];
             const Transition &ct = reverse_parent[v];
             if (debug) {
@@ -1048,7 +1056,7 @@ bool ShortestPaths::test_distances(
             if (debug) {
                 log << "Outgoing transitions: " << out << endl;
                 log << "Incoming transitions: " << in << endl;
-                if (!goals.count(v)) {
+                if (!goals.count(v) && states[v].goal_distance != INF_COSTS) {
                     assert(t.is_defined());
                     assert(count(out.begin(), out.end(), t) == 1);
                     assert(states[v].goal_distance ==
@@ -1068,26 +1076,26 @@ bool ShortestPaths::test_distances(
     vector<int> goal_distances_32_bit_rounded_down = get_goal_distances();
 
     for (int i = 0; i < num_states; ++i) {
-        if (!states[i].dirty) {
-            if ((goal_distances_32_bit_rounded_down[i] != goal_distances_32_bit[i] ||
-                 convert_to_32_bit_cost(states[i].init_distance) != computed_init_distances[i]) &&
-                computed_init_distances[i] != INF) {
-                log << "32-bit INF: " << INF << endl;
-                log << "64-bit 0: " << convert_to_64_bit_cost(0) << endl;
-                log << "64-bit 1: " << convert_to_64_bit_cost(1) << endl;
-                log << "64-bit INF: " << INF_COSTS << endl;
-                log << "32-bit rounded:   " << goal_distances_32_bit_rounded_down << endl;
-                log << "32-bit distances: " << goal_distances_32_bit << endl;
-                log << "state: " << i << endl;
-                log << "init_distance: " << states[i].init_distance << endl;
-                log << "computed_init_distance: " << computed_init_distances[i] << endl;
+        if ((goal_distances_32_bit_rounded_down[i] != goal_distances_32_bit[i] ||
+             convert_to_32_bit_cost(states[i].init_distance) != computed_init_distances[i])) {
+            log << "32-bit INF: " << INF << endl;
+            log << "64-bit 0: " << convert_to_64_bit_cost(0) << endl;
+            log << "64-bit 1: " << convert_to_64_bit_cost(1) << endl;
+            log << "64-bit INF: " << INF_COSTS << endl;
+            log << "32-bit rounded:   " << goal_distances_32_bit_rounded_down << endl;
+            log << "32-bit distances: " << goal_distances_32_bit << endl;
+            log << "state: " << i << endl;
+            log << "32-bit rounded[i]:   " << goal_distances_32_bit_rounded_down[i] << endl;
+            log << "32-bit distances[i]: " << goal_distances_32_bit[i] << endl;
+            log << "init_distance: " << states[i].init_distance << endl;
+            log << "init_distance converted_to_32_bit: " << convert_to_32_bit_cost(states[i].init_distance) << endl;
+            log << "computed_init_distance: " << computed_init_distances[i] << endl;
 
-                assert(convert_to_32_bit_cost(states[i].init_distance) == computed_init_distances[i]);
-
-                ABORT("Distances are wrong.");
-            }
             assert(convert_to_32_bit_cost(states[i].init_distance) == computed_init_distances[i]);
+
+            ABORT("Distances are wrong.");
         }
+        assert(convert_to_32_bit_cost(states[i].init_distance) == computed_init_distances[i]);
     }
 
     if (use_cache) {
