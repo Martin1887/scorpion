@@ -996,7 +996,7 @@ bool ShortestPaths::test_distances(
     const Abstraction &abstraction,
     const Goals &goals) {
     assert(all_of(states.begin(), states.end(), [](const StateInfo &s) {
-                      return !s.dirty || s.goal_distance == INF_COSTS || s.init_distance == INF_COSTS;
+                      return !s.dirty;
                   }));
     int num_states = abstraction.get_num_states();
 
