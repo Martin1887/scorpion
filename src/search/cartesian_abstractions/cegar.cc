@@ -95,6 +95,10 @@ vector<int> CEGAR::get_goal_distances() const {
     assert(shortest_paths);
     return shortest_paths->get_goal_distances();
 }
+vector<int> CEGAR::get_init_distances() const {
+    assert(shortest_paths);
+    return shortest_paths->get_init_distances();
+}
 
 void CEGAR::separate_facts_unreachable_before_goal() const {
     assert(abstraction->get_goals().size() == 1);

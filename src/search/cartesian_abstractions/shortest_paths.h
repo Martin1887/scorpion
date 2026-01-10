@@ -197,6 +197,7 @@ public:
         const Goals &goals);
 
     std::vector<int> get_goal_distances() const;
+    std::vector<int> get_init_distances() const;
 
     Cost get_64bit_goal_distance(int abstract_state_id) const;
     int get_32bit_goal_distance(int abstract_state_id) const;
