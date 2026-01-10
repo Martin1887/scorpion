@@ -251,6 +251,15 @@ vector<int> ShortestPaths::get_goal_distances() const {
     return distances;
 }
 
+vector<int> ShortestPaths::get_init_distances() const {
+    vector<int> distances;
+    distances.reserve(states.size());
+    for (const StateInfo &state : states) {
+        distances.push_back(convert_to_32_bit_cost(state.init_distance));
+    }
+    return distances;
+}
+
 void ShortestPaths::set_parent(int state, const Transition &new_parent, bool reverse) {
     if (debug) {
         log << "Set parent " << new_parent << " for " << state << endl;

@@ -95,6 +95,7 @@ public:
 
     std::unique_ptr<Abstraction> extract_abstraction();
     std::vector<int> get_goal_distances() const;
+    std::vector<int> get_init_distances() const;
 };
 }
 
