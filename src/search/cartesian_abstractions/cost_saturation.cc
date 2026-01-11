@@ -268,6 +268,8 @@ void CostSaturation::build_abstractions(
         assert(num_states <= max_states);
 
         vector<int> goal_distances = cegar.get_goal_distances();
+        assert(goal_distances == compute_goal_distances(
+                   *abstraction, remaining_costs, abstraction->get_goals()));
         if (subtask_generators.size() == 1 && subtasks.size() == 1) {
             log << "There is only one abstraction --> skip computing saturated costs." << endl;
         } else {
