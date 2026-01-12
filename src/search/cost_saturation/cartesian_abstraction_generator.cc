@@ -98,7 +98,7 @@ void CartesianAbstractionGenerator::build_abstractions_for_subtasks(
         << timer.get_remaining_time() << endl;
     int remaining_subtasks = subtasks.size();
     for (const shared_ptr<AbstractTask> &subtask : subtasks) {
-        auto cegar = make_unique<cartesian_abstractions::CEGAR>(
+        cartesian_abstractions::CEGAR cegar(
             subtask,
             cartesian_abstractions::get_subtask_limit(
                 max_states, num_states, remaining_subtasks),
@@ -119,10 +119,9 @@ void CartesianAbstractionGenerator::build_abstractions_for_subtasks(
             log,
             dot_graph_verbosity, false);
         cout << endl;
-        auto cartesian_abstraction = cegar->extract_abstraction();
+        auto cartesian_abstraction = cegar.extract_abstraction();
         // If the timer expired, the goal distances might only be lower bounds.
-        vector<int> goal_distances = cegar->get_goal_distances();
-        cegar.release();  // Release memory for shortest paths, flaw search, etc.
+        vector<int> goal_distances = cegar.get_goal_distances();
 
         /* If we run out of memory while building an abstraction, we discard it
            to avoid running out of memory during the abstraction conversion. */
