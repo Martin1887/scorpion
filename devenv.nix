@@ -23,6 +23,7 @@ in
     pkgs-unstable.gmp
     pkgs-unstable.soplex
     qcachegrind
+    massif-visualizer
     pkgs-unstable.vscode-extensions.vadimcn.vscode-lldb
     pkgs-unstable.lldb
   ];
