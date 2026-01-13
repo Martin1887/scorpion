@@ -53,11 +53,13 @@ vector<bool> AbstractState::get_possibly_triggered_effect_in_variable(const Oper
     for (int i = 0; i < n_effects; i++) {
         const CondEffect &ef = cond_effects[i];
         if (cartesian_set.test(ef.effect.var, ef.effect.value)) {
-            // If conditions are not satisfied in the target it is not possible.
+            // If conditions are not satisfied in the target and no effect exists
+            // in the variable it is not possible.
             if (target.has_value()) {
                 bool conds_satisfied = true;
                 for (const FactPair &cond : ef.conds) {
-                    if (!target.value().get().test(cond.var, cond.value)) {
+                    if (!some_possible_effect_in_var[cond.var] &&
+                        !target.value().get().test(cond.var, cond.value)) {
                         conds_satisfied = false;
                         break;
                     }
