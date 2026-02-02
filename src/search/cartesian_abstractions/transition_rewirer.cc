@@ -113,6 +113,17 @@ static vector<CondEffect> get_cond_effects(const OperatorProxy &op) {
     return cond_effects;
 }
 
+static vector<FactPair> get_uncond_effects(const OperatorProxy &op) {
+    vector<FactPair> uncond_effects{};
+    for (EffectProxy effect : op.get_effects()) {
+        vector<FactPair> conds;
+        if (effect.get_conditions().empty()) {
+            uncond_effects.push_back(effect.get_fact().get_pair());
+        }
+    }
+    return uncond_effects;
+}
+
 static vector<vector<FactPair>> get_postconditions_by_operator(
     const OperatorsProxy &ops) {
     vector<vector<FactPair>> postconditions_by_operator;
@@ -144,13 +155,22 @@ static vector<vector<bool>> get_exists_effect_condition_in_var_by_op(
     return exists_effect_condition_in_var_by_op;
 }
 
-static vector<vector<CondEffect>> compute_cond_effects_by_op(
+static vector<vector<CondEffect>> build_cond_effects_by_op(
     const OperatorsProxy &ops) {
     vector<vector<CondEffect>> cond_effects_by_op(ops.size());
     for (OperatorProxy op : ops) {
         cond_effects_by_op[op.get_id()] = get_cond_effects(op);
     }
     return cond_effects_by_op;
+}
+
+static vector<vector<FactPair>> build_uncond_effects_by_op(
+    const OperatorsProxy &ops) {
+    vector<vector<FactPair>> uncond_effects_by_op(ops.size());
+    for (OperatorProxy op : ops) {
+        uncond_effects_by_op[op.get_id()] = get_uncond_effects(op);
+    }
+    return uncond_effects_by_op;
 }
 
 static int lookup_value(const vector<FactPair> &facts, int var) {
@@ -190,7 +210,8 @@ static void add_loop(deque<Loops> &loops, int state_id, int op_id) {
 TransitionRewirer::TransitionRewirer(const OperatorsProxy &ops,
                                      const vector<int> &domain_sizes)
     : n_vars(domain_sizes.size()),
-      cond_effects_by_op(compute_cond_effects_by_op(ops)),
+      cond_effects_by_op(build_cond_effects_by_op(ops)),
+      uncond_effects_by_op(build_uncond_effects_by_op(ops)),
       exists_effect_condition_in_var_by_op(get_exists_effect_condition_in_var_by_op(n_vars, ops)),
       preconditions_by_operator(get_preconditions_by_operator(ops)),
       postconditions_by_operator(get_postconditions_by_operator(ops)),

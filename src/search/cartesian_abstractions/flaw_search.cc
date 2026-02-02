@@ -221,37 +221,41 @@ static void update_affected_variables(
     int num_variables,
     const AbstractState &state,
     vector<bool> &affected_vars,
-    vector<bool> &conditionally_affected_vars) {
+    vector<bool> &conditionally_affected_vars,
+    const Abstraction &abstraction) {
     affected_vars.assign(num_variables, false);
     conditionally_affected_vars.assign(num_variables, false);
-    for (EffectProxy effect : op.get_effects()) {
+    const vector<FactPair> &uncond_effects = abstraction.get_unconditional_effects(op.get_id());
+    for (const FactPair &eff : uncond_effects) {
+        affected_vars[eff.var] = true;
+    }
+    const vector<CondEffect> &cond_effects = abstraction.get_conditional_effects(op.get_id());
+    for (const CondEffect &cond_effect : cond_effects) {
         // Conditional effects with conditions satisfied by some states
         // of the abstract state and not satisfied by other are unaffected
         // (their value depends on the concrete value).
         bool all_conds_always_satisfied = true;
-        for (const FactProxy &cond : effect.get_conditions()) {
-            FactPair cond_pair = cond.get_pair();
-            if (!state.contains(cond_pair.var, cond_pair.value) ||
-                state.count(cond_pair.var) > 1) {
+        for (const FactPair &cond : cond_effect.conds) {
+            if (!state.contains(cond.var, cond.value) ||
+                state.count(cond.var) > 1) {
                 all_conds_always_satisfied = false;
                 break;
             }
         }
-        const FactPair &effect_pair = effect.get_fact().get_pair();
         if (all_conds_always_satisfied) {
             // The effect is always triggered.
             // Effects never triggered in a variable with a single value in the
             // abstract state cannot be set as affected because other effects
             // in the same variable but other values can exist.
-            affected_vars[effect_pair.var] = true;
+            affected_vars[cond_effect.effect.var] = true;
         } else {
-            conditionally_affected_vars[effect_pair.var] = true;
+            conditionally_affected_vars[cond_effect.effect.var] = true;
         }
     }
-    for (FactProxy precondition : op.get_preconditions()) {
-        const FactPair &fact = precondition.get_pair();
-        if (!conditionally_affected_vars[fact.var]) {
-            affected_vars[fact.var] = true;
+    const vector<FactPair> &pre = abstraction.get_preconditions(op.get_id());
+    for (const FactPair &precondition : pre) {
+        if (!conditionally_affected_vars[precondition.var]) {
+            affected_vars[precondition.var] = true;
         }
     }
 }
@@ -649,7 +653,7 @@ unique_ptr<Split> FlawSearch::create_split(
             const vector<State> &deviation_states = pair.second;
             if (!deviation_states.empty()) {
                 int num_vars = domain_sizes.size();
-                update_affected_variables(op, num_vars, abstract_state, affected_vars, conditionally_affected_vars);
+                update_affected_variables(op, num_vars, abstract_state, affected_vars, conditionally_affected_vars, abstraction);
                 get_deviation_splits(
                     abstract_state, deviation_states,
                     affected_vars,
@@ -732,7 +736,7 @@ unique_ptr<Split> FlawSearch::create_split(
                         << " with op " << op.get_id() << ":" << op.get_name() << endl;
                 }
                 int num_vars = domain_sizes.size();
-                update_affected_variables(op, num_vars, abstract_state, affected_vars, conditionally_affected_vars);
+                update_affected_variables(op, num_vars, abstract_state, affected_vars, conditionally_affected_vars, abstraction);
                 get_deviation_splits(
                     abstract_state, state,
                     affected_vars,
@@ -869,14 +873,14 @@ unique_ptr<Split> FlawSearch::create_backward_split(AbstractState &&state, int a
             }
 
             // At most one of the f-optimal targets can include the successor state.
-            if (!state.reach_backwards_with_op(abstraction.get_state(source), op)) {
+            if (!state.reach_backwards_with_op(abstraction.get_state(source), op, abstraction)) {
                 // Deviation flaw
                 if (log.is_at_least_debug()) {
                     log << "Deviation states by source, state: " << state
                         << ", source: " << source << endl;
                 }
                 const AbstractState &source_state = abstraction.get_state(source);
-                update_affected_variables(op, n_vars, source_state, affected_vars, conditionally_affected_vars);
+                update_affected_variables(op, n_vars, source_state, affected_vars, conditionally_affected_vars, abstraction);
                 get_backward_deviation_splits(
                     abstract_state,
                     state,
@@ -1295,7 +1299,7 @@ unique_ptr<Split> FlawSearch::get_backward_split(const Solution &solution) {
                 log << "  In flaw-search space move from "
                     << flaw_search_state << " with " << op.get_name() << endl;
             }
-            if (!flaw_search_state.reach_backwards_with_op(*next_abstract_state, op)) {
+            if (!flaw_search_state.reach_backwards_with_op(*next_abstract_state, op, abstraction)) {
                 if (debug) {
                     log << "  Paths deviate." << endl;
                     log << "  Flaw-search state: " << flaw_search_state << endl;
@@ -1305,7 +1309,7 @@ unique_ptr<Split> FlawSearch::get_backward_split(const Solution &solution) {
                 return create_backward_split(move(flaw_search_state), abstract_state->get_id());
             } else {
                 abstract_state = next_abstract_state;
-                flaw_search_state.regress(op);
+                flaw_search_state.regress(op, abstraction);
                 if (intersect_bw_flaw_search_states) {
                     flaw_search_state.intersect(*abstract_state);
                 }
@@ -1368,7 +1372,7 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
         }
         OperatorProxy op = task_proxy.get_operators()[step.op_id];
         const AbstractState *next_abstract_state = &abstraction.get_state(step.target_id);
-        if (flaw_search_state.is_applicable(op)) {
+        if (flaw_search_state.is_applicable(abstraction.get_preconditions(step.op_id))) {
             if (debug)
                 log << "  Move to " << *next_abstract_state << " with "
                     << op.get_name() << endl;
@@ -1379,7 +1383,7 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
                     log << "  Previous abstract state: " << *abstract_state << endl;
                 }
                 flaws.push_back({flaw_search_state, abstract_state->get_id(), false});
-                flaw_search_state.progress(op);
+                flaw_search_state.progress(op, abstraction);
                 if (debug) {
                     log << "  Flaw-search state: " << flaw_search_state << endl;
                 }
@@ -1389,7 +1393,7 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
                     log << "  Abstract state: " << *next_abstract_state << endl;
                 }
             } else {
-                flaw_search_state.progress(op);
+                flaw_search_state.progress(op, abstraction);
             }
             if (debug)
                 log << "  Move to " << flaw_search_state << " with "
@@ -1404,7 +1408,7 @@ unique_ptr<Split> FlawSearch::get_sequence_split(const Solution &solution) {
             flaws.push_back({flaw_search_state, abstract_state->get_id(), false});
             abstract_state = &abstraction.get_state(step.target_id);
             // Apply the operator as if it were applicable (and undeviate if needed).
-            flaw_search_state.progress(op);
+            flaw_search_state.progress(op, abstraction);
             if (debug) {
                 log << "  Move to " << *next_abstract_state << " with "
                     << op.get_name() << endl;

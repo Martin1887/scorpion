@@ -47,15 +47,15 @@ public:
 
     bool contains(int var, int value) const;
 
-    bool is_applicable(const OperatorProxy &op) const;
+    bool is_applicable(const std::vector<FactPair> &preconditions) const;
     bool is_backward_applicable(const std::vector<std::unordered_set<int>> &post) const;
     bool is_backward_applicable(int var, const std::unordered_set<int> &var_post) const;
-    bool reach_with_op(const AbstractState &other, const OperatorProxy &op, const Abstraction &ts) const;
-    bool reach_backwards_with_op(const AbstractState &other, const OperatorProxy &op) const;
+    bool reach_with_op(const AbstractState &other, const OperatorProxy &op, const Abstraction &abs) const;
+    bool reach_backwards_with_op(const AbstractState &other, const OperatorProxy &op, const Abstraction &abs) const;
     // Transform the Cartesian set into the successor.
-    void progress(const OperatorProxy &op);
+    void progress(const OperatorProxy &op, const Abstraction &abs);
     // Transform the Cartesian set into the one which applying "op" can lead to this state.
-    void regress(const OperatorProxy &op);
+    void regress(const OperatorProxy &op, const Abstraction &abs);
     // Inner intersection with another abstract state.
     void intersect(const AbstractState &other);
     void undeviate(const AbstractState &mapped);

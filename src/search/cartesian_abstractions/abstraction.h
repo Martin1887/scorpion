@@ -1,6 +1,7 @@
 #ifndef CARTESIAN_ABSTRACTIONS_ABSTRACTION_H
 #define CARTESIAN_ABSTRACTIONS_ABSTRACTION_H
 
+#include "transition_rewirer.h"
 #include "types.h"
 
 #include "../task_proxy.h"
@@ -78,6 +79,8 @@ public:
     const std::vector<std::unordered_set<int>> &get_postcondition_set(int op_id) const;
     const std::vector<FactPair> &get_preconditions(int op_id) const;
     const std::vector<Facts> &get_postconditions() const;
+    const std::vector<CondEffect> &get_conditional_effects(int op_id) const;
+    const std::vector<FactPair> &get_unconditional_effects(int op_id) const;
     int get_precondition_value(int op_id, int var) const;
     int get_postcondition_value(int op_id, int var) const;
     int get_num_operators() const;

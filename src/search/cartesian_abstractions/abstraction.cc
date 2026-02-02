@@ -102,6 +102,14 @@ const vector<Facts> &Abstraction::get_postconditions() const {
     return transition_rewirer->get_postconditions();
 }
 
+const vector<CondEffect> &Abstraction::get_conditional_effects(int op_id) const {
+    return transition_rewirer->get_cond_effects_by_op()[op_id];
+}
+
+const vector<FactPair> &Abstraction::get_unconditional_effects(int op_id) const {
+    return transition_rewirer->get_uncond_effects_by_op()[op_id];
+}
+
 int Abstraction::get_precondition_value(int op_id, int var) const {
     return transition_rewirer->get_precondition_value(op_id, var);
 }
