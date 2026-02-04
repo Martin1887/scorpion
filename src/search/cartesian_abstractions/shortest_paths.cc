@@ -601,15 +601,19 @@ void ShortestPaths::update_incrementally_in_direction(
             }
         }
     }
-    states[v1].dirty_candidate = true;
-    candidate_queue.push(backward ? states[v1].init_distance: states[v1].goal_distance, v1);
-    if (debug) {
-        log << "Push to candidate queue: " << (backward ? states[v1].init_distance : states[v1].goal_distance) << ", " << v1 << endl;
+    if (!states[v1].dead) {
+        states[v1].dirty_candidate = true;
+        candidate_queue.push(backward ? states[v1].init_distance: states[v1].goal_distance, v1);
+        if (debug) {
+            log << "Push to candidate queue: " << (backward ? states[v1].init_distance : states[v1].goal_distance) << ", " << v1 << endl;
+        }
     }
-    states[v2].dirty_candidate = true;
-    candidate_queue.push(states[v2].init_distance, v2);
-    if (debug) {
-        log << "Push to candidate queue: " << (backward ? states[v2].init_distance : states[v2].goal_distance) << ", " << v2 << endl;
+    if (!states[v2].dead) {
+        states[v2].dirty_candidate = true;
+        candidate_queue.push(states[v2].init_distance, v2);
+        if (debug) {
+            log << "Push to candidate queue: " << (backward ? states[v2].init_distance : states[v2].goal_distance) << ", " << v2 << endl;
+        }
     }
 
     // So, after this all dirty states are marked.
@@ -926,9 +930,12 @@ void ShortestPaths::update_incrementally_in_direction(
             }
         }
     }
-    for (StateInfo &state : states) {
+    for (int state : dirty_states) {
         // It is unreachable or dead-end, but not dirty.
-        state.dirty = false;
+        if (states[state].dirty) {
+            states[state].dirty = false;
+            states[state].dead = true;
+        }
     }
 }
 
