@@ -90,12 +90,14 @@ struct StateInfo {
     Cost init_distance;
     bool dirty_candidate;
     bool dirty;
+    bool dead;
 
     StateInfo()
         : goal_distance(0),
           init_distance(0),
           dirty_candidate(false),
-          dirty(false) {
+          dirty(false),
+          dead(false) {
     }
 };
 static_assert(
