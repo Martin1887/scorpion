@@ -306,11 +306,11 @@ unique_ptr<Split> FlawSearch::create_split(
                     if (split_unwanted_values) {
                         add_split(splits, Split(
                                       abstract_state_id, fact.var, fact.value,
-                                      {value}, state_value_count[value]), true);
+                                      {value}, state_value_count[value], true), true);
                     } else {
                         add_split(splits, Split(
                                       abstract_state_id, fact.var, value,
-                                      {fact.value}, state_value_count[value]));
+                                      {fact.value}, state_value_count[value], false));
                     }
                 }
             }
@@ -412,7 +412,7 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
                                 }
                                 add_split(splits, Split(
                                               abstract_state_id, var, goal_value,
-                                              {state_value}, 1), true);
+                                              {state_value}, 1, true), true);
                             }
                         }
                     } else {
@@ -422,7 +422,7 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
                         }
                         add_split(splits, Split(
                                       abstract_state_id, var, goal_value,
-                                      move(other_values), 1));
+                                      move(other_values), 1, false));
                     }
                 }
             }

@@ -293,7 +293,7 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
                                     }
                                     add_split(splits, Split(
                                                   abstract_state_id, var, goal_value,
-                                                  {value}, 1), true);
+                                                  {value}, 1, true), true);
                                 }
                             }
                         }
@@ -304,7 +304,7 @@ unique_ptr<Split> FlawSearch::create_split_from_goal_state(
                         }
                         add_split(splits, Split(
                                       abstract_state_id, var, goal_value,
-                                      move(other_values), 1));
+                                      move(other_values), 1, false));
                     }
                 }
             }

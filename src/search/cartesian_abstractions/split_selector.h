@@ -157,15 +157,18 @@ struct Split {
     int var_id;
     int value;
     std::vector<int> values;
+    bool split_by_unwanted;
     int op_cost;
     bool is_filtered;
 
-    Split(int abstract_state_id, int var_id, int value, std::vector<int> &&values, int count, int op_cost = -1, bool is_filtered = false)
+    Split(int abstract_state_id, int var_id, int value, std::vector<int> &&values, int count, bool split_by_unwanted,
+          int op_cost = -1, bool is_filtered = false)
         : count(count),
           abstract_state_id(abstract_state_id),
           var_id(var_id),
           value(value),
           values(move(values)),
+          split_by_unwanted(split_by_unwanted),
           op_cost(op_cost),
           is_filtered(is_filtered) {
         assert(count >= 1);
@@ -176,10 +179,11 @@ struct Split {
     bool operator==(const Split &other) const {
         assert(var_id == other.var_id);
         if (value == other.value) {
-            return values == other.values && op_cost == other.op_cost;
+            return values == other.values && split_by_unwanted == other.split_by_unwanted && op_cost == other.op_cost;
         } else if (values.size() == 1 && other.values.size() == 1) {
             // If we need to separate exactly two values, their order doesn't matter.
-            return value == other.values[0] && other.value == values[0] && op_cost == other.op_cost;
+            return value == other.values[0] && other.value == values[0] &&
+                   op_cost == other.op_cost;
         } else {
             return false;
         }
@@ -187,8 +191,9 @@ struct Split {
 
     friend std::ostream &operator<<(std::ostream &os, const Split &s) {
         return os << "<" << s.var_id << "=" << s.value << "|" << s.values
-                  << ":" << s.count <<
-               (s.op_cost > -1 ? ("(" + std::to_string(s.op_cost) + ")") : "")
+                  << ":" << s.count
+                  << (s.split_by_unwanted ? "unwanted" : "wanted")
+                  << (s.op_cost > -1 ? ("(" + std::to_string(s.op_cost) + ")") : "")
                   << ">";
     }
 };
@@ -244,6 +249,10 @@ class SplitSelector {
     int get_hadd_value(int var_id, int value) const;
     int get_min_hadd_value(int var_id, const std::vector<int> &values) const;
     int get_max_hadd_value(int var_id, const std::vector<int> &values) const;
+    int get_min_lm_hadd_down(int var_id, const std::vector<int> &values) const;
+    int get_max_lm_hadd_down(int var_id, const std::vector<int> &values) const;
+    double get_min_potential(int var_id, const std::vector<int> &values) const;
+    double get_max_potential(int var_id, const std::vector<int> &values) const;
 
     double rate_split(const AbstractState &state, const Split &split, PickSplit pick, Cost optimal_abstract_plan_cost) const;
     std::vector<Split> compute_max_cover_splits(

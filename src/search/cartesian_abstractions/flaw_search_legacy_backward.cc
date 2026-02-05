@@ -296,7 +296,7 @@ unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
                                 }
                                 add_split(splits, Split(
                                               abstract_state_id, var, init_value,
-                                              {state_value}, 1), true);
+                                              {state_value}, 1, true), true);
                             }
                         }
                     }
@@ -314,7 +314,7 @@ unique_ptr<Split> FlawSearch::create_backward_split_from_init_state(
                 }
                 add_split(splits, Split(
                               abstract_state_id, var, init_value,
-                              move(other_values), 1));
+                              move(other_values), 1, false));
             }
         }
     }

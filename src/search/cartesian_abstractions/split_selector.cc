@@ -332,6 +332,62 @@ int SplitSelector::get_max_hadd_value(int var_id, const vector<int> &values) con
     return max_hadd;
 }
 
+int SplitSelector::get_min_lm_hadd_down(int var_id, const vector<int> &values) const {
+    int min_score = INF;
+
+    for (int value : values) {
+        int score = INF;
+        FactPair fact(var_id, value);
+        if (fact_landmarks_hadd_down.contains(fact)) {
+            score = fact_landmarks_hadd_down.at(fact);
+        }
+        if (score < min_score) {
+            min_score = score;
+        }
+    }
+    return min_score;
+}
+
+int SplitSelector::get_max_lm_hadd_down(int var_id, const vector<int> &values) const {
+    int max_score = -INF;
+
+    for (int value : values) {
+        int score = -INF;
+        FactPair fact(var_id, value);
+        if (fact_landmarks_hadd_down.contains(fact)) {
+            score = fact_landmarks_hadd_down.at(fact);
+        }
+        if (score > max_score) {
+            max_score = score;
+        }
+    }
+    return max_score;
+}
+
+double SplitSelector::get_min_potential(int var_id, const vector<int> &values) const {
+    double min_score = INF;
+
+    for (int value : values) {
+        double score = fact_potentials[var_id][value];
+        if (score < min_score) {
+            min_score = score;
+        }
+    }
+    return min_score;
+}
+
+double SplitSelector::get_max_potential(int var_id, const vector<int> &values) const {
+    double max_score = -INF;
+
+    for (int value : values) {
+        double score = fact_potentials[var_id][value];
+        if (score > max_score) {
+            max_score = score;
+        }
+    }
+    return max_score;
+}
+
 double SplitSelector::rate_split(
     const AbstractState &state, const Split &split, PickSplit pick, Cost optimal_abstract_plan_cost) const {
     int var_id = split.var_id;
@@ -353,11 +409,23 @@ double SplitSelector::rate_split(
         rating = get_refinedness(state, var_id);
         break;
     case PickSplit::MIN_HADD:
-        rating = -get_min_hadd_value(var_id, split.values);
+    {
+        if (split.split_by_unwanted) {
+            rating = -get_hadd_value(var_id, split.value);
+        } else {
+            rating = -get_min_hadd_value(var_id, split.values);
+        }
         break;
+    }
     case PickSplit::MAX_HADD:
-        rating = get_max_hadd_value(var_id, split.values);
+    {
+        if (split.split_by_unwanted) {
+            rating = get_hadd_value(var_id, split.value);
+        } else {
+            rating = get_max_hadd_value(var_id, split.values);
+        }
         break;
+    }
     case PickSplit::MIN_CG:
         rating = -var_id;
         break;
@@ -382,30 +450,50 @@ double SplitSelector::rate_split(
         break;
     case PickSplit::LANDMARKS_HADD_DOWN:
     {
-        FactPair fact(split.var_id, split.value);
-        if (fact_landmarks_hadd_down.contains(fact)) {
-            rating = -fact_landmarks_hadd_down.at(fact);
+        if (split.split_by_unwanted) {
+            FactPair fact(split.var_id, split.value);
+            if (fact_landmarks_hadd_down.contains(fact)) {
+                rating = -fact_landmarks_hadd_down.at(fact);
+            } else {
+                rating = -INF;
+            }
         } else {
-            rating = -INF;
+            rating = -get_min_lm_hadd_down(split.var_id, split.values);
         }
         break;
     }
     case PickSplit::LANDMARKS_HADD_UP:
     {
-        FactPair fact(split.var_id, split.value);
-        if (fact_landmarks_hadd_down.contains(fact)) {
-            rating = fact_landmarks_hadd_down.at(fact);
+        if (split.split_by_unwanted) {
+            FactPair fact(split.var_id, split.value);
+            if (fact_landmarks_hadd_down.contains(fact)) {
+                rating = fact_landmarks_hadd_down.at(fact);
+            } else {
+                rating = -INF;
+            }
         } else {
-            rating = -INF;
+            rating = get_max_lm_hadd_down(split.var_id, split.values);
         }
         break;
     }
     case PickSplit::MAX_POTENTIAL:
-        rating = fact_potentials[split.var_id][split.value];
+    {
+        if (split.split_by_unwanted) {
+            rating = fact_potentials[split.var_id][split.value];
+        } else {
+            rating = get_max_potential(split.var_id, split.values);
+        }
         break;
+    }
     case PickSplit::MIN_POTENTIAL:
-        rating = -fact_potentials[split.var_id][split.value];
+    {
+        if (split.split_by_unwanted) {
+            rating = -fact_potentials[split.var_id][split.value];
+        } else {
+            rating = -get_min_potential(split.var_id, split.values);
+        }
         break;
+    }
     case PickSplit::RANDOM_VARS_ORDER:
     case PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN:
     case PickSplit::LANDMARKS_VARS_ORDER_HADD_UP:

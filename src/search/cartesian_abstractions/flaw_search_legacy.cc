@@ -70,12 +70,12 @@ void FlawSearch::get_deviation_splits(
                     for (int want : wanted) {
                         FlawSearch::add_split(splits, Split(
                                                   abs_state.get_id(), var, want, {value},
-                                                  fact_count[var][value]), true);
+                                                  fact_count[var][value], true), true);
                     }
                 } else {
                     FlawSearch::add_split(splits, Split(
                                               abs_state.get_id(), var, value, move(wanted),
-                                              fact_count[var][value]));
+                                              fact_count[var][value], false));
                 }
             }
         }
