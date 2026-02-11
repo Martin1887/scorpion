@@ -260,6 +260,25 @@ static void update_affected_variables(
     }
 }
 
+// For backward deviations, preconditions are always affected and conditional
+// effects are always unaffected, since values are split in the target state
+// instead of the source state.
+static void update_affected_variables_backward(
+    const OperatorProxy &op,
+    int num_variables,
+    vector<bool> &affected_vars,
+    const Abstraction &abstraction) {
+    affected_vars.assign(num_variables, false);
+    const vector<FactPair> &uncond_effects = abstraction.get_unconditional_effects(op.get_id());
+    for (const FactPair &eff : uncond_effects) {
+        affected_vars[eff.var] = true;
+    }
+    const vector<FactPair> &pre = abstraction.get_preconditions(op.get_id());
+    for (const FactPair &precondition : pre) {
+        affected_vars[precondition.var] = true;
+    }
+}
+
 struct FactPairHash {
     size_t operator()(FactPair fact) const {
         utils::HashState hash_state;
@@ -528,7 +547,7 @@ static void get_deviation_splits(
 static void get_backward_deviation_splits(
     const AbstractState &abs_state,
     const AbstractState &flaw_search_state,
-    const vector<CondEffect> cond_effects,
+    const vector<CondEffect> &cond_effects,
     const vector<bool> &affected_variables,
     const AbstractState &source_abs_state,
     const vector<int> &domain_sizes,
@@ -560,21 +579,56 @@ static void get_backward_deviation_splits(
             // Direct deviations in unaffected variables.
             if (fact_count[var][value] && !source_abs_state.contains(var, value) &&
                 !flaw_search_state.intersects(source_abs_state, var)) {
-                // Note: we could precompute the "wanted" vector, but not the split.
-                vector<int> wanted;
-                for (int value = 0; value < domain_sizes[var]; ++value) {
-                    if (abs_state.contains(var, value) &&
-                        source_abs_state.contains(var, value)) {
-                        wanted.push_back(value);
+                // If there is some conditional effect in var, the wanted values
+                // are all possibly triggered effects.
+                // If it is always triggered in the source abstract state because
+                // all conditions are always satisfied, then the triggered
+                // effects are the only wanted values, otherwise the values of
+                // the source abstract state are also wanted.
+                // If there is not satisfied conditional effects, then only
+                // the values of the source abstract state are wanted.
+                bool always_triggered = false;
+                unordered_set<int> wanted;
+                for (const CondEffect &eff : cond_effects) {
+                    if (eff.effect.var == static_cast<int>(var) && eff.effect.value != value &&
+                        abs_state.contains(eff.effect.var, eff.effect.value)) {
+                        bool satisfied = true;
+                        bool effect_always_triggered = true;
+                        for (const FactPair &cond : eff.conds) {
+                            if (source_abs_state.contains(cond.var, cond.value)) {
+                                if (effect_always_triggered && source_abs_state.count(cond.var) > 1) {
+                                    effect_always_triggered = false;
+                                }
+                            } else {
+                                satisfied = false;
+                                break;
+                            }
+                        }
+                        if (satisfied) {
+                            wanted.insert(eff.effect.value);
+                            if (effect_always_triggered) {
+                                always_triggered = true;
+                                break;
+                            }
+                        }
                     }
                 }
-                assert(!wanted.empty());
-                add_backward_split(splits, Split(
-                                       abs_state.get_id(), var, value, move(wanted),
-                                       1));
+                if (!always_triggered) {
+                    for (int value = 0; value < domain_sizes[var]; ++value) {
+                        if (abs_state.contains(var, value) &&
+                            source_abs_state.contains(var, value)) {
+                            wanted.insert(value);
+                        }
+                    }
+                }
+                if (!wanted.empty()) {
+                    add_backward_split(splits, Split(
+                                           abs_state.get_id(), var, value, vector<int>(wanted.begin(), wanted.end()),
+                                           1));
+                }
             } else if (fact_count[var][value]) {
                 // Deviation produced because the condition must be satisfied
-                // in the target abstract state to trigger the effect and so
+                // in the source abstract state to trigger the effect and so
                 // change the value of a variable modified by a conditional
                 // effect. For each conditional effect:
                 // 1. Check that the effect value is in the target in the
@@ -921,7 +975,7 @@ unique_ptr<Split> FlawSearch::create_backward_split(AbstractState &&state, int a
                         << ", source: " << source << endl;
                 }
                 const AbstractState &source_state = abstraction.get_state(source);
-                update_affected_variables(op, n_vars, source_state, affected_vars, conditionally_affected_vars, abstraction);
+                update_affected_variables_backward(op, n_vars, affected_vars, abstraction);
                 get_backward_deviation_splits(
                     abstract_state,
                     state,

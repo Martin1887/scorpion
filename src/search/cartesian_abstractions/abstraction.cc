@@ -227,6 +227,9 @@ tuple<int, int> Abstraction::refine(
     CartesianSet &v2_cartesian_set = cartesian_sets.second;
 
     vector<int> v2_values = wanted;
+    #ifndef NDEBUG
+    sort(v2_values.begin(), v2_values.end());
+    #endif
     assert(v2_values == v2_cartesian_set.get_values(var));
     // We partition the abstract domain into two subsets. Since the refinement
     // hierarchy stores helper nodes for all values of one of the children, we
