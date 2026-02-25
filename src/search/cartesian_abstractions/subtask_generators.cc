@@ -1,6 +1,5 @@
 #include "subtask_generators.h"
 
-#include "flaw_search.h"
 #include "split_selector.h"
 #include "utils.h"
 #include "utils_landmarks.h"
@@ -106,9 +105,6 @@ SharedTasks TaskDuplicator::get_subtasks(
     Subtask subtask {
         .subproblem_id = 0,
         .subtask = task,
-        .max_states = max_states / num_copies,
-        .max_transitions = max_transitions / num_copies,
-        .max_time = max_time / num_copies,
         .pick_flawed_abstract_state = pick_flawed_abstract_state,
         .pick_split = pick_split,
         .filter_split = filter_split,
@@ -138,16 +134,12 @@ SharedTasks GoalDecomposition::get_subtasks(
     Facts goal_facts = task_properties::get_fact_pairs(task_proxy.get_goals());
     filter_and_order_facts(task, fact_order, goal_facts, *rng, log);
     int i = 0;
-    int num_goals = goal_facts.size();
     for (const FactPair &goal : goal_facts) {
         shared_ptr<AbstractTask> subproblem =
             make_shared<extra_tasks::ModifiedGoalsTask>(task, Facts {goal});
         Subtask subtask {
             .subproblem_id = i,
             .subtask = subproblem,
-            .max_states = max_states / num_goals,
-            .max_transitions = max_transitions / num_goals,
-            .max_time = max_time / num_goals,
             .pick_flawed_abstract_state = pick_flawed_abstract_state,
             .pick_split = pick_split,
             .filter_split = filter_split,
@@ -193,7 +185,6 @@ SharedTasks LandmarkDecomposition::get_subtasks(
     Facts landmark_facts = get_fact_landmarks(*landmark_graph);
     filter_and_order_facts(task, fact_order, landmark_facts, *rng, log);
     int i = 0;
-    int num_landmarks = landmark_facts.size();
     for (const FactPair &landmark : landmark_facts) {
         shared_ptr<AbstractTask> subproblem =
             make_shared<extra_tasks::ModifiedGoalsTask>(task, Facts {landmark});
@@ -204,9 +195,6 @@ SharedTasks LandmarkDecomposition::get_subtasks(
         Subtask subtask {
             .subproblem_id = i,
             .subtask = subproblem,
-            .max_states = max_states / num_landmarks,
-            .max_transitions = max_transitions / num_landmarks,
-            .max_time = max_time / num_landmarks,
             .pick_flawed_abstract_state = pick_flawed_abstract_state,
             .pick_split = pick_split,
             .filter_split = filter_split,
@@ -221,132 +209,6 @@ SharedTasks LandmarkDecomposition::get_subtasks(
     return subtasks;
 }
 
-VarsOrdersSubtaskGenerator::VarsOrdersSubtaskGenerator(const plugins::Options &opts)
-    : DiversifiedSubtaskGenerator(opts),
-      pick_flawed_abstract_state(opts.get<PickFlawedAbstractState>("pick_flawed_abstract_state")) {
-}
-
-SharedTasks VarsOrdersSubtaskGenerator::get_subtasks(
-    const shared_ptr<AbstractTask> &task, utils::LogProxy &log) const {
-    SharedTasks subtasks;
-    vector<PickSplit> vars_orders = {
-        PickSplit::MAX_CG,
-        PickSplit::MIN_CG,
-        PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN,
-        PickSplit::LANDMARKS_VARS_ORDER_HADD_UP,
-        PickSplit::MAX_POTENTIAL_VARS_ORDER,
-        PickSplit::MIN_POTENTIAL_VARS_ORDER,
-    };
-    log << "Vars orders diversification with orders " << vars_orders << endl;
-    int num_subtasks = vars_orders.size();
-    for (PickSplit order : vars_orders) {
-        subtasks.push_back(
-            Subtask {
-                .subproblem_id = 0,
-                .subtask = task,
-                .max_states = max_states / num_subtasks,
-                .max_transitions = max_transitions / num_subtasks,
-                .max_time = max_time / num_subtasks,
-                .pick_flawed_abstract_state = pick_flawed_abstract_state,
-                .pick_split = order,
-                .filter_split = FilterSplit::NONE,
-                .tiebreak_split = tiebreak_split,
-                .sequence_split = PickSequenceFlaw::BEST_SPLIT,
-                .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
-                .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states
-            }
-            );
-    }
-
-    return subtasks;
-}
-
-BestStrategiesSubtaskGenerator::BestStrategiesSubtaskGenerator(const plugins::Options &opts)
-    : DiversifiedSubtaskGenerator(opts) {
-}
-
-SharedTasks BestStrategiesSubtaskGenerator::get_subtasks(
-    const shared_ptr<AbstractTask> &task, utils::LogProxy &log) const {
-    SharedTasks subtasks;
-    vector<tuple<PickFlawedAbstractState, PickSplit>> best_strategies = {
-        {PickFlawedAbstractState::SEQUENCE, PickSplit::BALANCE_REFINED_CLOSEST_GOAL},
-        {PickFlawedAbstractState::SEQUENCE_BACKWARD, PickSplit::MAX_POTENTIAL},
-        {PickFlawedAbstractState::SEQUENCE_BACKWARD, PickSplit::MAX_HADD},
-        {PickFlawedAbstractState::SEQUENCE_BACKWARD, PickSplit::LANDMARKS_VARS_ORDER_HADD_DOWN},
-        {PickFlawedAbstractState::SEQUENCE_BACKWARD, PickSplit::LANDMARKS_VARS_ORDER_HADD_UP},
-    };
-    int num_subtasks = best_strategies.size() + 2;
-    subtasks.push_back(
-        Subtask {
-            .subproblem_id = 0,
-            .subtask = task,
-            .max_states = max_states / num_subtasks,
-            .max_transitions = max_transitions / num_subtasks,
-            .max_time = max_time / num_subtasks,
-            .pick_flawed_abstract_state = PickFlawedAbstractState::SEQUENCE_BIDIRECTIONAL,
-            .pick_split = PickSplit::MAX_COVER,
-            .filter_split = FilterSplit::NONE,
-            .tiebreak_split = tiebreak_split,
-            .sequence_split = PickSequenceFlaw::CLOSEST_TO_GOAL_FLAW,
-            .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
-            .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states
-        });
-    subtasks.push_back(
-        Subtask {
-            .subproblem_id = 0,
-            .subtask = task,
-            .max_states = max_states / num_subtasks,
-            .max_transitions = max_transitions / num_subtasks,
-            .max_time = max_time / num_subtasks,
-            .pick_flawed_abstract_state = PickFlawedAbstractState::SEQUENCE_ITERATIVE_IN_ABSTRACTION,
-            .pick_split = PickSplit::MAX_COVER,
-            .filter_split = FilterSplit::NONE,
-            .tiebreak_split = tiebreak_split,
-            .sequence_split = PickSequenceFlaw::CLOSEST_TO_GOAL_FLAW,
-            .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
-            .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states
-        });
-    log << "Best strategies diversification with strategies closest_to_goal, it";
-    for (tuple<PickFlawedAbstractState, PickSplit> strategy : best_strategies) {
-        log << ", (" << get<0>(strategy) << "," << get<1>(strategy) << ")";
-        subtasks.push_back(
-            Subtask {
-                .subproblem_id = 0,
-                .subtask = task,
-                .max_states = max_states / num_subtasks,
-                .max_transitions = max_transitions / num_subtasks,
-                .max_time = max_time / num_subtasks,
-                .pick_flawed_abstract_state = get<0>(strategy),
-                .pick_split = get<1>(strategy),
-                .filter_split = FilterSplit::NONE,
-                .tiebreak_split = tiebreak_split,
-                .sequence_split = PickSequenceFlaw::BEST_SPLIT,
-                .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
-                .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states
-            });
-    }
-    log << endl;
-    // Plan cost increased is good (especially with many saturated costs) but
-    // very expensive.
-    subtasks.push_back(
-        Subtask {
-            .subproblem_id = 0,
-            .subtask = task,
-            .max_states = max_states / (num_subtasks * 10),
-            .max_transitions = 10000,
-            .max_time = max_time / (num_subtasks * 10),
-            .pick_flawed_abstract_state = PickFlawedAbstractState::SEQUENCE_BACKWARD,
-            .pick_split = PickSplit::OPTIMAL_PLAN_COST_INCREASED,
-            .filter_split = FilterSplit::NONE,
-            .tiebreak_split = tiebreak_split,
-            .sequence_split = PickSequenceFlaw::BEST_SPLIT,
-            .sequence_tiebreak_split = PickSequenceFlaw::BEST_SPLIT,
-            .intersect_flaw_search_abstract_states = intersect_flaw_search_abstract_states
-        });
-
-    return subtasks;
-}
-
 static void add_fact_order_option(plugins::Feature &feature) {
     feature.add_option<FactOrder>(
         "order",
@@ -355,23 +217,7 @@ static void add_fact_order_option(plugins::Feature &feature) {
     utils::add_rng_options(feature);
 }
 
-static void add_common_base_options(plugins::Feature &feature) {
-    feature.add_option<int>(
-        "max_states",
-        "maximum sum of abstract states over all abstractions",
-        "infinity",
-        plugins::Bounds("1", "infinity"));
-    feature.add_option<int>(
-        "max_transitions",
-        "maximum sum of state-changing transitions (excluding self-loops) over "
-        "all abstractions",
-        "1M",
-        plugins::Bounds("0", "infinity"));
-    feature.add_option<double>(
-        "max_time",
-        "maximum time in seconds for building abstractions",
-        "infinity",
-        plugins::Bounds("0.0", "infinity"));
+static void add_diversified_base_options(plugins::Feature &feature) {
     feature.add_option<cartesian_abstractions::PickFlawedAbstractState>(
         "pick_flawed_abstract_state",
         "flaw-selection strategy",
@@ -387,7 +233,7 @@ static void add_common_base_options(plugins::Feature &feature) {
 }
 
 static void add_all_base_options(plugins::Feature &feature) {
-    add_common_base_options(feature);
+    add_diversified_base_options(feature);
     feature.add_option<PickSplit>(
         "pick_split",
         "split-selection strategy",
@@ -444,26 +290,6 @@ public:
 };
 
 static plugins::FeaturePlugin<LandmarkDecompositionFeature> _plugin_landmarks;
-
-
-class VarsOrdersSubtaskGeneratorFeature : public plugins::TypedFeature<SubtaskGenerator, VarsOrdersSubtaskGenerator> {
-public:
-    VarsOrdersSubtaskGeneratorFeature() : TypedFeature("vars_orders") {
-        add_common_base_options(*this);
-    }
-};
-
-static plugins::FeaturePlugin<VarsOrdersSubtaskGeneratorFeature> _plugin_vars_orders;
-
-
-class BestStrategiesSubtaskGeneratorFeature : public plugins::TypedFeature<SubtaskGenerator, BestStrategiesSubtaskGenerator> {
-public:
-    BestStrategiesSubtaskGeneratorFeature() : TypedFeature("best_strategies") {
-        add_common_base_options(*this);
-    }
-};
-
-static plugins::FeaturePlugin<BestStrategiesSubtaskGeneratorFeature> _plugin_best_strategies;
 
 
 static class SubtaskGeneratorCategoryPlugin : public plugins::TypedCategoryPlugin<SubtaskGenerator> {
