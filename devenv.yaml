@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://devenv.sh/devenv.schema.json
 inputs:
   nixpkgs:
-    url: github:NixOS/nixpkgs/nixos-24.05
+    url: github:NixOS/nixpkgs/nixos-25.11
   nixpkgs-unstable:
     url: github:NixOS/nixpkgs/nixpkgs-unstable
     # none of these works, at the moment uncrustify 0.72 must be compiled by hand and the PATH is updated in devenv.nix
